@@ -164,7 +164,7 @@ export const DEFAULT_SETTINGS: Settings = {
   audioBudgetMinutes: 30,
   budgetTolerancePercent: 10,
   newWindowDays: 7,
-  useSpotifyPlayedState: false,
+  useSpotifyPlayedState: true,
   autoCompleteInPlayer: true,
   categories: DEFAULT_CATEGORIES,
 };
@@ -225,6 +225,8 @@ export interface AppStatus {
   /** Redirect URI that must be registered in the Spotify developer dashboard. */
   redirectUri: string;
   setupCodeRequired: boolean;
+  /** An owner account has logged in at least once (setup is locked). */
+  claimed: boolean;
   spotifyConnected?: boolean;
   user?: { id: string; displayName?: string };
   sync?: SyncState;

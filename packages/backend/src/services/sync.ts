@@ -128,7 +128,8 @@ export class SyncService {
       }
     }
 
-    let maxPriority = existingList.reduce((m, s) => Math.max(m, s.priority), 0);
+    const basePriority = existingList.reduce((m, s) => Math.max(m, s.priority), 0);
+    let maxPriority = basePriority;
     let newEpisodes = 0;
     let failed = 0;
     let lastError: unknown;
@@ -146,6 +147,11 @@ export class SyncService {
       }
     });
     if (failed > 0 && failed === saved.length) throw lastError;
+
+    // Newly imported shows: news-like ones first (time-sensitive), then by name.
+    const created = (await this.store.listShows()).filter((s) => !existing.has(s.id));
+    created.sort((a, b) => Number(b.mode === 'LATEST') - Number(a.mode === 'LATEST') || a.name.localeCompare(b.name));
+    await mapLimit(created, 5, (s, i) => this.store.updateShow(s.id, { priority: basePriority + i + 1 }));
     return { shows: saved.length, newEpisodes, failed };
   }
 

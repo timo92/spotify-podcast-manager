@@ -108,6 +108,7 @@ export function createApp(deps: AppDeps) {
         authenticated,
         redirectUri: redirectUri(req),
         setupCodeRequired: !!deps.setupCode && !config?.ownerId,
+        claimed: !!config?.ownerId,
         demo: deps.demo,
       };
       if (authenticated) {

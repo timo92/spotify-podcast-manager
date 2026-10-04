@@ -171,8 +171,10 @@ describe('library flow', () => {
   it('respects the Spotify played-state setting', async () => {
     const t = await ready();
     const id = 'demo-restgeschichte';
+    await t.call('PUT', '/api/settings', { useSpotifyPlayedState: false });
     let detail = (await t.call('GET', `/api/shows/${id}`)).body as ShowDetailResponse;
     expect(detail.show.summary!.completed).toBe(0);
+    expect(detail.show.summary!.nextEpisode!.id).toBe(`${id}-1`);
     await t.call('PUT', '/api/settings', { useSpotifyPlayedState: true });
     detail = (await t.call('GET', `/api/shows/${id}`)).body as ShowDetailResponse;
     expect(detail.show.summary!.completed).toBe(2);

@@ -65,7 +65,8 @@ describe('buildEpisodeViews', () => {
 
   it('local progress beats Spotify state; Spotify played state needs opt-in', () => {
     const played = [ep('x', '2026-10-01', 30, { resumePoint: { fullyPlayed: true, resumePositionMs: 0 } })];
-    expect(buildEpisodeViews(played, new Map(), DEFAULT_SETTINGS, now)[0].status).toBe('UNSEEN');
+    const off = { ...DEFAULT_SETTINGS, useSpotifyPlayedState: false };
+    expect(buildEpisodeViews(played, new Map(), off, now)[0].status).toBe('UNSEEN');
     expect(
       buildEpisodeViews(played, new Map(), { ...DEFAULT_SETTINGS, useSpotifyPlayedState: true }, now)[0].status,
     ).toBe('COMPLETED');
@@ -97,6 +98,14 @@ describe('selectNextEpisode', () => {
       now,
     );
     expect(selectNextEpisode(show(), views)?.id).toBe('b');
+  });
+
+  it('SEQUENTIAL continues after the last finished episode, then fills gaps', () => {
+    const four = [...episodes, ep('d', '2026-10-05')];
+    const views = buildEpisodeViews(four, new Map([['b', prog('b', 'COMPLETED')]]), DEFAULT_SETTINGS, now);
+    expect(selectNextEpisode(show(), views)?.id).toBe('c');
+    const end = buildEpisodeViews(four, new Map([['d', prog('d', 'COMPLETED')]]), DEFAULT_SETTINGS, now);
+    expect(selectNextEpisode(show(), end)?.id).toBe('a');
   });
 
   it('SEQUENTIAL ignores skipped episodes unless re-offering is enabled', () => {

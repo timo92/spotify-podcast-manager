@@ -1,0 +1,248 @@
+import { ApiError } from '../errors.js';
+import type { AppConfig, SpotifyTokens, Store } from '../store/types.js';
+import type {
+  SpotifyApi,
+  SpotifyDevice,
+  SpotifyEpisode,
+  SpotifyPage,
+  SpotifyShow,
+  SpotifyUser,
+  TokenResponse,
+} from './types.js';
+
+const API = 'https://api.spotify.com/v1';
+const ACCOUNTS = 'https://accounts.spotify.com';
+
+/**
+ * Scopes we ask for:
+ *  - user-library-read: list saved shows ("Your Library → Podcasts")
+ *  - user-read-playback-position: resume points / "fully played" of episodes
+ *  - streaming, user-read-email, user-read-private: Web Playback SDK (Premium)
+ *  - user-read-playback-state, user-modify-playback-state: start playback on
+ *    the browser player or any other Spotify Connect device
+ */
+export const SCOPES = [
+  'user-library-read',
+  'user-read-playback-position',
+  'streaming',
+  'user-read-email',
+  'user-read-private',
+  'user-read-playback-state',
+  'user-modify-playback-state',
+];
+
+/** Scopes without which core features fail. */
+export const REQUIRED_SCOPES = ['user-library-read', 'user-read-playback-position'];
+
+export function authorizeUrl(clientId: string, redirectUri: string, state: string): string {
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: clientId,
+    scope: SCOPES.join(' '),
+    redirect_uri: redirectUri,
+    state,
+  });
+  return `${ACCOUNTS}/authorize?${params}`;
+}
+
+async function tokenRequest(config: Pick<AppConfig, 'clientId' | 'clientSecret'>, body: URLSearchParams) {
+  const res = await fetch(`${ACCOUNTS}/api/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`,
+    },
+    body,
+  });
+  const json = (await res.json().catch(() => ({}))) as TokenResponse & { error?: string; error_description?: string };
+  if (!res.ok) {
+    const detail = json.error_description ?? json.error ?? res.statusText;
+    if (json.error === 'invalid_client') {
+      throw new ApiError(400, 'spotify_invalid_client', `Spotify lehnt Client-ID/Secret ab (${detail}).`);
+    }
+    if (json.error === 'invalid_grant') {
+      throw new ApiError(401, 'spotify_reauth', `Spotify-Anmeldung abgelaufen, bitte neu anmelden (${detail}).`);
+    }
+    throw new ApiError(502, 'spotify_token_error', `Spotify-Token-Fehler: ${detail}`);
+  }
+  return json;
+}
+
+export async function exchangeCode(
+  config: Pick<AppConfig, 'clientId' | 'clientSecret'>,
+  code: string,
+  redirectUri: string,
+): Promise<SpotifyTokens> {
+  const json = await tokenRequest(
+    config,
+    new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
+  );
+  return {
+    accessToken: json.access_token,
+    refreshToken: json.refresh_token ?? '',
+    expiresAt: Date.now() + json.expires_in * 1000,
+    scope: json.scope ?? '',
+  };
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Thin, typed wrapper around the Spotify Web API.
+ *
+ * Only documented, non-deprecated endpoints are used. Notes on the February
+ * 2026 changes for development-mode apps: the batch endpoints
+ * `GET /shows` and `GET /episodes` were removed (we don't use them), the show
+ * `publisher` field was dropped (treated as optional), and the app owner needs
+ * Premium. See docs/spotify-api.md.
+ */
+export class HttpSpotifyApi implements SpotifyApi {
+  private tokens?: SpotifyTokens;
+
+  constructor(
+    private readonly store: Store,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  private async validToken(forceRefresh = false): Promise<string> {
+    this.tokens ??= await this.store.getTokens();
+    if (!this.tokens) throw new ApiError(401, 'spotify_not_connected', 'Spotify ist nicht verbunden.');
+    if (forceRefresh || this.tokens.expiresAt - 60_000 < Date.now()) {
+      const config = await this.store.getConfig();
+      if (!config) throw new ApiError(409, 'not_configured', 'App ist nicht eingerichtet.');
+      const json = await tokenRequest(
+        config,
+        new URLSearchParams({ grant_type: 'refresh_token', refresh_token: this.tokens.refreshToken }),
+      );
+      this.tokens = {
+        accessToken: json.access_token,
+        // Spotify may rotate refresh tokens – keep the new one if present.
+        refreshToken: json.refresh_token ?? this.tokens.refreshToken,
+        expiresAt: Date.now() + json.expires_in * 1000,
+        scope: json.scope ?? this.tokens.scope,
+      };
+      await this.store.putTokens(this.tokens);
+    }
+    return this.tokens.accessToken;
+  }
+
+  private async request<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T | undefined> {
+    const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${API}${pathOrUrl}`;
+    let refreshed = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const token = await this.validToken();
+      const res = await this.fetchImpl(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+
+      if (res.status === 204 || res.status === 202) return undefined;
+      if (res.ok) {
+        const text = await res.text();
+        return text ? (JSON.parse(text) as T) : undefined;
+      }
+
+      if (res.status === 401 && !refreshed) {
+        refreshed = true;
+        await this.validToken(true);
+        continue;
+      }
+      if (res.status === 429) {
+        const retryAfter = Number(res.headers.get('retry-after') ?? '1');
+        if (retryAfter > 20) {
+          throw new ApiError(
+            429,
+            'spotify_rate_limited',
+            `Spotify-Rate-Limit erreicht, bitte in ${Math.ceil(retryAfter / 60)} Minuten erneut versuchen.`,
+          );
+        }
+        await sleep((retryAfter + 0.5) * 1000);
+        continue;
+      }
+      if (res.status >= 500 && attempt < 2) {
+        await sleep(500 * (attempt + 1));
+        continue;
+      }
+
+      const err = (await res.json().catch(() => ({}))) as { error?: { message?: string; reason?: string } };
+      const message = err.error?.message ?? res.statusText;
+      if (res.status === 401) {
+        throw new ApiError(401, 'spotify_reauth', `Spotify-Zugriff abgelaufen, bitte neu anmelden. (${message})`);
+      }
+      if (res.status === 403) {
+        throw new ApiError(
+          403,
+          'spotify_forbidden',
+          `Spotify verweigert den Zugriff (${message}). Mögliche Ursachen: fehlende Berechtigung (bitte neu anmelden), ` +
+            `Account nicht in der User-Liste der Spotify-App oder kein Premium beim App-Owner.`,
+        );
+      }
+      if (res.status === 404 && err.error?.reason === 'NO_ACTIVE_DEVICE') {
+        throw new ApiError(409, 'no_active_device', 'Kein aktives Spotify-Gerät gefunden. Öffne Spotify auf einem Gerät.');
+      }
+      throw new ApiError(res.status === 404 ? 404 : 502, 'spotify_error', `Spotify-Fehler ${res.status}: ${message}`);
+    }
+    throw new ApiError(502, 'spotify_error', 'Spotify antwortet nicht – bitte später erneut versuchen.');
+  }
+
+  async getMe() {
+    return (await this.request<SpotifyUser>('GET', '/me'))!;
+  }
+
+  async getSavedShows() {
+    const shows: SpotifyShow[] = [];
+    let url: string | null = '/me/shows?limit=50';
+    while (url) {
+      const page: SpotifyPage<{ show: SpotifyShow }> | undefined = await this.request('GET', url);
+      if (!page) break;
+      for (const item of page.items) if (item?.show) shows.push(item.show);
+      url = page.next;
+    }
+    return shows;
+  }
+
+  async getShowEpisodes(showId: string, stopAfterPage?: (page: SpotifyEpisode[]) => boolean) {
+    const episodes: SpotifyEpisode[] = [];
+    let url: string | null = `/shows/${encodeURIComponent(showId)}/episodes?limit=50`;
+    while (url) {
+      const page: SpotifyPage<SpotifyEpisode> | undefined = await this.request('GET', url);
+      if (!page) break;
+      const items = page.items.filter((e): e is SpotifyEpisode => !!e?.id);
+      episodes.push(...items);
+      if (stopAfterPage?.(items)) break;
+      url = page.next;
+    }
+    return episodes;
+  }
+
+  async getEpisode(episodeId: string) {
+    try {
+      return await this.request<SpotifyEpisode>('GET', `/episodes/${encodeURIComponent(episodeId)}`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return undefined;
+      throw e;
+    }
+  }
+
+  async getDevices() {
+    const res = await this.request<{ devices: SpotifyDevice[] }>('GET', '/me/player/devices');
+    return res?.devices ?? [];
+  }
+
+  async play(episodeId: string, deviceId: string | undefined, positionMs: number) {
+    const qs = deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : '';
+    await this.request('PUT', `/me/player/play${qs}`, {
+      uris: [`spotify:episode:${episodeId}`],
+      position_ms: Math.max(0, Math.floor(positionMs)),
+    });
+  }
+
+  async getAccessToken() {
+    const accessToken = await this.validToken();
+    return { accessToken, expiresAt: this.tokens!.expiresAt };
+  }
+}

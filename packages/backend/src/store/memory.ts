@@ -1,0 +1,135 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Settings, type Show, type SyncState } from '@podcast/shared';
+import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
+
+interface Data {
+  config?: AppConfig;
+  tokens?: SpotifyTokens;
+  settings?: Settings;
+  sync?: SyncState;
+  sessions: Record<string, Session>;
+  shows: Record<string, Show>;
+  episodes: Record<string, Record<string, Episode>>;
+  progress: Record<string, Record<string, EpisodeProgress>>;
+}
+
+const empty = (): Data => ({ sessions: {}, shows: {}, episodes: {}, progress: {} });
+const clone = <T>(v: T): T => (v === undefined ? v : structuredClone(v));
+
+/** In-memory store, optionally persisted to a JSON file (local development). */
+export class MemoryStore implements Store {
+  private data: Data;
+
+  constructor(private readonly file?: string) {
+    this.data = empty();
+    if (file) {
+      try {
+        this.data = { ...empty(), ...JSON.parse(readFileSync(file, 'utf8')) };
+      } catch {
+        // first start
+      }
+    }
+  }
+
+  private save() {
+    if (!this.file) return;
+    mkdirSync(dirname(this.file), { recursive: true });
+    writeFileSync(this.file, JSON.stringify(this.data));
+  }
+
+  async getConfig() {
+    return clone(this.data.config);
+  }
+  async putConfig(config: AppConfig) {
+    this.data.config = clone(config);
+    this.save();
+  }
+  async getTokens() {
+    return clone(this.data.tokens);
+  }
+  async putTokens(tokens: SpotifyTokens) {
+    this.data.tokens = clone(tokens);
+    this.save();
+  }
+  async getSettings() {
+    return { ...DEFAULT_SETTINGS, ...clone(this.data.settings) };
+  }
+  async putSettings(settings: Settings) {
+    this.data.settings = clone(settings);
+    this.save();
+  }
+  async getSyncState(): Promise<SyncState> {
+    return clone(this.data.sync) ?? { status: 'idle' };
+  }
+  async putSyncState(state: SyncState) {
+    this.data.sync = clone(state);
+    this.save();
+  }
+  async putSession(session: Session) {
+    this.data.sessions[session.id] = clone(session);
+    this.save();
+  }
+  async getSession(id: string) {
+    const s = this.data.sessions[id];
+    if (!s || s.expiresAt * 1000 < Date.now()) return undefined;
+    return clone(s);
+  }
+  async deleteSession(id: string) {
+    delete this.data.sessions[id];
+    this.save();
+  }
+  async listShows() {
+    return Object.values(this.data.shows).map(clone);
+  }
+  async getShow(id: string) {
+    return clone(this.data.shows[id]);
+  }
+  async putShow(show: Show) {
+    this.data.shows[show.id] = clone(show);
+    this.save();
+  }
+  async updateShow(id: string, fields: Partial<Show>) {
+    const existing = this.data.shows[id];
+    if (!existing) throw new Error(`Show ${id} not found`);
+    this.data.shows[id] = { ...existing, ...clone(fields) };
+    this.save();
+  }
+  async listEpisodes(showId: string) {
+    return Object.values(this.data.episodes[showId] ?? {}).map(clone);
+  }
+  async getEpisode(showId: string, episodeId: string) {
+    return clone(this.data.episodes[showId]?.[episodeId]);
+  }
+  async putEpisodes(episodes: Episode[]) {
+    for (const ep of episodes) (this.data.episodes[ep.showId] ??= {})[ep.id] = clone(ep);
+    this.save();
+  }
+  async deleteEpisodes(showId: string, episodeIds: string[]) {
+    for (const id of episodeIds) delete this.data.episodes[showId]?.[id];
+    this.save();
+  }
+  async listProgress(showId: string) {
+    return new Map(Object.entries(this.data.progress[showId] ?? {}).map(([k, v]) => [k, clone(v)]));
+  }
+  async putProgress(progress: EpisodeProgress[]) {
+    for (const p of progress) (this.data.progress[p.showId] ??= {})[p.episodeId] = clone(p);
+    this.save();
+  }
+  async deleteProgress(showId: string, episodeId: string) {
+    delete this.data.progress[showId]?.[episodeId];
+    this.save();
+  }
+  async listHistory(limit: number) {
+    return Object.values(this.data.progress)
+      .flatMap((m) => Object.values(m))
+      .filter((p) => p.status === 'COMPLETED' && p.listenedAt)
+      .sort((a, b) => (b.listenedAt! > a.listenedAt! ? 1 : -1))
+      .slice(0, limit)
+      .map(clone);
+  }
+  async deleteAll() {
+    this.data = empty();
+    this.save();
+  }
+}

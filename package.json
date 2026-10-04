@@ -1,0 +1,25 @@
+{
+  "name": "spotify-podcast-manager",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Personal podcast cockpit in front of Spotify",
+  "workspaces": [
+    "packages/shared",
+    "packages/backend",
+    "packages/frontend",
+    "packages/infra"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@podcast/backend & npm run dev --workspace=@podcast/frontend",
+    "dev:backend": "npm run dev --workspace=@podcast/backend",
+    "dev:frontend": "npm run dev --workspace=@podcast/frontend",
+    "build": "npm run build --workspace=@podcast/frontend",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "synth": "npm run build && npm run synth --workspace=@podcast/infra",
+    "deploy": "npm run build && npm run deploy --workspace=@podcast/infra"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

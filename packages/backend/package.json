@@ -1,0 +1,25 @@
+{
+  "name": "@podcast/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/dev-server.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev:demo": "SPOTIFY_FAKE=1 tsx watch src/dev-server.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1146.0",
+    "@aws-sdk/client-lambda": "^3.1146.0",
+    "@aws-sdk/lib-dynamodb": "^3.1146.0",
+    "@podcast/shared": "*"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.164",
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

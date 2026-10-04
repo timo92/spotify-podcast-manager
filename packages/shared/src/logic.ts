@@ -196,10 +196,10 @@ function labelFor(show: Show, ep: EpisodeView): TodayLabel {
 /**
  * Builds the "Heute" view from the shows' denormalised summaries.
  *
- * Budget logic is intentionally simple: walk the candidates in priority order
- * and greedily take every episode that still fits into the remaining budget
- * (plus tolerance). In-progress episodes come first – finishing things is
- * cheaper than starting new ones.
+ * Budget logic is intentionally simple: walk the candidates in the user's
+ * priority order and greedily take every episode that still fits into the
+ * remaining budget (plus tolerance). Remaining time accounts for episodes
+ * already started in Spotify.
  */
 export function buildToday(shows: Show[], settings: Settings, recent: HistoryItem[] = []): TodayResponse {
   const eligible = shows
@@ -214,10 +214,7 @@ export function buildToday(shows: Show[], settings: Settings, recent: HistoryIte
     else if (show.mode === 'LATEST') noNewEpisode.push(toShowLite(show));
   }
 
-  const ordered = [
-    ...candidates.filter((c) => c.label === 'WEITER'),
-    ...candidates.filter((c) => c.label !== 'WEITER'),
-  ];
+  const ordered = candidates;
 
   const budgetMs = settings.audioBudgetMinutes * 60_000;
   const limitMs = budgetMs * (1 + settings.budgetTolerancePercent / 100);

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { EpisodeView } from '@podcast/shared';
-import { api } from './api';
+import { api, ApiError } from './api';
 import { useInvalidateLibrary, useSettings, useStatus } from './queries';
 import { useToast } from './toast';
 
@@ -172,12 +172,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         let deviceId: string | undefined;
         if (t.kind === 'device') deviceId = t.id;
         else if (!demo) deviceId = await ensureBrowserDevice();
-        const res = await api.play({
-          showId: item.show.id,
-          episodeId: item.episode.id,
-          deviceId,
-          fromStart: opts.fromStart,
-        });
+        const request = { showId: item.show.id, episodeId: item.episode.id, deviceId, fromStart: opts.fromStart };
+        let res;
+        try {
+          res = await api.play(request);
+        } catch (e) {
+          // A freshly created browser device can take a moment until Spotify knows it.
+          if (!(e instanceof ApiError) || e.status !== 404 || t.kind !== 'browser') throw e;
+          await new Promise((r) => setTimeout(r, 1500));
+          res = await api.play(request);
+        }
         setNowPlaying({
           showId: item.show.id,
           episodeId: item.episode.id,

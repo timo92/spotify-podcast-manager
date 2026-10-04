@@ -74,7 +74,10 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
   return { statusCode: res.status, headers: outHeaders, cookies: res.cookies, body: text };
 }
 
-/** Sync Lambda: invoked asynchronously by the API and on a schedule by EventBridge. */
+/**
+ * Sync Lambda: invoked asynchronously by the API and by EventBridge (incremental
+ * every few hours, `full: true` once a day).
+ */
 export async function syncHandler(event: SyncOptions & { source?: string }) {
   const config = await store.getConfig();
   const tokens = await store.getTokens();
@@ -82,15 +85,12 @@ export async function syncHandler(event: SyncOptions & { source?: string }) {
     console.log('Not configured yet – skipping sync');
     return;
   }
-  // Scheduled runs are incremental; once a day (03:xx UTC) do a full refresh
-  // so changed metadata and Spotify resume points of older episodes update.
   const scheduled = event.source === 'aws.events' || event.source === 'schedule';
   if (scheduled && isSyncRunning(await store.getSyncState())) {
     console.log('A sync is already running – skipping scheduled run');
     return;
   }
-  const full = event.full || (scheduled && new Date().getUTCHours() === 3);
-  const result = await new SyncService(store, new HttpSpotifyApi(store)).run({ full, showId: event.showId });
+  const result = await new SyncService(store, new HttpSpotifyApi(store)).run({ full: !!event.full, showId: event.showId });
   console.log('Sync finished', JSON.stringify(result));
   return result;
 }

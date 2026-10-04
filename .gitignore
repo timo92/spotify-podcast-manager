@@ -10,3 +10,4 @@ coverage/
 test-results/
 .DS_Store
 packages/infra/cdk.context.json
+.setup-code

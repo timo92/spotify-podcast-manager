@@ -17,7 +17,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "synth": "npm run build && npm run synth --workspace=@podcast/infra",
-    "deploy": "npm run build && npm run deploy --workspace=@podcast/infra"
+    "deploy": "npm run build && npm run deploy --workspace=@podcast/infra",
+    "dev:demo": "npm run dev:demo --workspace=@podcast/backend & npm run dev --workspace=@podcast/frontend"
   },
   "engines": {
     "node": ">=22"

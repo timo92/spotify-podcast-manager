@@ -133,9 +133,14 @@ describe('library flow', () => {
     expect(shows.find((s) => s.name === 'Sein und Streit')!.mode).toBe('SEQUENTIAL');
 
     const today = (await t.call('GET', '/api/today')).body as TodayResponse;
-    expect(today.recommended.length + today.more.length).toBe(5);
-    // Spotify reports an in-progress episode for "Sein und Streit".
-    expect(today.recommended[0].label).toBe('WEITER');
+    const items = [...today.recommended, ...today.more];
+    expect(items).toHaveLength(5);
+    // New shows are ordered news-first.
+    expect(items[0].show.mode).toBe('LATEST');
+    // Spotify reports episodes 1–2 as played and 3 as started for "Sein und Streit".
+    const sus = items.find((i) => i.show.name === 'Sein und Streit')!;
+    expect(sus.label).toBe('WEITER');
+    expect(sus.episode.index).toBe(3);
   });
 
   it('marks episodes and advances sequential shows', async () => {

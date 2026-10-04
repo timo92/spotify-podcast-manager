@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="system-ui, sans-serif" font-size="13">
+  <rect width="760" height="300" fill="#ffffff"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#555"/></marker>
+  </defs>
+  <g fill="none" stroke="#555" stroke-width="1.5" marker-end="url(#a)">
+    <path d="M110 150H180"/>
+    <path d="M320 120L400 70"/>
+    <path d="M320 180L400 230"/>
+    <path d="M540 230H600"/>
+    <path d="M540 70H600"/>
+    <path d="M660 110V190"/>
+    <path d="M470 200V100" stroke-dasharray="4 3"/>
+    <path d="M650 270C600 290 470 290 470 260" stroke-dasharray="4 3"/>
+  </g>
+  <g stroke="#222" stroke-width="1.5">
+    <rect x="20" y="120" width="90" height="60" rx="10" fill="#e8f5ec"/>
+    <rect x="180" y="110" width="140" height="80" rx="10" fill="#eef1ff"/>
+    <rect x="400" y="40" width="140" height="60" rx="10" fill="#fff6e5"/>
+    <rect x="400" y="200" width="140" height="60" rx="10" fill="#fff6e5"/>
+    <rect x="600" y="40" width="130" height="70" rx="10" fill="#f3e8ff"/>
+    <rect x="600" y="190" width="130" height="70" rx="10" fill="#f3e8ff"/>
+  </g>
+  <g text-anchor="middle" fill="#111">
+    <text x="65" y="147" font-weight="700">Browser</text><text x="65" y="164">SPA + Player</text>
+    <text x="250" y="140" font-weight="700">CloudFront</text><text x="250" y="158">your domain, TLS</text><text x="250" y="175" font-size="11">/ → S3, /api/* → API</text>
+    <text x="470" y="66" font-weight="700">S3</text><text x="470" y="84">static frontend</text>
+    <text x="470" y="226" font-weight="700">API Gateway</text><text x="470" y="244">→ Lambda "api"</text>
+    <text x="665" y="68" font-weight="700">Lambda "sync"</text><text x="665" y="86" font-size="11">async + EventBridge</text><text x="665" y="100" font-size="11">every 2 h, nightly full</text>
+    <text x="665" y="218" font-weight="700">DynamoDB</text><text x="665" y="236" font-size="11">single table</text><text x="665" y="250" font-size="11">config, shows, progress</text>
+    <text x="560" y="150" font-size="11" fill="#555">invoke (async)</text>
+    <text x="560" y="295" font-size="11" fill="#555">Spotify Web API (both Lambdas)</text>
+  </g>
+</svg>

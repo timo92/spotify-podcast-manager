@@ -1,5 +1,8 @@
 import type {
   AppStatus,
+  EpisodeNote,
+  Schedule,
+  WeekResponse,
   EpisodeProgress,
   EpisodeStatus,
   EpisodeView,
@@ -39,13 +42,22 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export type Status = AppStatus & { demo?: boolean };
 
+/** The browser's time zone – "today" and the weekly plan are computed in it. */
+export const TIME_ZONE = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+})();
+
 export const api = {
   status: () => request<Status>('GET', '/api/status'),
   setup: (input: { setupCode?: string; clientId: string; clientSecret: string }) =>
     request<{ ok: true; loginUrl: string }>('POST', '/api/setup', input),
   logout: () => request('POST', '/api/auth/logout'),
 
-  today: () => request<TodayResponse>('GET', '/api/today'),
+  today: () => request<TodayResponse>('GET', `/api/today?tz=${encodeURIComponent(TIME_ZONE)}`),
   history: (limit = 100) => request<EpisodeProgress[]>('GET', `/api/history?limit=${limit}`),
 
   shows: () => request<Show[]>('GET', '/api/shows'),
@@ -75,8 +87,25 @@ export const api = {
 
   playerToken: () => request<{ accessToken: string; expiresAt: number }>('GET', '/api/player/token'),
   devices: () => request<PlayerDevice[]>('GET', '/api/player/devices'),
-  play: (input: { showId: string; episodeId: string; deviceId?: string; fromStart?: boolean }) =>
+  play: (input: { showId: string; episodeId: string; deviceId?: string; fromStart?: boolean; positionMs?: number }) =>
     request<{ ok: true; positionMs: number; durationMs: number }>('POST', '/api/player/play', input),
+
+  schedule: () => request<Schedule>('GET', '/api/schedule'),
+  saveSchedule: (schedule: Schedule) => request<Schedule>('PUT', '/api/schedule', schedule),
+  week: () => request<WeekResponse>('GET', `/api/week?tz=${encodeURIComponent(TIME_ZONE)}`),
+
+  notes: () => request<EpisodeNote[]>('GET', '/api/notes'),
+  note: (showId: string, episodeId: string) =>
+    request<EpisodeNote | null>(
+      'GET',
+      `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/note`,
+    ),
+  saveNote: (showId: string, episodeId: string, text: string) =>
+    request<EpisodeNote | null>(
+      'PUT',
+      `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/note`,
+      { text },
+    ),
 
   deleteAll: () => request('DELETE', '/api/data'),
 };

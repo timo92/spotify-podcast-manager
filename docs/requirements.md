@@ -13,7 +13,7 @@ the MVP deviates from them.
 | 6 | "Heute" view | ✅ Recommended (within budget), more episodes, shows with no new episode, recently heard |
 | 7 | Podcast overview (name, category, mode, progress, new count, last sync, cover) | ✅ Plus a filter by category or paused, and priority ordering |
 | 8 | Detail page: description, filter, search, sort, actions | ✅ Plus "mark all earlier episodes as heard" and "reset to the Spotify state" |
-| 9 | Episode view, opening Spotify | ✅ Episode sheet with full description and progress in %. Notes and tags are deferred (later). |
+| 9 | Episode view, opening Spotify | ✅ Episode sheet with full description, progress in % and **notes** (with timestamps). Tags: later. |
 | 10 | Daily budget | ✅ Greedy selection with tolerance. Video budget: later (YouTube). |
 | 11 | Free-form categories, several per podcast | ✅ |
 | 12 | Sync that never overwrites personal status | ✅ See the note on Spotify's played state below. |
@@ -21,6 +21,7 @@ the MVP deviates from them.
 | 14 | Mobile and desktop, dark mode, clear status labels | ✅ |
 | 15/16 | Priority, pause, skip, pin next episode, change mode/category, remove from "Heute" | ✅ |
 | 17 | Privacy: minimal data, delete everything | ✅ Export as JSON plus "delete all data" |
+| 19 (later) | Calendar view | ✅ Recurring weekly plan ("Woche"), projected onto concrete episodes |
 | 18 | No own player | ↔️ See "Changes and additions" below. |
 
 ## Changes and additions

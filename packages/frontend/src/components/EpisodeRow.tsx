@@ -2,6 +2,7 @@ import type { EpisodeView, Show } from '@podcast/shared';
 import { useEpisodeActions } from '../lib/actions';
 import { formatDuration, formatReleaseDate } from '../lib/format';
 import { PlayButton } from './EpisodeCard';
+import { Icon } from './Icon';
 import { Badge, IconButton, Menu, StatusBadge } from './ui';
 
 export function EpisodeRow({
@@ -32,6 +33,11 @@ export function EpisodeRow({
           {isNext && <Badge tone="next">Als Nächstes</Badge>}
           {pinned && <Badge tone="pinned">Gewählt</Badge>}
           {episode.statusSource === 'spotify' && <span title="Status stammt aus Spotify">· Spotify</span>}
+          {episode.hasNote && (
+            <button type="button" className="note-flag" onClick={() => onOpen(episode.id)} title="Notiz vorhanden">
+              <Icon name="note" size={14} /> Notiz
+            </button>
+          )}
         </div>
       </div>
       <div className="episode-row-actions">

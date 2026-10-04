@@ -1,4 +1,4 @@
-import type { ConsumptionMode, EpisodeStatus, TodayLabel } from '@podcast/shared';
+import type { ConsumptionMode, DayPart, EpisodeStatus, TodayLabel, Weekday } from '@podcast/shared';
 
 export function formatDuration(ms: number): string {
   const totalMin = Math.max(1, Math.round(ms / 60_000));
@@ -83,4 +83,45 @@ export function greeting(now = new Date()): string {
   if (h < 11) return 'Guten Morgen';
   if (h < 18) return 'Guten Tag';
   return 'Guten Abend';
+}
+
+export const DAY_PART_LABEL: Record<DayPart, string> = {
+  MORNING: 'Morgens',
+  MIDDAY: 'Mittags',
+  EVENING: 'Abends',
+  ANYTIME: 'Jederzeit',
+};
+
+export const WEEKDAY_SHORT: Record<Weekday, string> = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 7: 'So' };
+
+export const WEEKDAY_LONG: Record<Weekday, string> = {
+  1: 'Montag',
+  2: 'Dienstag',
+  3: 'Mittwoch',
+  4: 'Donnerstag',
+  5: 'Freitag',
+  6: 'Samstag',
+  7: 'Sonntag',
+};
+
+/** "5. Okt." for a YYYY-MM-DD calendar date. */
+export function formatDayMonth(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short' }).format(new Date(y, m - 1, d));
+}
+
+const TIMESTAMP_RE = /\[(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\]/g;
+
+/** Splits note text into plain parts and "[mm:ss]" / "[h:mm:ss]" timestamps (in ms). */
+export function splitTimestamps(text: string): ({ text: string } | { label: string; ms: number })[] {
+  const parts: ({ text: string } | { label: string; ms: number })[] = [];
+  let last = 0;
+  for (const m of text.matchAll(TIMESTAMP_RE)) {
+    if (m.index! > last) parts.push({ text: text.slice(last, m.index) });
+    const ms = ((Number(m[1] ?? 0) * 60 + Number(m[2])) * 60 + Number(m[3])) * 1000;
+    parts.push({ label: m[0], ms });
+    last = m.index! + m[0].length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last) });
+  return parts;
 }

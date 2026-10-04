@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Show, ShowDetailResponse, TodayResponse } from '@podcast/shared';
+import { localDate, weekdayOf, type Show, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
 import { createApp } from './app.js';
 import type { HttpRequest, HttpResponse } from './http/types.js';
 import { SyncService } from './services/sync.js';
@@ -195,6 +195,60 @@ describe('library flow', () => {
     expect(tag.show.followed).toBe(false);
     const today = (await t.call('GET', '/api/today')).body as TodayResponse;
     expect([...today.recommended, ...today.more].some((i) => i.show.id === 'demo-dertag')).toBe(false);
+  });
+
+  it('plans the week and puts today\'s slots on top of Heute', async () => {
+    const t = await ready();
+    const tz = 'Europe/Berlin';
+    const weekday = weekdayOf(localDate(Date.now(), tz));
+    const tomorrow = (weekday % 7) + 1;
+    const res = await t.call('PUT', '/api/schedule', {
+      entries: [
+        { showId: 'demo-wissensreise', weekday, part: 'EVENING' },
+        { showId: 'demo-dertag', weekday, part: 'MORNING' },
+        { showId: 'demo-wissensreise', weekday: tomorrow, part: 'ANYTIME' },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect((res.body as { entries: { id: string }[] }).entries.every((e) => e.id)).toBe(true);
+    expect((await t.call('PUT', '/api/schedule', { entries: [{ showId: 'nope', weekday: 1 }] })).status).toBe(400);
+
+    const week = (await t.call('GET', `/api/week?tz=${tz}`)).body as WeekResponse;
+    expect(week.days).toHaveLength(7);
+    expect(week.days[0].isToday).toBe(true);
+    expect(week.days[0].items.map((i) => [i.show.id, i.state])).toEqual([
+      ['demo-dertag', 'next'],
+      ['demo-wissensreise', 'next'],
+    ]);
+    expect(week.days[1].items[0].episode?.id).toBe('demo-wissensreise-2');
+
+    let today = (await t.call('GET', `/api/today?tz=${tz}`)).body as TodayResponse;
+    expect(today.plan.map((p) => p.show.id)).toEqual(['demo-dertag', 'demo-wissensreise']);
+    expect([...today.recommended, ...today.more].some((i) => i.show.id === 'demo-dertag')).toBe(false);
+
+    // Finishing the planned episode ticks the slot off instead of advancing it.
+    await t.call('PUT', '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/status', { status: 'COMPLETED' });
+    today = (await t.call('GET', `/api/today?tz=${tz}`)).body as TodayResponse;
+    const slot = today.plan.find((p) => p.show.id === 'demo-wissensreise')!;
+    expect([slot.state, slot.episode?.id]).toEqual(['done', 'demo-wissensreise-1']);
+    const nextWeek = (await t.call('GET', `/api/week?tz=${tz}`)).body as WeekResponse;
+    expect(nextWeek.days[1].items[0].episode?.id).toBe('demo-wissensreise-2');
+  });
+
+  it('saves notes and flags episodes that have one', async () => {
+    const t = await ready();
+    const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/note';
+    expect((await t.call('GET', path)).body).toBeNull();
+    const saved = await t.call('PUT', path, { text: '[02:10] Spannender Punkt' });
+    expect(saved.status).toBe(200);
+    expect((await t.call('GET', path)).body).toMatchObject({ text: '[02:10] Spannender Punkt', showName: 'Wissensreise' });
+    const detail = (await t.call('GET', '/api/shows/demo-wissensreise')).body as ShowDetailResponse;
+    expect(detail.episodes.find((e) => e.id === 'demo-wissensreise-1')!.hasNote).toBe(true);
+    expect(((await t.call('GET', '/api/notes')).body as unknown[]).length).toBe(1);
+    // Emptying a note deletes it.
+    await t.call('PUT', path, { text: '  ' });
+    expect((await t.call('GET', '/api/notes')).body).toEqual([]);
+    expect((await t.call('PUT', '/api/shows/demo-wissensreise/episodes/nope/note', { text: 'x' })).status).toBe(404);
   });
 
   it('deletes all data', async () => {

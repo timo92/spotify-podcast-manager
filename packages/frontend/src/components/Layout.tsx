@@ -10,6 +10,7 @@ import { PlayerBar, PlayTargetPicker } from './PlayerBar';
 
 const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Heute', icon: 'home' },
+  { to: '/woche', label: 'Woche', icon: 'calendar' },
   { to: '/podcasts', label: 'Podcasts', icon: 'list' },
   { to: '/verlauf', label: 'Verlauf', icon: 'history' },
   { to: '/einstellungen', label: 'Einstellungen', icon: 'settings' },

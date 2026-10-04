@@ -39,6 +39,7 @@ export function IconButton({
   disabled,
   variant = 'ghost',
   size = 20,
+  className = '',
 }: {
   icon: IconName;
   label: string;
@@ -47,11 +48,12 @@ export function IconButton({
   disabled?: boolean;
   variant?: 'ghost' | 'primary' | 'soft';
   size?: number;
+  className?: string;
 }) {
   return (
     <button
       type="button"
-      className={`icon-btn icon-btn-${variant}${active ? ' is-active' : ''}`}
+      className={`icon-btn icon-btn-${variant}${active ? ' is-active' : ''} ${className}`.trim()}
       onClick={onClick}
       aria-label={label}
       title={label}

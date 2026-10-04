@@ -2,6 +2,7 @@ import {
   buildEpisodeViews,
   summarizeShow,
   truncate,
+  type EpisodeNote,
   type EpisodeProgress,
   type EpisodeStatus,
   type EpisodeView,
@@ -50,11 +51,40 @@ export class LibraryService {
 
   async detail(showId: string) {
     const show = await this.requireShow(showId);
-    const views = await this.loadViews(show);
+    const [views, notes] = await Promise.all([this.loadViews(show), this.store.listShowNotes(showId)]);
+    const withNotes = new Set(notes.filter((n) => n.text.trim()).map((n) => n.episodeId));
     return {
       show,
-      episodes: views.map((v) => ({ ...v, description: truncate(v.description, 400) })),
+      episodes: views.map((v) => ({ ...v, description: truncate(v.description, 400), hasNote: withNotes.has(v.id) })),
     };
+  }
+
+  /** Saves (or, if empty, deletes) the personal note of an episode. */
+  async saveNote(showId: string, episodeId: string, text: unknown): Promise<EpisodeNote | null> {
+    if (typeof text !== 'string') throw badRequest('text muss ein String sein');
+    if (text.length > 50_000) throw badRequest('Notiz ist zu lang (max. 50.000 Zeichen)');
+    const [show, episode, existing] = await Promise.all([
+      this.requireShow(showId),
+      this.store.getEpisode(showId, episodeId),
+      this.store.getNote(showId, episodeId),
+    ]);
+    if (!episode) throw notFound('Folge nicht gefunden');
+    if (!text.trim()) {
+      if (existing) await this.store.deleteNote(showId, episodeId);
+      return null;
+    }
+    const now = new Date().toISOString();
+    const note: EpisodeNote = {
+      showId,
+      episodeId,
+      text,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      episodeName: episode.name,
+      showName: show.name,
+    };
+    await this.store.putNote(note);
+    return note;
   }
 
   async episode(showId: string, episodeId: string): Promise<EpisodeView> {

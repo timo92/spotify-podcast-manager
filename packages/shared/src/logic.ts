@@ -5,6 +5,7 @@ import {
   type EpisodeStatus,
   type EpisodeView,
   type HistoryItem,
+  type PlannedItem,
   type Settings,
   type Show,
   type ShowLite,
@@ -201,9 +202,16 @@ function labelFor(show: Show, ep: EpisodeView): TodayLabel {
  * remaining budget (plus tolerance). Remaining time accounts for episodes
  * already started in Spotify.
  */
-export function buildToday(shows: Show[], settings: Settings, recent: HistoryItem[] = []): TodayResponse {
+export function buildToday(
+  shows: Show[],
+  settings: Settings,
+  recent: HistoryItem[] = [],
+  plan: PlannedItem[] = [],
+): TodayResponse {
+  // Shows planned for today are listed in the plan, not again below.
+  const planned = new Set(plan.map((p) => p.show.id));
   const eligible = shows
-    .filter((s) => s.followed && !s.paused && !s.hiddenFromToday)
+    .filter((s) => s.followed && !s.paused && !s.hiddenFromToday && !planned.has(s.id))
     .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 
   const candidates: TodayItem[] = [];
@@ -220,11 +228,15 @@ export function buildToday(shows: Show[], settings: Settings, recent: HistoryIte
   const limitMs = budgetMs * (1 + settings.budgetTolerancePercent / 100);
   const recommended: TodayItem[] = [];
   const more: TodayItem[] = [];
-  let usedMs = 0;
+  // Planned episodes use up the budget first.
+  let usedMs = plan.reduce(
+    (sum, p) => sum + (p.episode && (p.state === 'next' || p.state === 'upcoming') ? p.episode.remainingMs : 0),
+    0,
+  );
 
   if (budgetMs <= 0) {
     recommended.push(...ordered);
-    usedMs = ordered.reduce((sum, c) => sum + c.episode.remainingMs, 0);
+    usedMs += ordered.reduce((sum, c) => sum + c.episode.remainingMs, 0);
   } else {
     for (const c of ordered) {
       if (usedMs + c.episode.remainingMs <= limitMs) {
@@ -237,12 +249,13 @@ export function buildToday(shows: Show[], settings: Settings, recent: HistoryIte
   }
 
   let budgetFit: TodayResponse['budgetFit'] = 'none';
-  if (budgetMs > 0 && recommended.length) {
+  if (budgetMs > 0 && usedMs > 0) {
     const ratio = usedMs / budgetMs;
     budgetFit = ratio > 1 ? 'over' : ratio >= 0.85 ? 'perfect' : 'under';
   }
 
   return {
+    plan,
     budgetMinutes: settings.audioBudgetMinutes,
     recommendedMinutes: Math.round(usedMs / 60_000),
     budgetFit,

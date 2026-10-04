@@ -99,6 +99,23 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.listHistory(10)).toHaveLength(0);
     });
 
+    it('stores the schedule and notes', async () => {
+      expect((await store.getSchedule()).entries).toEqual([]);
+      await store.putSchedule({ entries: [{ id: 'a', showId: 's1', weekday: 1, part: 'MORNING' }] });
+      expect((await store.getSchedule()).entries).toHaveLength(1);
+
+      await store.putNote({ showId: 's1', episodeId: 'e2', text: 'one', createdAt: 'c', updatedAt: '2026-01-01T00:00:00Z' });
+      await store.putNote({ showId: 's1', episodeId: 'e3', text: 'two', createdAt: 'c', updatedAt: '2026-01-02T00:00:00Z' });
+      expect((await store.getNote('s1', 'e2'))?.text).toBe('one');
+      expect(await store.listShowNotes('s1')).toHaveLength(2);
+      expect((await store.listNotes(10)).map((n) => n.episodeId)).toEqual(['e3', 'e2']);
+      expect((await store.listNotes(1)).map((n) => n.episodeId)).toEqual(['e3']);
+      // notes don't leak into the listening history
+      expect((await store.listHistory(10)).every((h) => h.status === 'COMPLETED')).toBe(true);
+      await store.deleteNote('s1', 'e2');
+      expect(await store.listShowNotes('s1')).toHaveLength(1);
+    });
+
     it('deletes everything', async () => {
       await store.deleteAll();
       expect(await store.getConfig()).toBeUndefined();

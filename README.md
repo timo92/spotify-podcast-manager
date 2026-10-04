@@ -12,8 +12,12 @@ Each podcast gets a *consumption mode*:
 | `SEQUENTIAL` | Reihenfolge | Works through the show oldest-first and continues after the last episode you finished. |
 | `MANUAL` | Frei | Suggests only the episode you chose yourself. |
 
-The **Heute** (Today) page builds a short list from your daily time budget,
-sorted by your podcast priorities. You can play an episode in the browser
+The **Woche** (week) page is a recurring weekly plan: for example, the news
+on weekday mornings and your history series on Tuesday and Thursday
+evenings. For every slot the app picks the concrete episode, so a series
+planned twice a week shows episode n on Tuesday and n+1 on Thursday. The
+**Heute** (Today) page puts today's slots on top, ticks off what you've
+finished, and fills the rest of your daily time budget by priority. You can play an episode in the browser
 (Spotify Web Playback SDK, Premium), on any Spotify Connect device (phone,
 speaker…), or open it in the Spotify app.
 
@@ -28,6 +32,9 @@ The UI is in German. The code and docs are in English.
 - **Import of your saved shows**, with a guessed mode and categories (daily shows → `LATEST`, plus keyword-based categories). A review screen lets you confirm the guesses quickly.
 - **Idempotent sync**: new episodes every 2 hours, a full refresh every night, and manual sync at any time. A sync only writes metadata. Your personal progress is stored in separate records and is never overwritten.
 - **Spotify's listening state is used as a hint.** Episodes that are partly played in Spotify show up as *Weiter* (continue), with the remaining time. Episodes that Spotify reports as fully played count as heard. You can turn that off in the settings, and your own marks always win.
+- **Weekly plan** of recurring slots per weekday and part of day (morning, midday, evening, anytime). Slots are projected onto concrete episodes for the next 7 days, and episodes you finish today are ticked off in the plan.
+- **Next and last heard per podcast**, shown in the overview for every podcast.
+- **Notes per episode**, saved automatically. While an episode plays in the browser, a notes button in the player inserts the current position as `[12:34]`. Tapping a timestamp later jumps back to that point. All notes are searchable under Verlauf → Notizen and included in the export.
 - **Actions on each episode:** heard, unheard, skip, set as next episode, "mark all earlier episodes as heard", reset to the Spotify state, open in Spotify.
 - **Podcast settings:** mode, multiple categories (free-form), pause, hide from Today, re-offer skipped episodes, and priority order.
 - **Daily budget** with tolerance. Episodes are picked in your priority order, counting only the remaining time of episodes you have already started.
@@ -128,6 +135,7 @@ For one user, this stays in or near the AWS free tier: Lambda, DynamoDB on-deman
 ## Not in this MVP (ideas for later)
 
 - YouTube channels/playlists as a second source. The data model already has a `source` field, and the Spotify layer sits behind an interface.
-- Notes and tags per episode, statistics, a calendar view.
+- Tags per episode, statistics.
+- One-off plan entries for specific dates (on top of the recurring weekly plan).
 - Smarter daily planning (knapsack instead of greedy, weekday-specific budgets).
 - Push notification when a priority show has a new episode.

@@ -10,9 +10,13 @@ export const qk = {
   settings: ['settings'] as const,
   history: ['history'] as const,
   devices: ['devices'] as const,
+  schedule: ['schedule'] as const,
+  week: ['week'] as const,
+  notes: ['notes'] as const,
+  note: (showId: string, episodeId: string) => ['note', showId, episodeId] as const,
 };
 
-const LIBRARY_KEYS = new Set(['today', 'shows', 'show', 'episode', 'history']);
+const LIBRARY_KEYS = new Set(['today', 'shows', 'show', 'episode', 'history', 'week']);
 
 export function useStatus() {
   return useQuery({

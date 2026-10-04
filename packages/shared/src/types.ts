@@ -68,6 +68,8 @@ export interface EpisodeView extends Episode {
   remainingMs: number;
   /** 1-based position in chronological (oldest first) order. */
   index: number;
+  /** A personal note exists for this episode. */
+  hasNote?: boolean;
 }
 
 export interface ShowSummary {
@@ -196,6 +198,8 @@ export interface HistoryItem {
 }
 
 export interface TodayResponse {
+  /** Today's slots from the weekly plan (empty if nothing is planned). */
+  plan: PlannedItem[];
   budgetMinutes: number;
   /** Sum of remaining minutes of the recommended items. */
   recommendedMinutes: number;
@@ -250,4 +254,68 @@ export interface PlayerDevice {
 export interface ApiErrorBody {
   error: string;
   message: string;
+}
+
+// ---------------------------------------------------------------- weekly plan
+
+/** ISO weekday: 1 = Monday … 7 = Sunday. */
+export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export type DayPart = 'MORNING' | 'MIDDAY' | 'EVENING' | 'ANYTIME';
+
+export const DAY_PARTS: DayPart[] = ['MORNING', 'MIDDAY', 'EVENING', 'ANYTIME'];
+
+/** A recurring slot: "listen to <show> on <weekday> in the <part>". */
+export interface ScheduleEntry {
+  id: string;
+  showId: string;
+  weekday: Weekday;
+  part: DayPart;
+}
+
+export interface Schedule {
+  entries: ScheduleEntry[];
+  updatedAt?: string;
+}
+
+/**
+ * done     – an episode of this show was finished on that day (today only)
+ * next     – the episode that is actually next right now
+ * upcoming – projected later episode of a series (after the ones planned before)
+ * latest   – news-like show on a future day: whatever is newest then
+ * none     – nothing open (all heard / nothing pinned)
+ */
+export type PlannedState = 'done' | 'next' | 'upcoming' | 'latest' | 'none';
+
+export interface PlannedItem {
+  entryId: string;
+  part: DayPart;
+  show: ShowLite;
+  episode: EpisodeView | null;
+  state: PlannedState;
+}
+
+export interface PlanDay {
+  date: string;
+  weekday: Weekday;
+  isToday: boolean;
+  items: PlannedItem[];
+  /** Remaining listening time of the open items. */
+  openMs: number;
+}
+
+export interface WeekResponse {
+  days: PlanDay[];
+}
+
+// ---------------------------------------------------------------------- notes
+
+export interface EpisodeNote {
+  showId: string;
+  episodeId: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  episodeName?: string;
+  showName?: string;
 }

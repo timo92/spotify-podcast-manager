@@ -35,11 +35,17 @@ interface PlayerApi {
   browserSupported: boolean;
   nowPlaying: NowPlaying | null;
   busy: boolean;
-  play: (item: PlayableItem, opts?: { fromStart?: boolean }) => Promise<void>;
+  play: (item: PlayableItem, opts?: PlayOptions) => Promise<void>;
   togglePause: () => void;
   seekBy: (deltaMs: number) => void;
   seekTo: (ms: number) => void;
   close: () => void;
+}
+
+export interface PlayOptions {
+  fromStart?: boolean;
+  /** Start at this position (e.g. a timestamp from a note). */
+  positionMs?: number;
 }
 
 const PlayerContext = createContext<PlayerApi | null>(null);
@@ -159,7 +165,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const play = useCallback(
-    async (item: PlayableItem, opts: { fromStart?: boolean } = {}) => {
+    async (item: PlayableItem, opts: PlayOptions = {}) => {
       const t = target.kind === 'browser' && !browserSupported ? ({ kind: 'app' } as PlayTarget) : target;
       if (t.kind === 'app') {
         window.open(item.episode.spotifyUrl, '_blank', 'noopener');
@@ -172,7 +178,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         let deviceId: string | undefined;
         if (t.kind === 'device') deviceId = t.id;
         else if (!demo) deviceId = await ensureBrowserDevice();
-        const request = { showId: item.show.id, episodeId: item.episode.id, deviceId, fromStart: opts.fromStart };
+        const request = {
+          showId: item.show.id,
+          episodeId: item.episode.id,
+          deviceId,
+          fromStart: opts.fromStart,
+          positionMs: opts.positionMs,
+        };
         let res;
         try {
           res = await api.play(request);

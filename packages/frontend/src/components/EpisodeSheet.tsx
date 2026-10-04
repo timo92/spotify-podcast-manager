@@ -8,6 +8,7 @@ import { usePlayer, type PlayableItem } from '../lib/player';
 import { qk } from '../lib/queries';
 import { PlayButton } from './EpisodeCard';
 import { Icon } from './Icon';
+import { NoteEditor } from './Notes';
 import { Badge, Cover, ErrorBox, IconButton, ProgressBar, Spinner, StatusBadge } from './ui';
 
 /** Modal with the full episode: description, status and all actions. */
@@ -106,6 +107,10 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
                 </button>
               )}
             </div>
+            <section className="stack-sm">
+              <h3 className="h3">Notizen</h3>
+              <NoteEditor showId={showId} episodeId={episodeId} />
+            </section>
             {ep.description && <p className="description">{ep.description}</p>}
           </>
         )}

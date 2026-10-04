@@ -204,6 +204,18 @@ function ShowCard({ show, rank }: { show: Show; rank?: number }) {
         <div className={`small ${progress.tone === 'new' ? 'text-new' : progress.tone === 'muted' ? 'muted' : ''}`}>
           {progress.text}
         </div>
+        {s?.nextEpisode && (
+          <div className="small ellipsis">
+            <span className="muted">Als Nächstes: </span>
+            {s.nextEpisode.name}
+          </div>
+        )}
+        {s?.lastCompleted && (
+          <div className="small ellipsis muted">
+            Zuletzt gehört: {s.lastCompleted.name}
+            {s.lastCompleted.at && ` · ${formatRelative(s.lastCompleted.at)}`}
+          </div>
+        )}
         {show.mode === 'SEQUENTIAL' && s && s.total > 0 && (
           <ProgressBar value={s.completed + s.skipped} max={s.total} label="Fortschritt" />
         )}

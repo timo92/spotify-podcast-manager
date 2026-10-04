@@ -1,4 +1,4 @@
-import type { Episode, EpisodeProgress, Settings, Show, SyncState } from '@podcast/shared';
+import type { Episode, EpisodeNote, EpisodeProgress, Schedule, Settings, Show, SyncState } from '@podcast/shared';
 
 export interface AppConfig {
   clientId: string;
@@ -63,6 +63,16 @@ export interface Store {
   deleteProgress(showId: string, episodeId: string): Promise<void>;
   /** Most recently completed episodes across all shows, newest first. */
   listHistory(limit: number): Promise<EpisodeProgress[]>;
+
+  getSchedule(): Promise<Schedule>;
+  putSchedule(schedule: Schedule): Promise<void>;
+
+  getNote(showId: string, episodeId: string): Promise<EpisodeNote | undefined>;
+  putNote(note: EpisodeNote): Promise<void>;
+  deleteNote(showId: string, episodeId: string): Promise<void>;
+  listShowNotes(showId: string): Promise<EpisodeNote[]>;
+  /** All notes, most recently edited first. */
+  listNotes(limit: number): Promise<EpisodeNote[]>;
 
   /** Removes every item, including configuration and tokens. */
   deleteAll(): Promise<void>;

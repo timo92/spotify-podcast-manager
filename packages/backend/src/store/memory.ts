@@ -1,6 +1,15 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Settings, type Show, type SyncState } from '@podcast/shared';
+import {
+  DEFAULT_SETTINGS,
+  type Episode,
+  type EpisodeNote,
+  type EpisodeProgress,
+  type Schedule,
+  type Settings,
+  type Show,
+  type SyncState,
+} from '@podcast/shared';
 import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
 
 interface Data {
@@ -12,9 +21,11 @@ interface Data {
   shows: Record<string, Show>;
   episodes: Record<string, Record<string, Episode>>;
   progress: Record<string, Record<string, EpisodeProgress>>;
+  schedule?: Schedule;
+  notes: Record<string, Record<string, EpisodeNote>>;
 }
 
-const empty = (): Data => ({ sessions: {}, shows: {}, episodes: {}, progress: {} });
+const empty = (): Data => ({ sessions: {}, shows: {}, episodes: {}, progress: {}, notes: {} });
 const clone = <T>(v: T): T => (v === undefined ? v : structuredClone(v));
 
 /** In-memory store, optionally persisted to a JSON file (local development). */
@@ -125,6 +136,34 @@ export class MemoryStore implements Store {
       .flatMap((m) => Object.values(m))
       .filter((p) => p.status === 'COMPLETED' && p.listenedAt)
       .sort((a, b) => (b.listenedAt! > a.listenedAt! ? 1 : -1))
+      .slice(0, limit)
+      .map(clone);
+  }
+  async getSchedule(): Promise<Schedule> {
+    return clone(this.data.schedule) ?? { entries: [] };
+  }
+  async putSchedule(schedule: Schedule) {
+    this.data.schedule = clone(schedule);
+    this.save();
+  }
+  async getNote(showId: string, episodeId: string) {
+    return clone(this.data.notes[showId]?.[episodeId]);
+  }
+  async putNote(note: EpisodeNote) {
+    (this.data.notes[note.showId] ??= {})[note.episodeId] = clone(note);
+    this.save();
+  }
+  async deleteNote(showId: string, episodeId: string) {
+    delete this.data.notes[showId]?.[episodeId];
+    this.save();
+  }
+  async listShowNotes(showId: string) {
+    return Object.values(this.data.notes[showId] ?? {}).map(clone);
+  }
+  async listNotes(limit: number) {
+    return Object.values(this.data.notes)
+      .flatMap((m) => Object.values(m))
+      .sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1))
       .slice(0, limit)
       .map(clone);
   }

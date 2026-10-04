@@ -16,3 +16,16 @@ describe('format', () => {
     expect(formatReleaseDate('2024-03-01', now)).toContain('2024');
   });
 });
+
+describe('splitTimestamps', () => {
+  it('finds mm:ss and h:mm:ss timestamps', async () => {
+    const { splitTimestamps } = await import('./format');
+    expect(splitTimestamps('a [2:05] b [1:00:01]')).toEqual([
+      { text: 'a ' },
+      { label: '[2:05]', ms: 125_000 },
+      { text: ' b ' },
+      { label: '[1:00:01]', ms: 3_601_000 },
+    ]);
+    expect(splitTimestamps('kein Zeitstempel')).toEqual([{ text: 'kein Zeitstempel' }]);
+  });
+});

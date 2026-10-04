@@ -12,6 +12,7 @@ import {
 import { ApiError, badRequest, notFound, unauthorized } from './errors.js';
 import { json, redirect, serializeCookie, type HttpRequest, type HttpResponse } from './http/types.js';
 import { LibraryService } from './services/library.js';
+import { PlanService, validTimeZone } from './services/plan.js';
 import { isSyncRunning, toEpisode, type SyncOptions } from './services/sync.js';
 import { authorizeUrl, exchangeCode, SCOPES } from './spotify/client.js';
 import type { SpotifyApi, SpotifyUser } from './spotify/types.js';
@@ -67,6 +68,7 @@ function body<T>(req: HttpRequest): Partial<T> {
 export function createApp(deps: AppDeps) {
   const { store, spotify } = deps;
   const library = new LibraryService(store);
+  const planner = new PlanService(store, library);
   const routes: Route[] = [];
   const route = (method: string, path: string, handler: Handler, opts: { public?: boolean } = {}) =>
     routes.push({ method, ...compile(path), handler, public: opts.public });
@@ -250,8 +252,14 @@ export function createApp(deps: AppDeps) {
 
   // ----------------------------------------------------------------- today
 
-  route('GET', '/api/today', async () => {
-    const [shows, settings, history] = await Promise.all([store.listShows(), store.getSettings(), store.listHistory(5)]);
+  route('GET', '/api/today', async (req) => {
+    const tz = validTimeZone(req.query.tz);
+    const [shows, settings, history, [today]] = await Promise.all([
+      store.listShows(),
+      store.getSettings(),
+      store.listHistory(5),
+      planner.week(tz, 1),
+    ]);
     const recent: HistoryItem[] = history.map((p) => ({
       showId: p.showId,
       episodeId: p.episodeId,
@@ -260,7 +268,7 @@ export function createApp(deps: AppDeps) {
       status: p.status,
       at: p.listenedAt ?? p.updatedAt,
     }));
-    return json(buildToday(shows, settings, recent));
+    return json(buildToday(shows, settings, recent, today.items));
   });
 
   route('GET', '/api/history', async (req) => {
@@ -300,6 +308,33 @@ export function createApp(deps: AppDeps) {
   route('POST', '/api/shows/:id/episodes/:episodeId/complete-before', async (_req, p) =>
     json(await library.completeBefore(p.id, p.episodeId)),
   );
+
+  // ------------------------------------------------------------ weekly plan
+
+  route('GET', '/api/schedule', async () => json(await store.getSchedule()));
+
+  route('PUT', '/api/schedule', async (req) => json(await planner.saveSchedule(req.body)));
+
+  route('GET', '/api/week', async (req) => {
+    const days = await planner.week(validTimeZone(req.query.tz), Number(req.query.days) || 7, req.query.start);
+    return json({ days });
+  });
+
+  // ----------------------------------------------------------------- notes
+
+  route('GET', '/api/notes', async (req) => {
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 200));
+    return json(await store.listNotes(limit));
+  });
+
+  route('GET', '/api/shows/:id/episodes/:episodeId/note', async (_req, p) => {
+    return json((await store.getNote(p.id, p.episodeId)) ?? null);
+  });
+
+  route('PUT', '/api/shows/:id/episodes/:episodeId/note', async (req, p) => {
+    const { text } = body<{ text: string }>(req);
+    return json(await library.saveNote(p.id, p.episodeId, text ?? ''));
+  });
 
   // ------------------------------------------------------------------ sync
 
@@ -349,11 +384,13 @@ export function createApp(deps: AppDeps) {
   });
 
   route('POST', '/api/player/play', async (req) => {
-    const { showId, episodeId, deviceId, fromStart } = body<{
+    const { showId, episodeId, deviceId, fromStart, positionMs: requested } = body<{
       showId: string;
       episodeId: string;
       deviceId?: string;
       fromStart?: boolean;
+      /** Explicit start position, e.g. from a timestamp in a note. */
+      positionMs?: number;
     }>(req);
     if (!showId || !episodeId) throw badRequest('showId und episodeId sind erforderlich');
     const cached = await store.getEpisode(showId, episodeId);
@@ -367,6 +404,9 @@ export function createApp(deps: AppDeps) {
       await store.putEpisodes([ep]);
       if (!fromStart && ep.resumePoint && !ep.resumePoint.fullyPlayed) positionMs = ep.resumePoint.resumePositionMs;
     }
+    if (typeof requested === 'number' && Number.isFinite(requested) && requested >= 0) {
+      positionMs = Math.min(requested, Math.max(0, cached.durationMs - 1000));
+    }
     await spotify.play(episodeId, deviceId || undefined, positionMs);
     return json({ ok: true, positionMs, durationMs: cached.durationMs });
   });
@@ -374,7 +414,12 @@ export function createApp(deps: AppDeps) {
   // ------------------------------------------------------------------ data
 
   route('GET', '/api/export', async () => {
-    const [shows, settings] = await Promise.all([store.listShows(), store.getSettings()]);
+    const [shows, settings, schedule, notes] = await Promise.all([
+      store.listShows(),
+      store.getSettings(),
+      store.getSchedule(),
+      store.listNotes(10_000),
+    ]);
     const progress = await Promise.all(shows.map(async (s) => [...(await store.listProgress(s.id)).values()]));
     return {
       status: 200,
@@ -384,6 +429,8 @@ export function createApp(deps: AppDeps) {
         settings,
         shows: shows.map(({ summary: _summary, ...s }) => s),
         progress: progress.flat(),
+        schedule,
+        notes,
       },
     };
   });

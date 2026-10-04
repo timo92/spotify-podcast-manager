@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { EpisodeCard } from '../components/EpisodeCard';
 import { EpisodeSheet } from '../components/EpisodeSheet';
+import { PlanItemRow } from '../components/PlanItem';
 import { Cover, Empty, ErrorBox, Spinner } from '../components/ui';
 import { api } from '../lib/api';
 import { formatRelative, greeting } from '../lib/format';
@@ -58,19 +59,35 @@ export function TodayPage() {
 
       {t && (
         <>
+          {t.plan.length > 0 && (
+            <section className="section">
+              <div className="section-head">
+                <h2>Dein Plan für heute</h2>
+                <Link to="/woche" className="small">
+                  Wochenplan
+                </Link>
+              </div>
+              <ul className="plan-list card">
+                {t.plan.map((item) => (
+                  <PlanItemRow key={item.entryId} item={item} isToday onOpen={onOpen} />
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="section">
             <div className="section-head">
-              <h2>Heute empfohlen</h2>
+              <h2>{t.plan.length ? 'Außerdem empfohlen' : 'Heute empfohlen'}</h2>
               {t.budgetMinutes > 0 && (
                 <span className={`budget budget-${t.budgetFit}`}>
                   {t.recommendedMinutes} / {t.budgetMinutes} min
                   {t.budgetFit === 'perfect' && ' · passt'}
-                  {t.budgetFit === 'over' && ' · knapp drüber'}
+                  {t.budgetFit === 'over' && (t.recommendedMinutes <= t.budgetMinutes * 1.2 ? ' · knapp drüber' : ' · über Budget')}
                 </span>
               )}
             </div>
             {t.recommended.length === 0 ? (
-              <Empty title={t.more.length ? 'Nichts passt ins Zeitbudget' : 'Alles gehört!'}>
+              <Empty title={t.more.length ? (t.plan.length ? 'Budget durch deinen Plan ausgeschöpft' : 'Nichts passt ins Zeitbudget') : 'Alles gehört!'}>
                 {t.more.length
                   ? 'Unten findest du weitere Folgen – oder erhöhe dein Budget in den Einstellungen.'
                   : syncing

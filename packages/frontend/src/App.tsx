@@ -10,6 +10,7 @@ import { SetupPage } from './pages/Setup';
 import { ShowDetailPage } from './pages/ShowDetail';
 import { ShowsPage } from './pages/Shows';
 import { TodayPage } from './pages/Today';
+import { WeekPage } from './pages/Week';
 
 export function App() {
   const { data: status, error, isLoading, refetch } = useStatus();
@@ -48,6 +49,7 @@ export function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<TodayPage />} />
+          <Route path="woche" element={<WeekPage />} />
           <Route path="podcasts" element={<ShowsPage />} />
           <Route path="podcasts/:id" element={<ShowDetailPage />} />
           <Route path="verlauf" element={<HistoryPage />} />

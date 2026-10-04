@@ -10,7 +10,16 @@ import {
   UpdateCommand,
   type QueryCommandInput,
 } from '@aws-sdk/lib-dynamodb';
-import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Settings, type Show, type SyncState } from '@podcast/shared';
+import {
+  DEFAULT_SETTINGS,
+  type Episode,
+  type EpisodeNote,
+  type EpisodeProgress,
+  type Schedule,
+  type Settings,
+  type Show,
+  type SyncState,
+} from '@podcast/shared';
 import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
 
 /**
@@ -21,12 +30,15 @@ import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
  *   META          TOKENS      SpotifyTokens
  *   META          SETTINGS    Settings
  *   META          SYNC        SyncState
+ *   META          SCHEDULE    Schedule (weekly plan)
  *   SESSION#<id>  SESSION     Session (TTL attribute `ttl`)
  *   SHOW          <showId>    Show
  *   EP#<showId>   <epId>      Episode           (written by sync only)
  *   PROG#<showId> <epId>      EpisodeProgress   (written by the user only)
+ *   NOTE#<showId> <epId>      EpisodeNote
  *
- * GSI1 (GSI1PK = HISTORY, GSI1SK = listenedAt) indexes completed episodes.
+ * GSI1 indexes completed episodes (GSI1PK = HISTORY, GSI1SK = listenedAt)
+ * and notes (GSI1PK = NOTES, GSI1SK = updatedAt).
  */
 export class DynamoStore implements Store {
   private readonly db: DynamoDBDocumentClient;
@@ -202,6 +214,50 @@ export class DynamoStore implements Store {
       }),
     );
     return (res.Items ?? []).map((i) => strip(i) as EpisodeProgress);
+  }
+
+  async getSchedule(): Promise<Schedule> {
+    return (await this.get<Schedule>('META', 'SCHEDULE')) ?? { entries: [] };
+  }
+  putSchedule(schedule: Schedule) {
+    return this.put('META', 'SCHEDULE', schedule);
+  }
+
+  getNote(showId: string, episodeId: string) {
+    return this.get<EpisodeNote>(`NOTE#${showId}`, episodeId);
+  }
+  putNote(note: EpisodeNote) {
+    return this.put(`NOTE#${note.showId}`, note.episodeId, note, { GSI1PK: 'NOTES', GSI1SK: note.updatedAt });
+  }
+  async deleteNote(showId: string, episodeId: string) {
+    await this.db.send(new DeleteCommand({ TableName: this.table, Key: { PK: `NOTE#${showId}`, SK: episodeId } }));
+  }
+  async listShowNotes(showId: string) {
+    const items = await this.queryAll({
+      KeyConditionExpression: 'PK = :pk',
+      ExpressionAttributeValues: { ':pk': `NOTE#${showId}` },
+    });
+    return items.map((i) => strip(i) as EpisodeNote);
+  }
+  async listNotes(limit: number) {
+    const items: Record<string, unknown>[] = [];
+    let ExclusiveStartKey: Record<string, unknown> | undefined;
+    do {
+      const res = await this.db.send(
+        new QueryCommand({
+          TableName: this.table,
+          IndexName: 'GSI1',
+          KeyConditionExpression: 'GSI1PK = :pk',
+          ExpressionAttributeValues: { ':pk': 'NOTES' },
+          ScanIndexForward: false,
+          Limit: limit - items.length,
+          ExclusiveStartKey,
+        }),
+      );
+      items.push(...(res.Items ?? []));
+      ExclusiveStartKey = res.LastEvaluatedKey;
+    } while (ExclusiveStartKey && items.length < limit);
+    return items.map((i) => strip(i) as EpisodeNote);
   }
 
   async deleteAll() {

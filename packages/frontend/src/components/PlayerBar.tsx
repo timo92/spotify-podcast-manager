@@ -6,6 +6,7 @@ import { usePlayer, type PlayTarget } from '../lib/player';
 import { qk, useInvalidateLibrary } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
+import { PlayerNoteSheet } from './Notes';
 import { Cover, IconButton } from './ui';
 
 export function PlayerBar() {
@@ -14,6 +15,7 @@ export function PlayerBar() {
   const invalidate = useInvalidateLibrary();
   const np = player.nowPlaying;
   const [dragging, setDragging] = useState<number | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
   if (!np) return null;
   const local = np.target.kind === 'browser';
 
@@ -53,7 +55,9 @@ export function PlayerBar() {
           </div>
         </div>
         <div className="player-controls">
-          {local && <IconButton icon="rewind" label="15 Sekunden zurück" onClick={() => player.seekBy(-15_000)} />}
+          {local && (
+            <IconButton icon="rewind" label="15 Sekunden zurück" className="hide-narrow" onClick={() => player.seekBy(-15_000)} />
+          )}
           {local && (
             <IconButton
               icon={np.paused ? 'play' : 'pause'}
@@ -63,7 +67,10 @@ export function PlayerBar() {
               size={22}
             />
           )}
-          {local && <IconButton icon="forward" label="30 Sekunden vor" onClick={() => player.seekBy(30_000)} />}
+          {local && (
+            <IconButton icon="forward" label="30 Sekunden vor" className="hide-narrow" onClick={() => player.seekBy(30_000)} />
+          )}
+          <IconButton icon="note" label="Notiz schreiben" onClick={() => setNotesOpen(true)} />
           <IconButton
             icon="check"
             label="Als gehört markieren"
@@ -81,6 +88,7 @@ export function PlayerBar() {
           <IconButton icon="close" label="Player schließen" onClick={player.close} />
         </div>
       </div>
+      {notesOpen && <PlayerNoteSheet onClose={() => setNotesOpen(false)} />}
     </div>
   );
 }

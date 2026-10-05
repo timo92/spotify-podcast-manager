@@ -39,6 +39,10 @@ The code, commit and PR guidelines apply to you as well:
 
 - `.env` holds credentials and personal settings. Never read, print or commit
   its values; `.env.example` documents the variables.
+- `packages/backend/.local-data/` is the local store of `pnpm dev`, including
+  the Spotify tokens. Don't read it either.
+- `.claude/settings.json` denies file access to both. The rule above also
+  covers shell commands, which those settings don't reliably catch.
 - Never deploy, and never run AWS commands that change resources, unless the
   user asks for it.
 

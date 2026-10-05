@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import type { Status } from '../lib/api';
+import styles from './auth.module.css';
 
 const ERRORS: Record<string, string> = {
   access_denied: 'Du hast den Zugriff in Spotify abgelehnt.',
@@ -17,8 +18,8 @@ export function LoginPage({ status }: { status: Status }) {
   const [params] = useSearchParams();
   const error = params.get('error');
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className={styles.page}>
+      <div className={styles.card}>
         <img src="/icon.svg" alt="" width={56} height={56} />
         <h1>Podcast-Cockpit</h1>
         <p className="muted">Was ist neu, und welche Folge ist als Nächstes dran?</p>

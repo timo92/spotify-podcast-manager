@@ -4,9 +4,11 @@ import type { Settings } from '@podcast/shared';
 import { Icon } from '../components/Icon';
 import { Chip, ErrorBox, Segmented, Spinner, Toggle } from '../components/ui';
 import { api } from '../lib/api';
+import { cx } from '../lib/cx';
 import { formatDateTime } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings, useStatus } from '../lib/queries';
 import { useToast } from '../lib/toast';
+import styles from './Settings.module.css';
 
 type Theme = 'system' | 'light' | 'dark';
 
@@ -76,14 +78,14 @@ export function SettingsPage() {
   const sync = status?.sync;
 
   return (
-    <div className="page settings">
+    <div className={cx('page', styles.page)}>
       <header className="page-head">
         <h1>Einstellungen</h1>
       </header>
 
       <section className="card stack">
         <h2 className="h3">Tagesbudget</h2>
-        <label className="field">
+        <label className={styles.field}>
           <span>Audio pro Tag: {draft.audioBudgetMinutes ? `${draft.audioBudgetMinutes} min` : 'kein Limit'}</span>
           <input
             type="range"
@@ -96,7 +98,7 @@ export function SettingsPage() {
             onKeyUp={() => void save({})}
           />
         </label>
-        <label className="field">
+        <label className={styles.field}>
           <span>Toleranz: {draft.budgetTolerancePercent} %</span>
           <input
             type="range"
@@ -114,7 +116,7 @@ export function SettingsPage() {
 
       <section className="card stack">
         <h2 className="h3">Folgen</h2>
-        <label className="field">
+        <label className={styles.field}>
           <span>„Neu“ heißt: erschienen in den letzten {draft.newWindowDays} Tagen</span>
           <input
             type="range"

@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { EpisodeNote } from '@podcast/shared';
 import { api } from '../lib/api';
+import { cx } from '../lib/cx';
 import { formatClock, formatRelative, splitTimestamps } from '../lib/format';
 import { usePlayer, type PlayableItem } from '../lib/player';
 import { qk } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
+import styles from './Notes.module.css';
 import { NowPlayingTitle } from './NowPlaying';
 import { Cover, IconButton } from './ui';
 
@@ -93,10 +95,10 @@ export function NoteEditor({
   }
 
   return (
-    <div className="note-editor">
+    <div className={styles.editor}>
       <textarea
         ref={ref}
-        className="note-input"
+        className={styles.input}
         rows={rows}
         value={text ?? ''}
         disabled={text === null}
@@ -106,13 +108,13 @@ export function NoteEditor({
         onBlur={() => void flush()}
         aria-label="Notiz"
       />
-      <div className="note-toolbar">
+      <div className={styles.toolbar}>
         {canStamp && (
           <button type="button" className="btn btn-small" onClick={insertTimestamp}>
             <Icon name="clock" size={16} /> Zeitstempel {formatClock(np!.positionMs)}
           </button>
         )}
-        <span className="muted tiny note-state">
+        <span className={cx('muted tiny', styles.state)}>
           {state === 'dirty' && 'Ungespeichert…'}
           {state === 'saving' && 'Speichert…'}
           {state === 'saved' && 'Gespeichert'}
@@ -133,10 +135,10 @@ export function NoteText({ note, item }: { note: Pick<EpisodeNote, 'text'>; item
     else void player.play(item, { positionMs: ms });
   };
   return (
-    <p className="note-text">
+    <p className={styles.text}>
       {splitTimestamps(note.text).map((part, i) =>
         'ms' in part ? (
-          <button key={i} type="button" className="timestamp" onClick={() => jump(part.ms)} title="Ab hier abspielen">
+          <button key={i} type="button" className={styles.timestamp} onClick={() => jump(part.ms)} title="Ab hier abspielen">
             {part.label}
           </button>
         ) : (
@@ -163,7 +165,7 @@ export function PlayerNoteSheet({ onClose }: { onClose: () => void }) {
   // Portal: the player bar is its own stacking context below the navigation.
   return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet note-sheet" role="dialog" aria-modal="true" aria-label="Notiz" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label="Notiz" onClick={(e) => e.stopPropagation()}>
         <div className="row gap">
           <Cover src={np.imageUrl} alt={np.showName} size={44} />
           <div className="grow">
@@ -172,7 +174,7 @@ export function PlayerNoteSheet({ onClose }: { onClose: () => void }) {
           <IconButton icon="close" label="Schließen" onClick={onClose} />
         </div>
         {local && (
-          <div className="row gap note-controls">
+          <div className={cx('row gap', styles.controls)}>
             <IconButton icon="rewind" label="15 Sekunden zurück" onClick={() => player.seekBy(-15_000)} />
             <IconButton
               icon={np.paused ? 'play' : 'pause'}

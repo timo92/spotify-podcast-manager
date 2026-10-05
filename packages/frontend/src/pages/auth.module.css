@@ -1,12 +1,12 @@
-/* Setup and login pages. */
+/* Login and "not configured" pages. */
 
-.auth-page {
+.page {
   min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 24px 16px;
 }
-.auth-card {
+.card {
   width: 100%;
   max-width: 460px;
   display: flex;
@@ -17,12 +17,13 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow);
+
+  & p {
+    margin: 0;
+  }
 }
-.auth-card.setup {
+.wide {
   max-width: 560px;
-}
-.auth-card p {
-  margin: 0;
 }
 .steps {
   margin: 0;
@@ -31,7 +32,7 @@
   flex-direction: column;
   gap: 10px;
 }
-.copy-field {
+.copyField {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -39,28 +40,11 @@
   padding: 6px 6px 6px 10px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
-}
-.copy-field code {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-size: 0.85rem;
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.field > span {
-  font-weight: 600;
-  font-size: 0.9rem;
-}
 
-.settings details summary {
-  cursor: pointer;
-  font-weight: 600;
-  padding: 4px 0;
-}
-.settings details[open] summary {
-  margin-bottom: 10px;
+  & code {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.85rem;
+  }
 }

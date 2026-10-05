@@ -219,9 +219,16 @@ export interface SyncState {
   startedAt?: string;
   finishedAt?: string;
   lastSuccessAt?: string;
+  /** German status text, for logs; clients build their own from the fields below. */
   message?: string;
   error?: string;
+  /** Stable code and parameters of `error` when it is a known API error, for the client's translation. */
+  errorCode?: string;
+  errorParams?: Record<string, string | number>;
+  /** While running: the podcast reloaded on its own (absent for a library sync). */
+  showId?: string;
   showsSynced?: number;
+  showsFailed?: number;
   newEpisodes?: number;
   /** Identifies the sync that holds the lease while status is 'running'. */
   leaseId?: string;
@@ -257,9 +264,11 @@ export interface PlayerDevice {
   isActive: boolean;
 }
 
+/** Error response of the API: a stable `code` the client translates with `params`; `message` is a German fallback. */
 export interface ApiErrorBody {
   error: string;
   message: string;
+  params?: Record<string, string | number>;
 }
 
 // ---------------------------------------------------------------- weekly plan

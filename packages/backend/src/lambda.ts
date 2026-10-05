@@ -50,7 +50,13 @@ export async function syncHandler(event: SyncOptions & { source?: string }) {
       // "running" – also when retention failed.
       if (event.leaseId) {
         const state = await store.getSyncState();
-        await store.releaseSyncLease(event.leaseId, { ...state, status: 'idle', leaseId: undefined, message: undefined });
+        await store.releaseSyncLease(event.leaseId, {
+          ...state,
+          status: 'idle',
+          leaseId: undefined,
+          showId: undefined,
+          message: undefined,
+        });
       }
     }
     return;

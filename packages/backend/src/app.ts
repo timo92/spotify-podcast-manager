@@ -60,7 +60,7 @@ async function readBody<T>(c: Context): Promise<Partial<T>> {
     const parsed: unknown = JSON.parse(text);
     return parsed && typeof parsed === 'object' ? (parsed as Partial<T>) : {};
   } catch {
-    throw badRequest('Ungültiges JSON');
+    throw badRequest('invalid_json', 'Ungültiges JSON');
   }
 }
 
@@ -100,13 +100,17 @@ export function createApp(deps: AppDeps) {
    * second click can't start a parallel sync, then hands it to the sync run.
    */
   async function startSync(opts: SyncOptions) {
-    const lease = await acquireSyncLease(store, { message: 'Gestartet…' });
+    const lease = await acquireSyncLease(store, { message: 'Gestartet…', showId: opts.showId });
     if (!lease) return store.getSyncState();
     try {
       await deps.triggerSync({ ...opts, leaseId: lease.leaseId });
     } catch (e) {
       // Nothing will run under this lease, so free it instead of blocking syncs.
-      await releaseSyncLease(store, lease, 'Sync konnte nicht gestartet werden.');
+      await releaseSyncLease(
+        store,
+        lease,
+        new ApiError(StatusCodes.BAD_GATEWAY, 'sync_start_failed', 'Sync konnte nicht gestartet werden.'),
+      );
       throw e;
     }
     return lease;
@@ -132,7 +136,9 @@ export function createApp(deps: AppDeps) {
 
   app.onError((err, c) => {
     c.header('Cache-Control', 'no-store');
-    if (err instanceof ApiError) return c.json({ error: err.code, message: err.message }, err.status as never);
+    if (err instanceof ApiError) {
+      return c.json({ error: err.code, message: err.message, params: err.params }, err.status as never);
+    }
     console.error('Unhandled error', err);
     return c.json(
       { error: 'internal', message: 'Interner Fehler – Details im CloudWatch-Log.' },
@@ -387,9 +393,9 @@ export function createApp(deps: AppDeps) {
       /** Explicit start position, e.g. from a timestamp in a note. */
       positionMs?: number;
     }>(c);
-    if (!showId || !episodeId) throw badRequest('showId und episodeId sind erforderlich');
+    if (!showId || !episodeId) throw badRequest('episode_required', 'showId und episodeId sind erforderlich');
     const cached = await store.getEpisode(showId, episodeId);
-    if (!cached) throw notFound('Folge nicht gefunden');
+    if (!cached) throw notFound('episode_not_found', 'Folge nicht gefunden');
 
     // Fetch the episode fresh so we resume where Spotify left off.
     const spotify = deps.spotify();

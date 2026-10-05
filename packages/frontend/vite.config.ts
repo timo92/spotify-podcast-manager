@@ -23,6 +23,9 @@ function fakeSpotifySdk(): Plugin {
   };
 }
 
+/** In GitHub Codespaces, the forwarded URLs (https://<codespace>-5173.app.github.dev) reach the dev server. */
+const codespacesDomain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+
 // The API runs on :8787 locally (pnpm dev:backend); same-origin in AWS via CloudFront.
 export default defineConfig(({ mode }) => {
   if (mode === 'demo') process.env.VITE_SPOTIFY_SDK_URL = FAKE_SDK_PATH;
@@ -31,6 +34,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '127.0.0.1',
       port: 5173,
+      allowedHosts: codespacesDomain ? [`.${codespacesDomain}`] : [],
       proxy: {
         '/api': { target: 'http://127.0.0.1:8787', changeOrigin: false },
       },

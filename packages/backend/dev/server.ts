@@ -10,6 +10,8 @@
  *                    rather than an env prefix, so the script also runs on
  *                    Windows.
  *   TABLE_NAME=…     use a real DynamoDB table instead of the JSON file
+ *   PUBLIC_URL=…     the UI's public URL for login redirects; in GitHub
+ *                    Codespaces it defaults to the forwarded URL of the UI
  *
  * Everything demo-specific lives here and in test/fakes – the app itself has
  * no demo mode.
@@ -26,6 +28,7 @@ import { DynamoStore } from '../src/store/dynamo.js';
 import { MemoryStore } from '../src/store/memory.js';
 import type { Store } from '../src/store/types.js';
 import { FakeSpotifyApi, fakeSpotifyAuth } from '../test/fakes/fake-spotify.js';
+import { codespacesPublicUrl } from './codespaces.js';
 
 const demo = process.argv.includes('--demo') || process.env.SPOTIFY_FAKE === '1';
 const port = Number(process.env.PORT ?? 8787);
@@ -50,7 +53,7 @@ const app = createApp({
   credentials,
   auth: demo ? fakeSpotifyAuth : undefined,
   triggerSync,
-  publicUrl: process.env.PUBLIC_URL,
+  publicUrl: process.env.PUBLIC_URL ?? codespacesPublicUrl(process.env),
 });
 
 const root = new Hono();

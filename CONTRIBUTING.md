@@ -78,7 +78,13 @@ There is no formatter yet; match the surrounding code:
 
 ### Language
 
-- User-facing text (UI and API error messages) is German.
+- User-facing text is German and English. It lives only in
+  `frontend/src/locales/<de|en>/<area>.json` and is used through
+  `useTranslation` (typed keys); no UI string is hard-coded in a component.
+  Add every key to both languages; the i18n test checks that.
+- API errors carry a stable `code` (and `params`) that the frontend
+  translates; their `message` is a German fallback for logs. A new error
+  code needs a translation in `errors.json`.
 - Everything else is English: identifiers, comments, docs, commits, PRs,
   issues.
 

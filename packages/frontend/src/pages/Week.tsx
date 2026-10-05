@@ -39,7 +39,7 @@ export function WeekPage() {
     else void save(removeRule(rules, rule.id), t('toast.dayRemoved', { show: item.show.name, day: weekdayLong(weekday) }));
   }
 
-  const weekMinutes = (week.data?.days ?? []).reduce((sum, d) => sum + d.openMs, 0);
+  const weekOpenMs = (week.data?.days ?? []).reduce((sum, d) => sum + d.openMs, 0);
 
   return (
     <div className="page">
@@ -48,7 +48,8 @@ export function WeekPage() {
           <h1>{t('week.title')}</h1>
           <p className="muted">
             {slotCount
-              ? t('week.summary', { count: slotCount, open: formatDuration(weekMinutes) })
+              ? t('week.slots', { count: slotCount }) +
+                (weekOpenMs > 0 ? ` · ${t('week.open', { open: formatDuration(weekOpenMs) })}` : '')
               : t('week.intro')}
           </p>
           <SpotifyAttribution on="page" />

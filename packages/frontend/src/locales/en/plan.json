@@ -12,8 +12,9 @@
   },
   "week": {
     "title": "Weekly plan",
-    "summary_one": "{{count}} slot per week · {{open}} open in the next 7 days",
-    "summary_other": "{{count}} slots per week · {{open}} open in the next 7 days",
+    "slots_one": "{{count}} slot per week",
+    "slots_other": "{{count}} slots per week",
+    "open": "{{open}} open in the next 7 days",
     "intro": "Decide which podcast you listen to on which days.",
     "emptyTitle": "No plan yet",
     "emptyText": "For example: the news on weekday mornings, and an episode of your history series on Tuesday and Thursday evenings. The app picks the right episode each time.",

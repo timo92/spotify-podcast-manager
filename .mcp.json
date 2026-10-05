@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headersHelper": "node --env-file-if-exists=.env -p \"const t=process.env.GITHUB_PAT;if(!t)throw new Error('GITHUB_PAT is not set (.env)');JSON.stringify({Authorization:'Bearer '+t})\""
+    }
+  }
+}

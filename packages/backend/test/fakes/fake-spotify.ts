@@ -97,7 +97,7 @@ export interface FakePlaybackState {
 
 /**
  * Offline stand-in for Spotify, used by tests and by the dev server's demo
- * mode (SPOTIFY_FAKE=1). Generates a handful of shows whose newest episode is
+ * mode (`pnpm dev:demo`). Generates a handful of shows whose newest episode is
  * always "today" and keeps a fake playback state that the fake Web Playback
  * SDK (packages/frontend/dev) reads, just like the real SDK follows Spotify.
  */

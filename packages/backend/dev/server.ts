@@ -5,8 +5,10 @@
  * Configuration comes from the environment or the repository's `.env` file
  * (see .env.example; loaded by the package scripts via --env-file-if-exists):
  *   SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET   your Spotify developer app
- *   SPOTIFY_FAKE=1   offline demo: fake Spotify (shows, login, playback), no
- *                    Spotify app needed
+ *   --demo           offline demo (or SPOTIFY_FAKE=1): fake Spotify (shows,
+ *                    login, playback), no Spotify app needed. A CLI flag
+ *                    rather than an env prefix, so the script also runs on
+ *                    Windows.
  *   TABLE_NAME=…     use a real DynamoDB table instead of the JSON file
  *
  * Everything demo-specific lives here and in test/fakes – the app itself has
@@ -25,7 +27,7 @@ import { MemoryStore } from '../src/store/memory.js';
 import type { Store } from '../src/store/types.js';
 import { FakeSpotifyApi, fakeSpotifyAuth } from '../test/fakes/fake-spotify.js';
 
-const demo = process.env.SPOTIFY_FAKE === '1';
+const demo = process.argv.includes('--demo') || process.env.SPOTIFY_FAKE === '1';
 const port = Number(process.env.PORT ?? 8787);
 const dataFile = resolve(process.cwd(), process.env.DATA_FILE ?? `.local-data/${demo ? 'demo' : 'db'}.json`);
 const store: Store = process.env.TABLE_NAME ? new DynamoStore(process.env.TABLE_NAME) : new MemoryStore(dataFile);

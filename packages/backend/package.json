@@ -7,7 +7,7 @@
     "dev": "tsx watch --env-file-if-exists=../../.env dev/server.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "dev:demo": "SPOTIFY_FAKE=1 tsx watch --env-file-if-exists=../../.env dev/server.ts"
+    "dev:demo": "tsx watch --env-file-if-exists=../../.env dev/server.ts --demo"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1146.0",

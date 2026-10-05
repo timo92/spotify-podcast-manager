@@ -54,13 +54,3 @@
   font-size: 0.84rem;
   color: var(--text-muted);
 }
-.radio {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  flex: none;
-}
-.radio.is-on {
-  border: 5px solid var(--accent);
-}

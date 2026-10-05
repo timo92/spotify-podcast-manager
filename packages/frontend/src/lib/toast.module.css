@@ -12,10 +12,6 @@
   width: min(480px, calc(100vw - 32px));
   pointer-events: none;
 }
-.app:has(.player) ~ .toasts,
-body:has(.player) .toasts {
-  --player-h: 84px;
-}
 .toast {
   pointer-events: auto;
   display: flex;
@@ -27,16 +23,18 @@ body:has(.player) .toasts {
   color: var(--bg);
   font-size: 0.9rem;
   box-shadow: 0 8px 30px rgb(0 0 0 / 0.2);
-  animation: slide-up 0.18s ease-out;
+  /* global(): the keyframes are shared, defined in styles/sheet.css. */
+  animation: global(slide-up) 0.18s ease-out;
+
+  & span {
+    flex: 1;
+  }
 }
-.toast span {
-  flex: 1;
-}
-.toast-error {
+.error {
   background: var(--error);
   color: #fff;
 }
-.toast-action {
+.action {
   border: none;
   background: transparent;
   color: inherit;

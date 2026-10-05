@@ -1,23 +1,21 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { PlannedItem, ScheduleRule, Weekday } from '@podcast/shared';
+import { useQuery } from '@tanstack/react-query';
+import { removeRule, removeWeekday, replaceRule, type PlannedItem, type ScheduleRule, type Weekday } from '@podcast/shared';
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Icon } from '../components/Icon';
 import { PlanItemRow } from '../components/PlanItem';
 import { ScheduleRuleSheet } from '../components/ScheduleRuleSheet';
 import { Empty, ErrorBox, IconButton, Spinner } from '../components/ui';
+import { useSaveSchedule } from '../lib/actions';
 import { api } from '../lib/api';
 import { DAY_PART_LABEL, formatDayMonth, formatDuration, formatWeekdays, WEEKDAY_LONG, WEEKDAY_SHORT } from '../lib/format';
-import { qk, useInvalidateLibrary } from '../lib/queries';
-import { useToast } from '../lib/toast';
+import { qk } from '../lib/queries';
 
 export function WeekPage() {
   const week = useQuery({ queryKey: qk.week, queryFn: api.week });
   const schedule = useQuery({ queryKey: qk.schedule, queryFn: api.schedule });
-  const qc = useQueryClient();
-  const invalidate = useInvalidateLibrary();
-  const toast = useToast();
+  const save = useSaveSchedule();
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState<Weekday[] | null>(null);
   const [editingRule, setEditingRule] = useState<ScheduleRule | null>(null);
@@ -27,17 +25,6 @@ export function WeekPage() {
   const rules = schedule.data?.rules ?? [];
   const slotCount = rules.reduce((n, r) => n + r.weekdays.length, 0);
 
-  async function save(next: ScheduleRule[], message: string) {
-    try {
-      const saved = await api.saveSchedule({ rules: next });
-      qc.setQueryData(qk.schedule, saved);
-      await invalidate();
-      toast({ message, tone: 'success' });
-    } catch (e) {
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
-  }
-
   const ruleOf = (item: PlannedItem) => rules.find((r) => r.id === item.ruleId) ?? null;
 
   /** A rule with one day goes at once; otherwise the user picks the day or the whole rule. */
@@ -45,7 +32,7 @@ export function WeekPage() {
     const rule = ruleOf(item);
     if (!rule) return;
     if (rule.weekdays.length > 1) setRemoving({ rule, item, weekday });
-    else void save(withoutRule(rules, rule.id), `${item.show.name} am ${WEEKDAY_LONG[weekday]} entfernt`);
+    else void save(removeRule(rules, rule.id), `${item.show.name} am ${WEEKDAY_LONG[weekday]} entfernt`);
   }
 
   const weekMinutes = (week.data?.days ?? []).reduce((sum, d) => sum + d.openMs, 0);
@@ -143,13 +130,13 @@ export function WeekPage() {
           onSave={(rule, showName) => {
             setEditingRule(null);
             void save(
-              rules.map((r) => (r.id === rule.id ? rule : r)),
+              replaceRule(rules, rule),
               `${showName}: ${formatWeekdays(rule.weekdays)} · ${DAY_PART_LABEL[rule.part]}`,
             );
           }}
           onDelete={() => {
             setEditingRule(null);
-            void save(withoutRule(rules, editingRule.id), 'Regel entfernt');
+            void save(removeRule(rules, editingRule.id), 'Regel entfernt');
           }}
         />
       )}
@@ -160,31 +147,19 @@ export function WeekPage() {
           onRemoveDay={() => {
             setRemoving(null);
             void save(
-              withoutDay(rules, removing.rule.id, removing.weekday),
+              removeWeekday(rules, removing.rule.id, removing.weekday),
               `${removing.item.show.name} am ${WEEKDAY_LONG[removing.weekday]} entfernt`,
             );
           }}
           onRemoveRule={() => {
             setRemoving(null);
-            void save(withoutRule(rules, removing.rule.id), `${removing.item.show.name}: Regel entfernt`);
+            void save(removeRule(rules, removing.rule.id), `${removing.item.show.name}: Regel entfernt`);
           }}
         />
       )}
       {open && <EpisodeSheet {...open} onClose={() => setOpen(null)} />}
     </div>
   );
-}
-
-/** Removes the whole rule, i.e. all of its slots. */
-function withoutRule(rules: ScheduleRule[], ruleId: string): ScheduleRule[] {
-  return rules.filter((r) => r.id !== ruleId);
-}
-
-/** Removes one weekday from a rule, and the rule once it has no weekday left. */
-function withoutDay(rules: ScheduleRule[], ruleId: string, weekday: Weekday): ScheduleRule[] {
-  return rules
-    .map((r) => (r.id === ruleId ? { ...r, weekdays: r.weekdays.filter((d) => d !== weekday) } : r))
-    .filter((r) => r.weekdays.length > 0);
 }
 
 function RemoveSlotSheet({

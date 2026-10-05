@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { buildEpisodeViews, buildToday, summarizeShow } from '../src/logic.js';
-import { addDays, buildWeek, isLegacySchedule, localDate, migrateSchedule, weekdayOf, type PlanInput } from '../src/plan.js';
+import {
+  addDays,
+  buildWeek,
+  isLegacySchedule,
+  localDate,
+  migrateSchedule,
+  removeRule,
+  removeWeekday,
+  replaceRule,
+  weekdayOf,
+  type PlanInput,
+} from '../src/plan.js';
 import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Schedule, type Show } from '../src/types.js';
 
 const now = new Date('2026-10-05T08:00:00Z'); // a Monday
@@ -160,6 +171,24 @@ describe('buildWeek', () => {
     const inputs = new Map([['news', input(show('news', 'MANUAL'), eps('news', 2))]]);
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, schedule, inputs);
     expect(mon.items[0].state).toBe('none');
+  });
+});
+
+describe('rule edits', () => {
+  const rules: Schedule['rules'] = [
+    { id: 'a', showId: 'news', weekdays: [1, 3], part: 'MORNING' },
+    { id: 'b', showId: 'series', weekdays: [2], part: 'EVENING' },
+  ];
+
+  it('replaces and removes rules', () => {
+    const changed = { ...rules[0], weekdays: [5 as const] };
+    expect(replaceRule(rules, changed)).toEqual([changed, rules[1]]);
+    expect(removeRule(rules, 'a')).toEqual([rules[1]]);
+  });
+
+  it('removes a weekday, and the rule with its last weekday', () => {
+    expect(removeWeekday(rules, 'a', 3)).toEqual([{ ...rules[0], weekdays: [1] }, rules[1]]);
+    expect(removeWeekday(rules, 'b', 2)).toEqual([rules[0]]);
   });
 });
 

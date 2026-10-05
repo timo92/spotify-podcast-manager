@@ -1,5 +1,5 @@
 import { StatusCodes } from 'http-status-codes';
-import { ApiError } from '../errors.js';
+import { ApiError, deviceUnavailable } from '../errors.js';
 import type { SpotifyTokens, Store } from '../store/types.js';
 import type { SpotifyCredentials, SpotifyCredentialsProvider } from './credentials.js';
 import type {
@@ -287,10 +287,19 @@ export class HttpSpotifyApi implements SpotifyApi {
 
   async play(episodeId: string, deviceId: string | undefined, positionMs: number) {
     const qs = deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : '';
-    await this.request('PUT', `/me/player/play${qs}`, {
-      uris: [`spotify:episode:${episodeId}`],
-      position_ms: Math.max(0, Math.floor(positionMs)),
-    });
+    try {
+      await this.request('PUT', `/me/player/play${qs}`, {
+        uris: [`spotify:episode:${episodeId}`],
+        position_ms: Math.max(0, Math.floor(positionMs)),
+      });
+    } catch (e) {
+      // Spotify keeps listing a device for a while after its app was suspended
+      // (iOS), but can't wake it: playing there answers 404 "Device not found".
+      if (deviceId && e instanceof ApiError && e.code === 'spotify_error' && e.status === StatusCodes.NOT_FOUND) {
+        throw deviceUnavailable();
+      }
+      throw e;
+    }
   }
 
   async getPlayingEpisode(): Promise<PlayingEpisode | undefined> {

@@ -475,6 +475,25 @@ describe('library flow', () => {
     expect(saved.body).toMatchObject({ positionMs: null });
   });
 
+  it('reports a listed device that Spotify cannot reach', async () => {
+    const t = await ready();
+    const devices = (await t.call('GET', '/api/player/devices')).body as { id: string; name: string }[];
+    const sleeping = devices.find((d) => d.name.includes('Standby'))!;
+    const res = await t.call('POST', '/api/player/play', {
+      showId: 'demo-wissensreise',
+      episodeId: 'demo-wissensreise-1',
+      deviceId: sleeping.id,
+    });
+    expect(res.status).toBe(StatusCodes.NOT_FOUND);
+    expect(res.body).toMatchObject({ error: 'device_unavailable' });
+    const ok = await t.call('POST', '/api/player/play', {
+      showId: 'demo-wissensreise',
+      episodeId: 'demo-wissensreise-1',
+      deviceId: 'demo-phone',
+    });
+    expect(ok.status).toBe(200);
+  });
+
   it('deletes all data', async () => {
     const t = await ready();
     expect((await t.call('DELETE', '/api/data')).status).toBe(200);

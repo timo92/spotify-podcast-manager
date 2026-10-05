@@ -30,5 +30,12 @@ export const notFound = (
   message = 'Nicht gefunden',
 ) =>
   new ApiError(StatusCodes.NOT_FOUND, code, message);
+/** A listed Spotify Connect device that Spotify can't reach (e.g. a suspended phone app). Kept at 404. */
+export const deviceUnavailable = () =>
+  new ApiError(
+    StatusCodes.NOT_FOUND,
+    'device_unavailable',
+    'Das Gerät ist bei Spotify gerade nicht erreichbar. Öffne Spotify dort und versuche es erneut.',
+  );
 export const unauthorized = (message = 'Nicht angemeldet') =>
   new ApiError(StatusCodes.UNAUTHORIZED, 'unauthorized', message);

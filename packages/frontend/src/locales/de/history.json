@@ -4,7 +4,7 @@
   "tabPlayed": "Gehört",
   "tabNotes": "Notizen",
   "notesEmptyTitle": "Noch keine Notizen",
-  "notesEmptyText": "Öffne eine Folge oder tippe im Player auf <icon/> – Notizen werden automatisch gespeichert.",
+  "notesEmptyText": "Öffne eine Folge oder tippe im Player auf <icon/>, um eine Notiz zu schreiben.",
   "notesSearch": "Notizen durchsuchen",
   "lastWeek": "{{time}} in den letzten 7 Tagen",
   "recent": "Zuletzt gehörte Folgen",

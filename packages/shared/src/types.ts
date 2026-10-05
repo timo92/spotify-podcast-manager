@@ -70,7 +70,7 @@ export interface EpisodeView extends Episode {
   remainingMs: number;
   /** 1-based position in chronological (oldest first) order. */
   index: number;
-  /** A personal note exists for this episode. */
+  /** At least one personal note exists for this episode. */
   hasNote?: boolean;
 }
 
@@ -344,14 +344,36 @@ export interface WeekResponse {
 
 // ---------------------------------------------------------------------- notes
 
+/** One note on an episode; an episode can have any number of them. */
 export interface EpisodeNote {
+  /** Unique within the episode. */
+  id: string;
   showId: string;
   episodeId: string;
+  /** Position in the episode the note refers to, or null for a note on the whole episode. */
+  positionMs: number | null;
   text: string;
+  /** When the note was written; the notes list is ordered and filtered by it. */
   createdAt: string;
   updatedAt: string;
   episodeName?: string;
   showName?: string;
   /** Release date of the episode when the note was saved; orders notes by episode. */
   episodeReleaseDate?: string;
+}
+
+/**
+ * A new note (POST …/notes). Without `positionMs`, the note gets the current
+ * playback position if Spotify is playing this episode, else none; `null`
+ * means explicitly no position.
+ */
+export interface NoteCreate {
+  text: string;
+  positionMs?: number | null;
+}
+
+/** A change to a note (PATCH …/notes/:noteId); omitted fields stay as they are. */
+export interface NotePatch {
+  text?: string;
+  positionMs?: number | null;
 }

@@ -4,6 +4,8 @@ import {
   type AppStatus,
   type ErrorCode,
   type EpisodeNote,
+  type NoteCreate,
+  type NotePatch,
   type Schedule,
   type ScheduleSave,
   type WeekResponse,
@@ -41,6 +43,12 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
+}
+
+type NoteRef = Pick<EpisodeNote, 'showId' | 'episodeId' | 'id'>;
+
+function notesPath(showId: string, episodeId: string) {
+  return `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/notes`;
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -112,17 +120,13 @@ export const api = {
   week: () => request<WeekResponse>('GET', `/api/week?tz=${encodeURIComponent(TIME_ZONE)}`),
 
   notes: () => request<EpisodeNote[]>('GET', '/api/notes'),
-  note: (showId: string, episodeId: string) =>
-    request<EpisodeNote | null>(
-      'GET',
-      `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/note`,
-    ),
-  saveNote: (showId: string, episodeId: string, text: string) =>
-    request<EpisodeNote | null>(
-      'PUT',
-      `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/note`,
-      { text },
-    ),
+  episodeNotes: (showId: string, episodeId: string) => request<EpisodeNote[]>('GET', notesPath(showId, episodeId)),
+  createNote: (showId: string, episodeId: string, note: NoteCreate) =>
+    request<EpisodeNote>('POST', notesPath(showId, episodeId), note),
+  updateNote: (note: NoteRef, patch: NotePatch) =>
+    request<EpisodeNote>('PATCH', `${notesPath(note.showId, note.episodeId)}/${encodeURIComponent(note.id)}`, patch),
+  deleteNote: (note: NoteRef) =>
+    request<{ ok: true }>('DELETE', `${notesPath(note.showId, note.episodeId)}/${encodeURIComponent(note.id)}`),
 
   deleteAll: () => request('DELETE', '/api/data'),
 };

@@ -190,6 +190,11 @@ export class FakeSpotifyApi implements SpotifyApi {
     this.playback = { episodeId, durationMs: ep?.duration_ms ?? 0, positionMs, paused: false, since: Date.now() };
   }
 
+  async getPlayingEpisode() {
+    const { episodeId, positionMs } = this.playbackState();
+    return episodeId ? { episodeId, positionMs } : undefined;
+  }
+
   /** Current fake playback state (position advances while not paused). */
   playbackState(): FakePlaybackState {
     const p = this.playback;

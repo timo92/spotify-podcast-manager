@@ -22,6 +22,7 @@ interface Data {
   episodes: Record<string, Record<string, Episode>>;
   progress: Record<string, Record<string, EpisodeProgress>>;
   schedule?: Schedule;
+  /** Notes per show, keyed by `<episodeId>#<noteId>`. */
   notes: Record<string, Record<string, EpisodeNote>>;
 }
 
@@ -184,16 +185,21 @@ export class MemoryStore implements Store {
     this.save();
     return true;
   }
-  async getNote(showId: string, episodeId: string) {
-    return clone(this.data.notes[showId]?.[episodeId]);
+  async getNote(showId: string, episodeId: string, noteId: string) {
+    return clone(this.data.notes[showId]?.[`${episodeId}#${noteId}`]);
   }
   async putNote(note: EpisodeNote) {
-    (this.data.notes[note.showId] ??= {})[note.episodeId] = clone(note);
+    (this.data.notes[note.showId] ??= {})[`${note.episodeId}#${note.id}`] = clone(note);
     this.save();
   }
-  async deleteNote(showId: string, episodeId: string) {
-    delete this.data.notes[showId]?.[episodeId];
+  async deleteNote(showId: string, episodeId: string, noteId: string) {
+    delete this.data.notes[showId]?.[`${episodeId}#${noteId}`];
     this.save();
+  }
+  async listEpisodeNotes(showId: string, episodeId: string) {
+    return Object.values(this.data.notes[showId] ?? {})
+      .filter((n) => n.episodeId === episodeId)
+      .map(clone);
   }
   async listShowNotes(showId: string) {
     return Object.values(this.data.notes[showId] ?? {}).map(clone);
@@ -201,7 +207,7 @@ export class MemoryStore implements Store {
   async listNotes(limit: number) {
     return Object.values(this.data.notes)
       .flatMap((m) => Object.values(m))
-      .sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1))
+      .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
       .slice(0, limit)
       .map(clone);
   }

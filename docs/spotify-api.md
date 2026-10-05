@@ -17,6 +17,7 @@ SDK in the browser.
 | Single episode (resume point before playback, refresh of the "next" episode) | `GET /v1/episodes/{id}` | `user-read-playback-position` |
 | Devices | `GET /v1/me/player/devices` | `user-read-playback-state` |
 | Start playback | `PUT /v1/me/player/play?device_id=…` with `uris` and `position_ms` | `user-modify-playback-state` |
+| Position for a new note (the playing episode on any device) | `GET /v1/me/player?additional_types=episode` | `user-read-playback-state` |
 | In-browser player | Web Playback SDK (`https://sdk.scdn.co/spotify-player.js`) | `streaming`, `user-read-email`, `user-read-private` |
 
 

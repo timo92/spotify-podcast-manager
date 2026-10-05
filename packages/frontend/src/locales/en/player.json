@@ -32,15 +32,20 @@
     "autoplayBlocked": "The browser blocked autoplay – please tap play again."
   },
   "note": {
-    "label": "Note",
-    "placeholder": "Thoughts, quotes, links … – saved automatically",
-    "timestamp": "Timestamp {{time}}",
-    "unsaved": "Unsaved…",
-    "saving": "Saving…",
-    "saved": "Saved",
-    "saveFailed": "Could not save",
+    "label": "Notes",
+    "new": "New note",
+    "placeholder": "Thought, quote, link …",
+    "add": "Add note",
+    "at": "At {{time}}",
+    "autoPosition": "If Spotify is playing this episode right now, its position is used.",
+    "text": "Note text",
+    "position": "Position in the episode (empty: whole episode)",
+    "positionInvalid": "Please enter it as mm:ss or h:mm:ss.",
+    "edit": "Edit note",
+    "delete": "Delete note",
+    "deleted": "Note deleted",
+    "cancel": "Cancel",
     "notSaved": "Note not saved: {{error}}",
-    "lastEdited": "Last edited {{when}}",
     "jump": "Play from here"
   }
 }

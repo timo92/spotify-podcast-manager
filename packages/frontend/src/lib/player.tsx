@@ -30,6 +30,31 @@ export interface PlayableItem {
   episode: Pick<EpisodeView, 'id' | 'name' | 'durationMs' | 'spotifyUrl' | 'imageUrl' | 'status' | 'statusSource'>;
 }
 
+/**
+ * A playable item for an episode known only by ids and names (from a note or
+ * the player): enough to play it and to link to it on Spotify.
+ */
+export function episodeItem(ref: {
+  showId: string;
+  showName?: string;
+  episodeId: string;
+  episodeName?: string;
+  durationMs?: number;
+  imageUrl?: string;
+}): PlayableItem {
+  return {
+    show: { id: ref.showId, name: ref.showName ?? '', imageUrl: ref.imageUrl },
+    episode: {
+      id: ref.episodeId,
+      name: ref.episodeName ?? '',
+      durationMs: ref.durationMs ?? 0,
+      spotifyUrl: `https://open.spotify.com/episode/${ref.episodeId}`,
+      status: 'UNSEEN',
+      statusSource: 'default',
+    },
+  };
+}
+
 interface PlayerApi {
   target: PlayTarget;
   setTarget: (t: PlayTarget) => void;

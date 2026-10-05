@@ -1,7 +1,7 @@
 import { CreateTableCommand, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import dynalite from 'dynalite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Episode, Show } from '@podcast/shared';
+import type { Episode, EpisodeNote, Show } from '@podcast/shared';
 import { DynamoStore } from '../src/store/dynamo.js';
 import { MemoryStore } from '../src/store/memory.js';
 import type { Store } from '../src/store/types.js';
@@ -104,16 +104,37 @@ function contract(name: string, create: () => Promise<Store>) {
       await store.putSchedule({ rules: [{ id: 'a', showId: 's1', weekdays: [1, 3], part: 'MORNING' }] });
       expect((await store.getSchedule()).rules).toEqual([{ id: 'a', showId: 's1', weekdays: [1, 3], part: 'MORNING' }]);
 
-      await store.putNote({ showId: 's1', episodeId: 'e2', text: 'one', createdAt: 'c', updatedAt: '2026-01-01T00:00:00Z' });
-      await store.putNote({ showId: 's1', episodeId: 'e3', text: 'two', createdAt: 'c', updatedAt: '2026-01-02T00:00:00Z' });
-      expect((await store.getNote('s1', 'e2'))?.text).toBe('one');
-      expect(await store.listShowNotes('s1')).toHaveLength(2);
-      expect((await store.listNotes(10)).map((n) => n.episodeId)).toEqual(['e3', 'e2']);
-      expect((await store.listNotes(1)).map((n) => n.episodeId)).toEqual(['e3']);
+      const note = (episodeId: string, id: string, createdAt: string, positionMs: number | null = null): EpisodeNote => ({
+        id,
+        showId: 's1',
+        episodeId,
+        positionMs,
+        text: `${episodeId}/${id}`,
+        createdAt,
+        updatedAt: createdAt,
+      });
+      await store.putNote(note('e2', 'n1', '2026-01-01T00:00:00Z', 61_000));
+      await store.putNote(note('e2', 'n2', '2026-01-03T00:00:00Z'));
+      await store.putNote(note('e3', 'n1', '2026-01-02T00:00:00Z'));
+      // An episode id that is a prefix of another must not pick up its notes.
+      await store.putNote(note('e2x', 'n1', '2026-01-04T00:00:00Z'));
+      expect(await store.getNote('s1', 'e2', 'n1')).toEqual(note('e2', 'n1', '2026-01-01T00:00:00Z', 61_000));
+      expect(await store.getNote('s1', 'e2', 'missing')).toBeUndefined();
+      expect((await store.listEpisodeNotes('s1', 'e2')).map((n) => n.id).sort()).toEqual(['n1', 'n2']);
+      expect(await store.listShowNotes('s1')).toHaveLength(4);
+      expect((await store.listNotes(10)).map((n) => n.text)).toEqual(['e2x/n1', 'e2/n2', 'e3/n1', 'e2/n1']);
+      expect((await store.listNotes(1)).map((n) => n.text)).toEqual(['e2x/n1']);
       // notes don't leak into the listening history
       expect((await store.listHistory(10)).every((h) => h.status === 'COMPLETED')).toBe(true);
-      await store.deleteNote('s1', 'e2');
-      expect(await store.listShowNotes('s1')).toHaveLength(1);
+
+      await store.putNote({ ...note('e2', 'n2', '2026-01-03T00:00:00Z'), text: 'edited', updatedAt: '2026-02-01T00:00:00Z' });
+      expect((await store.getNote('s1', 'e2', 'n2'))?.text).toBe('edited');
+      expect(await store.listEpisodeNotes('s1', 'e2')).toHaveLength(2);
+
+      await store.deleteNote('s1', 'e2', 'n1');
+      await store.deleteNote('s1', 'e2', 'missing');
+      expect((await store.listEpisodeNotes('s1', 'e2')).map((n) => n.id)).toEqual(['n2']);
+      expect(await store.listShowNotes('s1')).toHaveLength(3);
     });
 
     it('grants the sync lease to one holder at a time', async () => {
@@ -174,7 +195,7 @@ function contract(name: string, create: () => Promise<Store>) {
       await store.putShow({ ...show, id: 'gone' });
       await store.putEpisodes([{ ...episodes[0], showId: 'gone', id: 'g1' }]);
       await store.putProgress([{ showId: 'gone', episodeId: 'g1', status: 'COMPLETED', listenedAt: 'x', updatedAt: 'u' }]);
-      await store.putNote({ showId: 'gone', episodeId: 'g1', text: 'n', createdAt: 'c', updatedAt: 'u' });
+      await store.putNote({ id: 'n', showId: 'gone', episodeId: 'g1', positionMs: null, text: 'n', createdAt: 'c', updatedAt: 'u' });
       await store.deleteShow('gone');
       expect(await store.getShow('gone')).toBeUndefined();
       expect(await store.listEpisodes('gone')).toHaveLength(0);

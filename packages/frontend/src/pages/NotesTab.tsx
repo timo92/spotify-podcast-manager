@@ -12,11 +12,12 @@ import {
   type PeriodPreset,
 } from '@podcast/shared';
 import { Icon } from '../components/Icon';
-import { NoteText } from '../components/Notes';
+import { NoteText, PositionButton } from '../components/Notes';
 import { Chip, Cover, Empty, ErrorBox, Segmented, Spinner } from '../components/ui';
 import { api, TIME_ZONE } from '../lib/api';
 import { cx } from '../lib/cx';
 import { formatRelative } from '../lib/format';
+import { episodeItem } from '../lib/player';
 import { qk } from '../lib/queries';
 import styles from './NotesTab.module.css';
 
@@ -57,8 +58,9 @@ function rangeOf(period: Period, today: string): DateRange {
 }
 
 /**
- * Verlauf → Notizen: all notes, optionally grouped by podcast and limited to
- * a period of their last edit. The search works within that result.
+ * Verlauf → Notizen: one card per note, optionally grouped by podcast and
+ * limited to a period of when they were written. The search works within that
+ * result.
  */
 export function NotesTab({ onOpen }: { onOpen: (showId: string, episodeId: string) => void }) {
   const { t } = useTranslation('history');
@@ -102,7 +104,7 @@ export function NotesTab({ onOpen }: { onOpen: (showId: string, episodeId: strin
   }
 
   const card = (n: EpisodeNote, showName: boolean) => (
-    <NoteCard key={`${n.showId}-${n.episodeId}`} note={n} showName={showName} onOpen={onOpen} />
+    <NoteCard key={`${n.showId}-${n.episodeId}-${n.id}`} note={n} showName={showName} onOpen={onOpen} />
   );
 
   return (
@@ -188,6 +190,7 @@ function NoteCard({
   showName: boolean;
   onOpen: (showId: string, episodeId: string) => void;
 }) {
+  const item = episodeItem(note);
   return (
     <article className={cx('card', styles.noteCard)}>
       <div className="row-between">
@@ -201,22 +204,12 @@ function NoteCard({
             {note.episodeName ?? note.episodeId}
           </button>
         </div>
-        <span className="muted tiny">{formatRelative(note.updatedAt)}</span>
+        <span className="muted tiny">{formatRelative(note.createdAt)}</span>
       </div>
-      <NoteText
-        note={note}
-        item={{
-          show: { id: note.showId, name: note.showName ?? '' },
-          episode: {
-            id: note.episodeId,
-            name: note.episodeName ?? '',
-            durationMs: 0,
-            spotifyUrl: `https://open.spotify.com/episode/${note.episodeId}`,
-            status: 'UNSEEN',
-            statusSource: 'default',
-          },
-        }}
-      />
+      <div className={styles.noteBody}>
+        {note.positionMs !== null && <PositionButton ms={note.positionMs} item={item} />}
+        <NoteText note={note} item={item} />
+      </div>
     </article>
   );
 }

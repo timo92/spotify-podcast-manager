@@ -32,15 +32,20 @@
     "autoplayBlocked": "Der Browser hat Autoplay blockiert – bitte erneut auf Play tippen."
   },
   "note": {
-    "label": "Notiz",
-    "placeholder": "Gedanken, Zitate, Links … – wird automatisch gespeichert",
-    "timestamp": "Zeitstempel {{time}}",
-    "unsaved": "Ungespeichert…",
-    "saving": "Speichert…",
-    "saved": "Gespeichert",
-    "saveFailed": "Fehler beim Speichern",
+    "label": "Notizen",
+    "new": "Neue Notiz",
+    "placeholder": "Gedanke, Zitat, Link …",
+    "add": "Notiz hinzufügen",
+    "at": "Bei {{time}}",
+    "autoPosition": "Läuft die Folge gerade in Spotify, wird die Stelle übernommen.",
+    "text": "Text der Notiz",
+    "position": "Stelle in der Folge (leer: ganze Folge)",
+    "positionInvalid": "Bitte als mm:ss oder h:mm:ss angeben.",
+    "edit": "Notiz bearbeiten",
+    "delete": "Notiz löschen",
+    "deleted": "Notiz gelöscht",
+    "cancel": "Abbrechen",
     "notSaved": "Notiz nicht gespeichert: {{error}}",
-    "lastEdited": "Zuletzt bearbeitet {{when}}",
     "jump": "Ab hier abspielen"
   }
 }

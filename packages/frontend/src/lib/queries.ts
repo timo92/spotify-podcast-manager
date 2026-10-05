@@ -13,7 +13,8 @@ export const qk = {
   schedule: ['schedule'] as const,
   week: ['week'] as const,
   notes: ['notes'] as const,
-  note: (showId: string, episodeId: string) => ['note', showId, episodeId] as const,
+  /** Under `notes`, so invalidating all notes also refreshes each episode's. */
+  episodeNotes: (showId: string, episodeId: string) => ['notes', showId, episodeId] as const,
 };
 
 const LIBRARY_KEYS = new Set(['today', 'shows', 'show', 'episode', 'history', 'week']);

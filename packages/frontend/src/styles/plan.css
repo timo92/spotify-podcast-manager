@@ -51,6 +51,10 @@
 .plan-item:first-child {
   border-top: none;
 }
+.plan-item-cover {
+  display: block;
+  line-height: 0;
+}
 .plan-part {
   font-size: 0.72rem;
   font-weight: 700;
@@ -63,6 +67,9 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
+}
+.plan-item-body .show-name {
+  align-self: flex-start;
 }
 .plan-item-body .episode-title {
   font-size: 0.93rem;

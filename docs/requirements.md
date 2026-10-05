@@ -54,7 +54,7 @@ Each podcast has exactly one mode.
 | ID | Requirement | Status |
 | --- | --- | --- |
 | V1 | **Today:** today's slots from the weekly plan (with finished ones ticked off), then the next episodes of the remaining podcasts that fit into the daily time budget, then further suggestions, podcasts without a new episode, and recently heard episodes. | ✅ |
-| V2 | **Week:** a recurring weekly plan with slots per weekday and part of day (morning, midday, evening, anytime). Each slot shows the concrete episode it will be – consecutive episodes for a series planned several times a week; a manual podcast shows its chosen episode in every slot until it is heard, a news podcast its newest episode in every slot of today. | ✅ |
+| V2 | **Week:** a recurring weekly plan with slots per weekday and part of day (morning, midday, evening, anytime). Each slot shows the concrete episode it will be – consecutive episodes for a series planned several times a week; a manual podcast shows its chosen episode in every slot until it is heard, a news podcast its newest episode in every slot of today. A slot's podcast name and cover lead to the podcast. | ✅ |
 | V3 | **Podcasts:** every podcast with cover, mode, categories, progress, number of new episodes, next episode, last heard episode and time of the last sync. Filterable by category and paused state; sortable by priority. | ✅ |
 | V4 | **Podcast detail:** description, settings, progress, and all episodes with search, status filters (all, unheard, new, started, heard, skipped), sorting and per-episode actions. | ✅ |
 | V5 | **Episode:** title, release date, duration, full description, status, progress in percent, notes and all actions. | ✅ |

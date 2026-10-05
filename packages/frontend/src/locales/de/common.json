@@ -66,5 +66,59 @@
     "5": "Freitag",
     "6": "Samstag",
     "7": "Sonntag"
+  },
+  "ui": {
+    "new": "Neu",
+    "moreActions": "Weitere Aktionen",
+    "loading": "Lädt…",
+    "retry": "Erneut versuchen",
+    "close": "Schließen"
+  },
+  "nav": {
+    "main": "Hauptnavigation",
+    "bottom": "Navigation",
+    "today": "Heute",
+    "week": "Woche",
+    "podcasts": "Podcasts",
+    "history": "Verlauf",
+    "settings": "Einstellungen"
+  },
+  "sync": {
+    "button": "Mit Spotify synchronisieren",
+    "title": "Synchronisieren",
+    "lastSynced": "Zuletzt synchronisiert {{when}}",
+    "runningShort": "Sync läuft…",
+    "running": "Synchronisiere mit Spotify…",
+    "reloadingShow": "Podcast wird neu geladen…",
+    "failed": "Sync fehlgeschlagen: {{error}}",
+    "done_one": "{{count}} Podcast synchronisiert, {{newEpisodes}} neue Folgen.",
+    "done_other": "{{count}} Podcasts synchronisiert, {{newEpisodes}} neue Folgen.",
+    "doneWithErrors_one": "{{count}} Podcast synchronisiert, {{failed}} mit Fehlern.",
+    "doneWithErrors_other": "{{count}} Podcasts synchronisiert, {{failed}} mit Fehlern."
+  },
+  "banner": {
+    "disconnected": "Die Verbindung zu Spotify wurde getrennt.",
+    "deletionDate": "Ohne neue Anmeldung werden deine Daten am {{date}} gelöscht.",
+    "reconnect": "Neu verbinden",
+    "missingScopes": "Spotify-Berechtigungen fehlen ({{scopes}}). Einige Funktionen sind eingeschränkt."
+  },
+  "episode": {
+    "done": {
+      "COMPLETED": "Als gehört markiert",
+      "SKIPPED": "Übersprungen",
+      "UNSEEN": "Als ungehört markiert",
+      "IN_PROGRESS": "Als begonnen markiert"
+    },
+    "undo": "Rückgängig",
+    "statusReset": "Status zurückgesetzt – Spotify-Stand gilt",
+    "completedBefore": "Alle früheren Folgen als gehört markiert",
+    "pinned": "Als nächste Folge festgelegt",
+    "unpinned": "Auswahl aufgehoben",
+    "markPlayed": "Als gehört markieren",
+    "autoCompleted": "„{{name}}“ als gehört markiert"
+  },
+  "attribution": {
+    "contentFrom": "Inhalte von",
+    "open": "Auf Spotify öffnen"
   }
 }

@@ -1,5 +1,7 @@
 import { retentionExpiry, type ConsumptionMode, type DayPart, type EpisodeStatus, type TodayLabel, type Weekday } from '@podcast/shared';
+import type { SyncState } from '@podcast/shared';
 import i18n, { formatLocale } from '../i18n';
+import { errorMessage } from './api';
 
 const t = i18n.t.bind(i18n);
 
@@ -124,4 +126,21 @@ export function splitTimestamps(text: string): ({ text: string } | { label: stri
 /** The day on which data marked at `since` (unfollowed, disconnected) is deleted. */
 export function formatDeletionDate(since: string): string {
   return dateFormat({ day: 'numeric', month: 'long', year: 'numeric' }).format(retentionExpiry(since));
+}
+
+/** Why a sync failed, translated when its error has a known code. */
+export function syncError(sync: SyncState): string {
+  if (sync.errorCode) return errorMessage({ error: sync.errorCode, params: sync.errorParams, message: sync.error }, 0);
+  return sync.error ?? '';
+}
+
+/** What the running or last sync does or did; undefined before the first one. */
+export function syncText(sync: SyncState | undefined): string | undefined {
+  if (!sync) return undefined;
+  if (sync.status === 'running') return t(sync.showId ? 'sync.reloadingShow' : 'sync.running');
+  if (sync.status === 'error') return t('sync.failed', { error: syncError(sync) });
+  if (sync.showsSynced === undefined) return undefined;
+  return sync.showsFailed
+    ? t('sync.doneWithErrors', { count: sync.showsSynced, failed: sync.showsFailed })
+    : t('sync.done', { count: sync.showsSynced, newEpisodes: sync.newEpisodes ?? 0 });
 }

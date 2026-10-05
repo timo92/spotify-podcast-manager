@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { cx } from '../lib/cx';
 import styles from './SpotifyAttribution.module.css';
 
@@ -30,15 +31,16 @@ export function SpotifyLogo({ on = 'surface', className }: { on?: Background; cl
 
 /** "Inhalte von <Spotify logo>", linking to the content on Spotify. */
 export function SpotifyAttribution({ href, on = 'surface' }: { href?: string; on?: Background }) {
+  const { t } = useTranslation();
   return (
     <a
       className={styles.attribution}
       href={href ?? 'https://open.spotify.com'}
       target="_blank"
       rel="noopener noreferrer"
-      title="Auf Spotify öffnen"
+      title={t('attribution.open')}
     >
-      <span className="muted tiny">Inhalte von</span>
+      <span className="muted tiny">{t('attribution.contentFrom')}</span>
       <SpotifyLogo on={on} />
     </a>
   );

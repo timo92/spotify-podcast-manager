@@ -1,0 +1,46 @@
+{
+  "region": "Player",
+  "position": "Position",
+  "back15": "Back 15 seconds",
+  "forward30": "Forward 30 seconds",
+  "resume": "Resume",
+  "pause": "Pause",
+  "writeNote": "Write a note",
+  "close": "Close player",
+  "onDevice": "on {{device}}",
+  "playingOn": "Playing on “{{device}}”",
+  "target": {
+    "browser": "Browser",
+    "app": "Spotify app",
+    "label": "Play on: {{target}}",
+    "heading": "Play on",
+    "thisBrowser": "This browser",
+    "openApp": "Open the Spotify app",
+    "connect": "Spotify Connect",
+    "searching": "Looking for devices…",
+    "noDevices": "No devices. Open Spotify on a device.",
+    "refresh": "Refresh devices"
+  },
+  "sdk": {
+    "loadFailed": "The Spotify player could not be loaded.",
+    "tokenFailed": "The Spotify token could not be loaded.",
+    "timeout": "The Spotify player is not responding.",
+    "unsupported": "Browser not supported",
+    "authFailed": "Spotify login failed",
+    "premiumRequired": "Spotify Premium required",
+    "playbackError": "Playback error: {{message}}",
+    "autoplayBlocked": "The browser blocked autoplay – please tap play again."
+  },
+  "note": {
+    "label": "Note",
+    "placeholder": "Thoughts, quotes, links … – saved automatically",
+    "timestamp": "Timestamp {{time}}",
+    "unsaved": "Unsaved…",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "Could not save",
+    "notSaved": "Note not saved: {{error}}",
+    "lastEdited": "Last edited {{when}}",
+    "jump": "Play from here"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "region": "Player",
+  "position": "Position",
+  "back15": "15 Sekunden zurück",
+  "forward30": "30 Sekunden vor",
+  "resume": "Fortsetzen",
+  "pause": "Pause",
+  "writeNote": "Notiz schreiben",
+  "close": "Player schließen",
+  "onDevice": "auf {{device}}",
+  "playingOn": "Läuft auf „{{device}}“",
+  "target": {
+    "browser": "Browser",
+    "app": "Spotify-App",
+    "label": "Wiedergabe auf: {{target}}",
+    "heading": "Abspielen auf",
+    "thisBrowser": "Diesem Browser",
+    "openApp": "Spotify-App öffnen",
+    "connect": "Spotify Connect",
+    "searching": "Suche Geräte…",
+    "noDevices": "Keine Geräte. Öffne Spotify auf einem Gerät.",
+    "refresh": "Geräte aktualisieren"
+  },
+  "sdk": {
+    "loadFailed": "Spotify-Player konnte nicht geladen werden.",
+    "tokenFailed": "Spotify-Token konnte nicht geladen werden.",
+    "timeout": "Spotify-Player antwortet nicht.",
+    "unsupported": "Browser wird nicht unterstützt",
+    "authFailed": "Spotify-Anmeldung fehlgeschlagen",
+    "premiumRequired": "Spotify Premium erforderlich",
+    "playbackError": "Wiedergabefehler: {{message}}",
+    "autoplayBlocked": "Der Browser hat Autoplay blockiert – bitte erneut auf Play tippen."
+  },
+  "note": {
+    "label": "Notiz",
+    "placeholder": "Gedanken, Zitate, Links … – wird automatisch gespeichert",
+    "timestamp": "Zeitstempel {{time}}",
+    "unsaved": "Ungespeichert…",
+    "saving": "Speichert…",
+    "saved": "Gespeichert",
+    "saveFailed": "Fehler beim Speichern",
+    "notSaved": "Notiz nicht gespeichert: {{error}}",
+    "lastEdited": "Zuletzt bearbeitet {{when}}",
+    "jump": "Ab hier abspielen"
+  }
+}

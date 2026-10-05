@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { EpisodeStatus } from '@podcast/shared';
 import { statusLabel } from '../lib/format';
 import { Icon, type IconName } from './Icon';
@@ -27,7 +28,8 @@ const STATUS_TONE: Record<EpisodeStatus, BadgeTone> = {
 };
 
 export function StatusBadge({ status, isNew }: { status: EpisodeStatus; isNew?: boolean }) {
-  if (isNew && status === 'UNSEEN') return <Badge tone="new">Neu</Badge>;
+  const { t } = useTranslation();
+  if (isNew && status === 'UNSEEN') return <Badge tone="new">{t('ui.new')}</Badge>;
   return <Badge tone={STATUS_TONE[status]}>{statusLabel(status)}</Badge>;
 }
 
@@ -74,7 +76,8 @@ export interface MenuItem {
 }
 
 /** Small popover menu ("⋯"). */
-export function Menu({ items, label = 'Weitere Aktionen' }: { items: MenuItem[]; label?: string }) {
+export function Menu({ items, label }: { items: MenuItem[]; label?: string }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -92,7 +95,7 @@ export function Menu({ items, label = 'Weitere Aktionen' }: { items: MenuItem[];
   }, [open]);
   return (
     <div className="menu" ref={ref}>
-      <IconButton icon="more" label={label} onClick={() => setOpen((o) => !o)} active={open} />
+      <IconButton icon="more" label={label ?? t('ui.moreActions')} onClick={() => setOpen((o) => !o)} active={open} />
       {open && (
         <div className="menu-pop" role="menu">
           {items
@@ -223,22 +226,24 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
-export function Spinner({ label = 'Lädt…' }: { label?: string }) {
+export function Spinner({ label }: { label?: string }) {
+  const { t } = useTranslation();
   return (
     <div className="spinner-wrap" role="status">
       <span className="spinner" aria-hidden />
-      <span>{label}</span>
+      <span>{label ?? t('ui.loading')}</span>
     </div>
   );
 }
 
 export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="banner banner-error" role="alert">
       <span>{error instanceof Error ? error.message : String(error)}</span>
       {onRetry && (
         <button className="btn btn-small" onClick={onRetry}>
-          Erneut versuchen
+          {t('ui.retry')}
         </button>
       )}
     </div>

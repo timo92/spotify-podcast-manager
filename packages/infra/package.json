@@ -6,11 +6,12 @@
   "scripts": {
     "cdk": "cdk",
     "synth": "cdk synth",
-    "deploy": "cdk deploy --all",
+    "deploy": "tsx scripts/check-deploy.ts && cdk deploy --all",
     "diff": "cdk diff --all",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "secret:put": "tsx scripts/put-spotify-secret.ts"
+    "secret:put": "tsx scripts/put-spotify-secret.ts",
+    "check": "tsx scripts/check-deploy.ts"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.272.0",

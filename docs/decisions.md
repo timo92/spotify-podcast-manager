@@ -128,6 +128,10 @@ sessions can be revoked (logout, "delete all data"), unlike stateless tokens.
   Lambdas read it at runtime with `ssm:GetParameter`, cached for five minutes.
 - Spotify access/refresh tokens are stored in DynamoDB and never reach the
   browser, except a short-lived access token for the Web Playback SDK.
+- Missing configuration fails the deployment: synth stops without a client
+  ID, and `pnpm run deploy` checks that the secret parameter exists before
+  calling `cdk deploy`. A deployment that cannot log in is worse than one
+  that doesn't happen.
 
 **Why.**
 - Configuration belongs to the deployment, not to the app's data. It is

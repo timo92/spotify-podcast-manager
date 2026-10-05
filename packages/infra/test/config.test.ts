@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SECRET_PARAMETER, resolveConfig } from '../lib/config.js';
+import { assertSpotifyConfigured, DEFAULT_SECRET_PARAMETER, resolveConfig } from '../lib/config.js';
 
 describe('resolveConfig', () => {
   it('prefers environment variables over CDK context', () => {
@@ -18,5 +18,12 @@ describe('resolveConfig', () => {
     const config = resolveConfig(() => '', { DOMAIN_NAME: 'a.example.com', CERTIFICATE_ARN: 'arn:x' });
     expect(config.spotifyClientId).toBeUndefined();
     expect(config.hostedZoneName).toBeUndefined();
+  });
+});
+
+describe('assertSpotifyConfigured', () => {
+  it('fails without a client ID and passes with one', () => {
+    expect(() => assertSpotifyConfigured(resolveConfig(() => undefined, {}))).toThrow(/SPOTIFY_CLIENT_ID is not set/);
+    expect(() => assertSpotifyConfigured(resolveConfig(() => undefined, { SPOTIFY_CLIENT_ID: 'id' }))).not.toThrow();
   });
 });

@@ -22,3 +22,7 @@ jobs:
       - run: pnpm build
       - run: pnpm exec cdk synth -q
         working-directory: packages/infra
+        env:
+          # Synth refuses to run without a client ID. It is not a secret, and this
+          # check only validates the template, so a placeholder is enough.
+          SPOTIFY_CLIENT_ID: ci-synth-placeholder

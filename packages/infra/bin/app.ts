@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { Annotations, App } from 'aws-cdk-lib';
+import { App } from 'aws-cdk-lib';
 import { CertificateStack } from '../lib/certificate-stack.js';
-import { loadDotEnv, resolveConfig } from '../lib/config.js';
+import { assertSpotifyConfigured, loadDotEnv, resolveConfig } from '../lib/config.js';
 import { PodcastStack } from '../lib/podcast-stack.js';
 
 /**
@@ -23,6 +23,7 @@ import { PodcastStack } from '../lib/podcast-stack.js';
 loadDotEnv();
 const app = new App();
 const config = resolveConfig((key) => app.node.tryGetContext(key));
+assertSpotifyConfigured(config);
 
 const account = process.env.CDK_DEFAULT_ACCOUNT;
 const region = process.env.CDK_DEFAULT_REGION ?? 'eu-central-1';
@@ -55,8 +56,3 @@ const main = new PodcastStack(app, config.stackName, {
   description: 'Personal podcast cockpit in front of Spotify',
 });
 if (certStack) main.addDependency(certStack);
-if (!config.spotifyClientId) {
-  Annotations.of(main).addWarning(
-    'SPOTIFY_CLIENT_ID is not set – the app will show "Spotify-App fehlt" until it is deployed with a client ID.',
-  );
-}

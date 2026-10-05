@@ -138,6 +138,12 @@ The main stack goes to `CDK_DEFAULT_REGION` (your AWS profile's region). If
 none is set, it goes to `eu-central-1`. With a Route 53 domain, a small extra
 stack creates the TLS certificate in `us-east-1`, which CloudFront requires.
 
+An incomplete configuration fails early instead of producing an app that
+can't log in:
+- `cdk synth`/`deploy` stops if `SPOTIFY_CLIENT_ID` is missing.
+- `pnpm run deploy` first checks that the secret parameter exists in the
+  target region (no decryption, the value is never read).
+
 **Why the secret is in Parameter Store.** A plain Lambda environment variable
 would put the secret into the CloudFormation template, where anyone with read
 access to the stack can see it. A *SecureString* parameter in SSM Parameter

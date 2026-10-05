@@ -1,4 +1,4 @@
-import { isDone, selectNextEpisode, toShowLite } from './logic.js';
+import { isDone, plannedOpenMs, selectNextEpisode, toShowLite } from './logic.js';
 import {
   DAY_PARTS,
   type EpisodeView,
@@ -56,10 +56,13 @@ export interface PlanInput {
 /**
  * Projects the recurring weekly plan onto concrete days starting at `start`.
  *
- * Slots of the same show consume its queue in order, so planning a series on
- * Monday and Wednesday shows episode n on Monday and n+1 on Wednesday. On
- * today, episodes already finished today fill the slots first – that's how a
- * planned item turns into "done" instead of jumping to the next episode.
+ * Slots of a series consume its queue in order, so planning a series on
+ * Monday and Wednesday shows episode n on Monday and n+1 on Wednesday. Manual
+ * and news-like shows have only one next episode, which every slot shows
+ * until it is heard (news-like shows only on today; later days show whatever
+ * is newest then). On today, episodes already finished today fill the slots
+ * first – that's how a planned item turns into "done" instead of jumping to
+ * the next episode.
  */
 export function buildWeek(
   start: string,
@@ -74,7 +77,7 @@ export function buildWeek(
     queues.set(id, upcomingEpisodes(input.show, input.views));
     done.set(id, input.doneToday.filter((e) => isDone(e.status)));
   }
-  const consumed = new Set<string>();
+  const heads = new Map([...queues].map(([id, queue]) => [id, queue[0]?.id]));
   const order = (part: string) => DAY_PARTS.indexOf(part as (typeof DAY_PARTS)[number]);
 
   const result: PlanDay[] = [];
@@ -102,19 +105,15 @@ export function buildWeek(
         items.push({ ...base, episode: null, state: 'latest' });
         continue;
       }
-      const ep = queues.get(entry.showId)!.shift() ?? null;
+      const queue = queues.get(entry.showId)!;
+      const ep = (input.show.mode === 'SEQUENTIAL' ? queue.shift() : queue[0]) ?? null;
       if (!ep) {
         items.push({ ...base, episode: null, state: 'none' });
         continue;
       }
-      items.push({ ...base, episode: ep, state: consumed.has(entry.showId) ? 'upcoming' : 'next' });
-      consumed.add(entry.showId);
+      items.push({ ...base, episode: ep, state: ep.id === heads.get(entry.showId) ? 'next' : 'upcoming' });
     }
-    const openMs = items.reduce(
-      (sum, it) => sum + (it.episode && (it.state === 'next' || it.state === 'upcoming') ? it.episode.remainingMs : 0),
-      0,
-    );
-    result.push({ date, weekday, isToday, items, openMs });
+    result.push({ date, weekday, isToday, items, openMs: plannedOpenMs(items) });
   }
   return result;
 }

@@ -110,6 +110,54 @@ describe('buildWeek', () => {
     expect(wed.items[0].episode?.id).toBe('series-3');
   });
 
+  it('shows the chosen episode of a manual show in every slot', () => {
+    const manual = show('manual', 'MANUAL');
+    manual.pinnedEpisodeId = 'manual-2';
+    const twice: Schedule = {
+      entries: [
+        { id: 'a', showId: 'manual', weekday: 2, part: 'MORNING' },
+        { id: 'b', showId: 'manual', weekday: 4, part: 'EVENING' },
+      ],
+    };
+    const inputs = new Map([['manual', input(manual, eps('manual', 3))]]);
+    const [, tue, , thu] = buildWeek('2026-10-05', '2026-10-05', 7, twice, inputs);
+    expect(tue.items.map((i) => [i.state, i.episode?.id])).toEqual([['next', 'manual-2']]);
+    expect(thu.items.map((i) => [i.state, i.episode?.id])).toEqual([['next', 'manual-2']]);
+  });
+
+  it('shows the newest episode of a news show in every slot of today, counting it once', () => {
+    const twice: Schedule = {
+      entries: [
+        { id: 'a', showId: 'news', weekday: 1, part: 'MORNING' },
+        { id: 'b', showId: 'news', weekday: 1, part: 'EVENING' },
+      ],
+    };
+    const inputs = new Map([['news', input(show('news', 'LATEST'), eps('news', 5))]]);
+    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, twice, inputs);
+    expect(mon.items.map((i) => [i.state, i.episode?.id])).toEqual([
+      ['next', 'news-5'],
+      ['next', 'news-5'],
+    ]);
+    expect(mon.openMs).toBe(30 * 60_000);
+  });
+
+  it('ticks off only one slot when a repeated episode was heard today', () => {
+    const twice: Schedule = {
+      entries: [
+        { id: 'a', showId: 'news', weekday: 1, part: 'MORNING' },
+        { id: 'b', showId: 'news', weekday: 1, part: 'EVENING' },
+      ],
+    };
+    const inputs = new Map([
+      ['news', input(show('news', 'LATEST'), eps('news', 5), [completed('news', 'news-5')], ['news-5'])],
+    ]);
+    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, twice, inputs);
+    expect(mon.items.map((i) => [i.state, i.episode?.id])).toEqual([
+      ['done', 'news-5'],
+      ['none', undefined],
+    ]);
+  });
+
   it('marks shows with nothing left', () => {
     const inputs = new Map([['news', input(show('news', 'MANUAL'), eps('news', 2))]]);
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, schedule, inputs);
@@ -129,6 +177,22 @@ describe('buildToday with a plan', () => {
     expect(today.plan).toHaveLength(1);
     expect(today.recommended).toHaveLength(0);
     expect(today.more.map((m) => m.show.id)).toEqual(['other']);
+    expect(today.recommendedMinutes).toBe(20);
+  });
+
+  it('counts an episode planned in several slots once', () => {
+    const manual = show('manual', 'MANUAL');
+    manual.pinnedEpisodeId = 'manual-1';
+    const inputs = new Map([['manual', input(manual, eps('manual', 2, 20))]]);
+    const twice: Schedule = {
+      entries: [
+        { id: 'a', showId: 'manual', weekday: 1, part: 'MORNING' },
+        { id: 'b', showId: 'manual', weekday: 1, part: 'EVENING' },
+      ],
+    };
+    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, twice, inputs);
+    const today = buildToday([manual], DEFAULT_SETTINGS, [], mon.items);
+    expect(today.plan).toHaveLength(2);
     expect(today.recommendedMinutes).toBe(20);
   });
 });

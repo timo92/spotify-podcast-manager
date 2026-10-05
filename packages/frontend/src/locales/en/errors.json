@@ -13,6 +13,7 @@
   "invalid_schedule": "Invalid weekly plan.",
   "too_many_rules": "At most {{max}} rules in the weekly plan.",
   "rule_show_missing": "A slot in the weekly plan has no podcast.",
+  "schedule_conflict": "The weekly plan was changed elsewhere in the meantime. Please try again.",
   "invalid_note": "Invalid note.",
   "note_too_long": "The note is too long (at most {{max}} characters).",
   "invalid_mode": "Invalid mode.",

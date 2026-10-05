@@ -13,6 +13,7 @@
   "invalid_schedule": "Ungültiger Wochenplan.",
   "too_many_rules": "Höchstens {{max}} Regeln im Wochenplan.",
   "rule_show_missing": "Ein Termin im Wochenplan hat keinen Podcast.",
+  "schedule_conflict": "Der Wochenplan wurde inzwischen an anderer Stelle geändert. Bitte versuche es erneut.",
   "invalid_note": "Ungültige Notiz.",
   "note_too_long": "Die Notiz ist zu lang (höchstens {{max}} Zeichen).",
   "invalid_mode": "Ungültiger Modus.",

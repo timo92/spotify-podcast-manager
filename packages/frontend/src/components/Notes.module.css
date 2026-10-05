@@ -1,11 +1,11 @@
-/* Episode notes. */
+/* Episode notes: editor, rendered text with timestamps, and the note sheet. */
 
-.note-editor {
+.editor {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.note-input {
+.input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -16,21 +16,22 @@
   line-height: 1.5;
   resize: vertical;
   min-height: 90px;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
 }
-.note-input:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.note-toolbar {
+.toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 32px;
 }
-.note-state {
+.state {
   margin-left: auto;
 }
-.note-text {
+.text {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -46,31 +47,6 @@
   font-weight: 600;
   cursor: pointer;
 }
-.note-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.note-card .row-between {
-  align-items: flex-start;
-}
-.note-card .grow {
-  display: flex;
-  flex-direction: column;
-}
-.note-sheet .note-controls {
+.controls {
   justify-content: center;
-}
-.note-flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  border: none;
-  background: var(--pinned-soft);
-  color: var(--pinned);
-  border-radius: 6px;
-  padding: 1px 6px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
 }

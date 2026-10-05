@@ -6,9 +6,11 @@ import { Icon } from '../components/Icon';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, IconButton, ProgressBar, Segmented, Spinner } from '../components/ui';
 import { api } from '../lib/api';
+import { cx } from '../lib/cx';
 import { formatRelative, MODE_HINT, MODE_LABEL } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
+import styles from './Shows.module.css';
 
 export const MODE_OPTIONS: { value: ConsumptionMode; label: string; hint: string }[] = (
   ['LATEST', 'SEQUENTIAL', 'MANUAL'] as ConsumptionMode[]
@@ -168,9 +170,9 @@ export function ShowsPage() {
           reviewMode ? (
             <ReviewCard key={show.id} show={show} categories={settings?.categories ?? []} />
           ) : (
-            <div key={show.id} className="show-row-wrap">
+            <div key={show.id} className={styles.rowWrap}>
               {reorder && (
-                <div className="reorder">
+                <div className={styles.reorder}>
                   <IconButton icon="up" label="Nach oben" onClick={() => void move(i, -1)} disabled={i === 0} />
                   <IconButton icon="down" label="Nach unten" onClick={() => void move(i, 1)} disabled={i === visible.length - 1} />
                 </div>
@@ -188,11 +190,11 @@ function ShowCard({ show, rank }: { show: Show; rank?: number }) {
   const s = show.summary;
   const progress = progressText(show);
   return (
-    <Link to={`/podcasts/${encodeURIComponent(show.id)}`} className="card show-card">
-      {rank !== undefined && <span className="rank">{rank}</span>}
+    <Link to={`/podcasts/${encodeURIComponent(show.id)}`} className={cx('card', styles.card)}>
+      {rank !== undefined && <span className={styles.rank}>{rank}</span>}
       <Cover src={show.imageUrl} alt={show.name} size={64} />
-      <div className="show-card-body">
-        <div className="show-card-title">
+      <div className={styles.body}>
+        <div className={styles.title}>
           <strong>{show.name}</strong>
           {s && s.newCount > 0 && <Badge tone="new">{s.newCount} neu</Badge>}
           {show.paused && <Badge tone="muted">Pausiert</Badge>}
@@ -246,7 +248,7 @@ function ReviewCard({ show, categories }: { show: Show; categories: string[] }) 
   }
 
   return (
-    <div className="card review-card">
+    <div className={cx('card', styles.reviewCard)}>
       <div className="row gap">
         <Cover src={show.imageUrl} alt={show.name} size={56} />
         <div className="grow">

@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { formatClock } from '../lib/format';
+import { cx } from '../lib/cx';
 import { usePlayer, type PlayTarget } from '../lib/player';
 import { qk, useInvalidateLibrary } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
 import { PlayerNoteSheet } from './Notes';
-import { SpotifyLogo } from './SpotifyAttribution';
+import { NowPlayingTitle } from './NowPlaying';
+import styles from './PlayerBar.module.css';
 import { Cover, IconButton } from './ui';
 
 export function PlayerBar() {
@@ -21,10 +23,10 @@ export function PlayerBar() {
   const local = np.target.kind === 'browser';
 
   return (
-    <div className="player" role="region" aria-label="Player">
+    <div className={styles.player} role="region" aria-label="Player" data-player-bar>
       {local && (
         <input
-          className="player-seek"
+          className={styles.seek}
           type="range"
           min={0}
           max={np.durationMs}
@@ -42,25 +44,23 @@ export function PlayerBar() {
           }}
         />
       )}
-      <div className="player-inner">
+      <div className={styles.inner}>
         <Cover src={np.imageUrl} alt={np.showName} size={44} />
-        <div className="player-text">
-          <div className="player-title">{np.name}</div>
-          <div className="player-meta">
-            <SpotifyLogo />
-            <span className="muted small ellipsis">
-              {np.showName}
-              {local
+        <div className={styles.text}>
+          <NowPlayingTitle
+            np={np}
+            detail={
+              local
                 ? ` · ${formatClock(dragging ?? np.positionMs)} / ${formatClock(np.durationMs)}`
                 : np.target.kind === 'device'
                   ? ` · auf ${np.target.name}`
-                  : ''}
-            </span>
-          </div>
+                  : ''
+            }
+          />
         </div>
-        <div className="player-controls">
+        <div className={styles.controls}>
           {local && (
-            <IconButton icon="rewind" label="15 Sekunden zurück" className="hide-narrow" onClick={() => player.seekBy(-15_000)} />
+            <IconButton icon="rewind" label="15 Sekunden zurück" className={styles.hideNarrow} onClick={() => player.seekBy(-15_000)} />
           )}
           {local && (
             <IconButton
@@ -72,7 +72,7 @@ export function PlayerBar() {
             />
           )}
           {local && (
-            <IconButton icon="forward" label="30 Sekunden vor" className="hide-narrow" onClick={() => player.seekBy(30_000)} />
+            <IconButton icon="forward" label="30 Sekunden vor" className={styles.hideNarrow} onClick={() => player.seekBy(30_000)} />
           )}
           <IconButton icon="note" label="Notiz schreiben" onClick={() => setNotesOpen(true)} />
           <IconButton
@@ -120,12 +120,12 @@ export function PlayTargetPicker() {
 
   return (
     <div className="menu" ref={ref}>
-      <button type="button" className="target-btn" onClick={() => setOpen((o) => !o)} aria-label={`Wiedergabe auf: ${label}`}>
+      <button type="button" className="pill-btn" onClick={() => setOpen((o) => !o)} aria-label={`Wiedergabe auf: ${label}`}>
         <Icon name="device" size={18} />
-        <span className="target-label">{label}</span>
+        <span className="pill-btn-label">{label}</span>
       </button>
       {open && (
-        <div className="menu-pop menu-pop-right" role="menu">
+        <div className="menu-pop" role="menu">
           <div className="menu-heading">Abspielen auf</div>
           {player.browserSupported && (
             <button type="button" role="menuitemradio" aria-checked={t.kind === 'browser'} className="menu-item" onClick={() => choose({ kind: 'browser' })}>
@@ -164,5 +164,5 @@ export function PlayTargetPicker() {
 }
 
 function Radio({ on }: { on: boolean }) {
-  return <span className={`radio${on ? ' is-on' : ''}`} aria-hidden />;
+  return <span className={cx(styles.radio, on && styles.isOn)} aria-hidden />;
 }

@@ -1,4 +1,4 @@
-/* Player bar. */
+/* Player bar and the play-target menu. */
 
 .player {
   position: fixed;
@@ -16,7 +16,7 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
-.player-seek {
+.seek {
   position: absolute;
   top: -7px;
   left: 0;
@@ -24,7 +24,7 @@
   margin: 0;
   height: 14px;
 }
-.player-inner {
+.inner {
   max-width: 820px;
   margin: 0 auto;
   display: flex;
@@ -32,39 +32,30 @@
   gap: 10px;
   padding: 12px 12px 10px;
 }
-.player-text {
+.text {
   flex: 1;
   min-width: 0;
 }
-.player-title {
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.player-text .small {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.player-controls {
+.controls {
   display: flex;
   align-items: center;
 }
 @media (max-width: 480px) {
-  .hide-narrow {
+  .hideNarrow {
     display: none;
   }
-  .player-controls .icon-btn {
+  .controls :global(.icon-btn) {
     width: 36px;
   }
 }
-.player-meta {
-  display: flex;
-  align-items: center;
-  min-width: 0;
+
+.radio {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex: none;
 }
-/* The logo's own padding is its clear space; start flush with the title. */
-.player-meta .spotify-logo {
-  margin-left: -10px;
+.radio.isOn {
+  border: 5px solid var(--accent);
 }

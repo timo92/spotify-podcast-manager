@@ -4,11 +4,13 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { EpisodeCard } from '../components/EpisodeCard';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { EpisodeSheet } from '../components/EpisodeSheet';
-import { PlanItemRow } from '../components/PlanItem';
+import { PlanItemRow, PlanList } from '../components/PlanItem';
 import { Cover, Empty, ErrorBox, Spinner } from '../components/ui';
 import { api } from '../lib/api';
+import { cx } from '../lib/cx';
 import { formatRelative, greeting } from '../lib/format';
 import { qk, useStatus } from '../lib/queries';
+import styles from './Today.module.css';
 
 export function TodayPage() {
   const { data: status } = useStatus();
@@ -69,11 +71,11 @@ export function TodayPage() {
                   Wochenplan
                 </Link>
               </div>
-              <ul className="plan-list card">
+              <PlanList card>
                 {t.plan.map((item) => (
                   <PlanItemRow key={item.ruleId} item={item} isToday onOpen={onOpen} />
                 ))}
-              </ul>
+              </PlanList>
             </section>
           )}
 
@@ -81,7 +83,13 @@ export function TodayPage() {
             <div className="section-head">
               <h2>{t.plan.length ? 'Außerdem empfohlen' : 'Heute empfohlen'}</h2>
               {t.budgetMinutes > 0 && (
-                <span className={`budget budget-${t.budgetFit}`}>
+                <span
+                  className={cx(
+                    styles.budget,
+                    t.budgetFit === 'perfect' && styles.perfect,
+                    t.budgetFit === 'over' && styles.over,
+                  )}
+                >
                   {t.recommendedMinutes} / {t.budgetMinutes} min
                   {t.budgetFit === 'perfect' && ' · passt'}
                   {t.budgetFit === 'over' && (t.recommendedMinutes <= t.budgetMinutes * 1.2 ? ' · knapp drüber' : ' · über Budget')}
@@ -124,9 +132,9 @@ export function TodayPage() {
               <div className="section-head">
                 <h2>Keine neue Folge</h2>
               </div>
-              <div className="pill-list">
+              <div className={styles.pills}>
                 {t.noNewEpisode.map((s) => (
-                  <Link key={s.id} to={`/podcasts/${encodeURIComponent(s.id)}`} className="pill">
+                  <Link key={s.id} to={`/podcasts/${encodeURIComponent(s.id)}`} className={styles.pill}>
                     <Cover src={s.imageUrl} alt={s.name} size={28} />
                     <span>{s.name}</span>
                   </Link>

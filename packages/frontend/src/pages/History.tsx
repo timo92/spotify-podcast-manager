@@ -8,8 +8,10 @@ import { Icon } from '../components/Icon';
 import { NoteText } from '../components/Notes';
 import { Empty, ErrorBox, Segmented, Spinner } from '../components/ui';
 import { api } from '../lib/api';
+import { cx } from '../lib/cx';
 import { formatDuration, formatRelative } from '../lib/format';
 import { qk } from '../lib/queries';
+import styles from './History.module.css';
 
 function dayLabel(iso: string): string {
   const d = new Date(iso);
@@ -81,7 +83,7 @@ function Notes({ onOpen }: { onOpen: (showId: string, episodeId: string) => void
       )}
       <div className="card-list">
         {list.map((n) => (
-          <article key={`${n.showId}-${n.episodeId}`} className="card note-card">
+          <article key={`${n.showId}-${n.episodeId}`} className={cx('card', styles.noteCard)}>
             <div className="row-between">
               <div className="grow">
                 <Link to={`/podcasts/${encodeURIComponent(n.showId)}`} className="show-name">

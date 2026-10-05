@@ -10,9 +10,11 @@ import { ShowSchedule } from '../components/ShowSchedule';
 import { ListenOnSpotify, SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, ProgressBar, Segmented, Spinner, Toggle } from '../components/ui';
 import { api } from '../lib/api';
+import { cx } from '../lib/cx';
 import { formatDeletionDate, formatDuration, formatRelative, formatReleaseDate, MODE_HINT } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
+import styles from './ShowDetail.module.css';
 import { MODE_OPTIONS, progressText } from './Shows';
 
 type Filter = 'alle' | 'ungehoert' | 'gehoert' | 'uebersprungen' | 'neu' | 'begonnen';
@@ -76,13 +78,13 @@ export function ShowDetailPage() {
 
   return (
     <div className="page">
-      <Link to="/podcasts" className="back-link">
+      <Link to="/podcasts" className={styles.backLink}>
         <Icon name="back" size={18} /> Podcasts
       </Link>
 
-      <header className="show-hero">
+      <header className={styles.hero}>
         <Cover src={show.imageUrl} alt={show.name} size={120} />
-        <div className="show-hero-text">
+        <div className={styles.heroText}>
           <h1>{show.name}</h1>
           {show.publisher && <div className="muted">{show.publisher}</div>}
           <div className="badges">
@@ -117,13 +119,13 @@ export function ShowDetailPage() {
       </header>
 
       {show.description && (
-        <p className={`description${showDescription ? '' : ' clamp'}`} onClick={() => setShowDescription((v) => !v)}>
+        <p className={cx('description', !showDescription && styles.clamp)} onClick={() => setShowDescription((v) => !v)}>
           {show.description}
         </p>
       )}
 
       {next && (
-        <section className="card next-card">
+        <section className={cx('card', styles.nextCard)}>
           <div className="muted small">{show.mode === 'LATEST' ? 'Neueste Folge' : 'Als Nächstes'}</div>
           <button type="button" className="episode-title linklike" onClick={() => setOpenEpisode(next.id)}>
             {next.name}
@@ -243,7 +245,7 @@ export function ShowDetailPage() {
         {episodes.length === 0 ? (
           <Empty title="Keine Folgen gefunden" />
         ) : (
-          <ul className="episode-list">
+          <ul className={styles.episodes}>
             {episodes.slice(0, limit).map((e) => (
               <EpisodeRow key={e.id} show={show} episode={e} isNext={next?.id === e.id} onOpen={setOpenEpisode} />
             ))}

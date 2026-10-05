@@ -4,8 +4,10 @@ import { Link } from 'react-router-dom';
 import type { ShowLite } from '@podcast/shared';
 import { useEpisodeActions } from '../lib/actions';
 import { api } from '../lib/api';
+import { cx } from '../lib/cx';
 import { formatDuration, formatReleaseDate } from '../lib/format';
 import { qk } from '../lib/queries';
+import styles from './EpisodePicker.module.css';
 import { SpotifyAttribution } from './SpotifyAttribution';
 import { Cover, Empty, ErrorBox, IconButton, Spinner, StatusBadge } from './ui';
 
@@ -60,8 +62,8 @@ export function EpisodePickerSheet({ show, onClose }: { show: ShowLite; onClose:
                     void actions.pin(show.id, e.id, detail.data?.show.pinnedEpisodeId ?? null);
                   }}
                 >
-                  <span className="grow">
-                    <span className="pick-title">{e.name}</span>
+                  <span className={cx('grow', styles.text)}>
+                    <span className={styles.title}>{e.name}</span>
                     <span className="muted tiny">
                       Folge {e.index} · {formatReleaseDate(e.releaseDate)} · {formatDuration(e.durationMs)}
                     </span>

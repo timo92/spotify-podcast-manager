@@ -4,8 +4,10 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatDeletionDate, formatRelative } from '../lib/format';
 import { qk, useInvalidateLibrary, useStatus } from '../lib/queries';
+import { cx } from '../lib/cx';
 import { useToast } from '../lib/toast';
 import { Icon, type IconName } from './Icon';
+import styles from './Layout.module.css';
 import { PlayerBar, PlayTargetPicker } from './PlayerBar';
 
 const NAV: { to: string; label: string; icon: IconName }[] = [
@@ -25,7 +27,7 @@ export function SyncButton() {
   return (
     <button
       type="button"
-      className={`sync-btn${running ? ' is-running' : ''}`}
+      className={cx('pill-btn', running && 'is-running')}
       disabled={running}
       onClick={() => {
         api
@@ -37,7 +39,7 @@ export function SyncButton() {
       aria-label="Mit Spotify synchronisieren"
     >
       <Icon name="refresh" size={18} />
-      <span className="sync-label">{running ? 'Sync läuft…' : formatRelative(sync?.lastSuccessAt)}</span>
+      <span className="pill-btn-label">{running ? 'Sync läuft…' : formatRelative(sync?.lastSuccessAt)}</span>
     </button>
   );
 }
@@ -63,20 +65,20 @@ export function Layout() {
   useSyncWatcher();
   const { data: status } = useStatus();
   return (
-    <div className="app">
-      <header className="topbar">
-        <NavLink to="/" className="brand">
+    <div className={styles.app}>
+      <header className={styles.topbar}>
+        <NavLink to="/" className={styles.brand}>
           <img src="/icon.svg" alt="" width={28} height={28} />
           <span>Podcast-Cockpit</span>
         </NavLink>
-        <nav className="topnav" aria-label="Hauptnavigation">
+        <nav className={styles.topnav} aria-label="Hauptnavigation">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'}>
               {n.label}
             </NavLink>
           ))}
         </nav>
-        <div className="topbar-actions">
+        <div className={styles.actions}>
           <PlayTargetPicker />
           <SyncButton />
         </div>
@@ -103,11 +105,11 @@ export function Layout() {
           </a>
         </div>
       )}
-      <main className="container main">
+      <main className={cx('container', styles.main)}>
         <Outlet />
       </main>
       <PlayerBar />
-      <nav className="bottomnav" aria-label="Navigation">
+      <nav className={styles.bottomnav} aria-label="Navigation">
         {NAV.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'}>
             <Icon name={n.icon} size={22} />

@@ -1,0 +1,13 @@
+.noteCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  & :global(.row-between) {
+    align-items: flex-start;
+  }
+  & :global(.grow) {
+    display: flex;
+    flex-direction: column;
+  }
+}

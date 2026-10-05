@@ -4,13 +4,15 @@ import { removeRule, removeWeekday, replaceRule, type PlannedItem, type Schedule
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Icon } from '../components/Icon';
-import { PlanItemRow } from '../components/PlanItem';
+import { PlanItemRow, PlanList } from '../components/PlanItem';
 import { ScheduleRuleSheet } from '../components/ScheduleRuleSheet';
 import { Empty, ErrorBox, IconButton, Spinner } from '../components/ui';
 import { useSaveSchedule } from '../lib/actions';
 import { api } from '../lib/api';
 import { DAY_PART_LABEL, formatDayMonth, formatDuration, formatWeekdays, WEEKDAY_LONG, WEEKDAY_SHORT } from '../lib/format';
+import { cx } from '../lib/cx';
 import { qk } from '../lib/queries';
+import styles from './Week.module.css';
 
 export function WeekPage() {
   const week = useQuery({ queryKey: qk.week, queryFn: api.week });
@@ -72,10 +74,10 @@ export function WeekPage() {
       )}
 
       {week.data && rules.length > 0 && (
-        <div className="week">
+        <div className={styles.week}>
           {week.data.days.map((day) => (
-            <section key={day.date} className={`card day-card${day.isToday ? ' is-today' : ''}`}>
-              <div className="day-head">
+            <section key={day.date} className={cx('card', styles.day, day.isToday && styles.isToday)}>
+              <div className={styles.dayHead}>
                 <h2 className="h3">
                   {day.isToday ? 'Heute' : WEEKDAY_LONG[day.weekday]}
                   <span className="muted small"> · {day.isToday ? WEEKDAY_SHORT[day.weekday] + ', ' : ''}{formatDayMonth(day.date)}</span>
@@ -86,9 +88,9 @@ export function WeekPage() {
                 )}
               </div>
               {day.items.length === 0 ? (
-                <p className="muted small day-empty">Nichts geplant</p>
+                <p className={cx('muted small', styles.dayEmpty)}>Nichts geplant</p>
               ) : (
-                <ul className="plan-list">
+                <PlanList>
                   {day.items.map((item) => (
                     <PlanItemRow
                       key={item.ruleId}
@@ -99,7 +101,7 @@ export function WeekPage() {
                       onRemove={editing ? () => remove(item, day.weekday) : undefined}
                     />
                   ))}
-                </ul>
+                </PlanList>
               )}
             </section>
           ))}

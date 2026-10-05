@@ -1,0 +1,111 @@
+/* App shell: top bar, navigation and the page container. */
+
+.app {
+  min-height: 100vh;
+  padding-bottom: calc(var(--nav-h) + var(--player-h) + env(safe-area-inset-bottom) + 16px);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 700;
+
+  &:hover {
+    text-decoration: none;
+  }
+  & span {
+    display: none;
+  }
+}
+
+.topnav {
+  display: none;
+  gap: 4px;
+
+  & a {
+    padding: 6px 12px;
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  & a:hover {
+    text-decoration: none;
+    color: var(--text);
+  }
+  & a:global(.active) {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+}
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bottomnav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+
+  & a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+  }
+  & a:hover {
+    text-decoration: none;
+  }
+  & a:global(.active) {
+    color: var(--accent);
+  }
+}
+
+@media (min-width: 760px) {
+  .brand span {
+    display: inline;
+  }
+  .topnav {
+    display: flex;
+  }
+  .bottomnav {
+    display: none;
+  }
+  .app {
+    --nav-h: 0px;
+  }
+}
+
+.main {
+  padding-top: 20px;
+}

@@ -1,3 +1,6 @@
+import { cx } from '../lib/cx';
+import styles from './SpotifyAttribution.module.css';
+
 /**
  * Spotify attribution, required next to Spotify content (metadata, artwork,
  * playback) by Spotify's Design & Branding Guidelines:
@@ -13,14 +16,14 @@ type Background = 'surface' | 'page';
 
 const LOGO_WIDTH = 78;
 
-export function SpotifyLogo({ on = 'surface' }: { on?: Background }) {
+export function SpotifyLogo({ on = 'surface', className }: { on?: Background; className?: string }) {
   // Light theme: green on white surfaces, black on the grey page background.
   // Dark theme: white everywhere (no surface is pure black). CSS picks one.
   const light = on === 'surface' ? 'logo-green' : 'logo-black';
   return (
-    <span className="spotify-logo" role="img" aria-label="Spotify">
-      <img className="spotify-logo-light" src={`/spotify/${light}.svg`} alt="" width={LOGO_WIDTH} />
-      <img className="spotify-logo-dark" src="/spotify/logo-white.svg" alt="" width={LOGO_WIDTH} />
+    <span className={cx(styles.logo, className)} role="img" aria-label="Spotify">
+      <img className={styles.light} src={`/spotify/${light}.svg`} alt="" width={LOGO_WIDTH} />
+      <img className={styles.dark} src="/spotify/logo-white.svg" alt="" width={LOGO_WIDTH} />
     </span>
   );
 }
@@ -29,7 +32,7 @@ export function SpotifyLogo({ on = 'surface' }: { on?: Background }) {
 export function SpotifyAttribution({ href, on = 'surface' }: { href?: string; on?: Background }) {
   return (
     <a
-      className="spotify-attribution"
+      className={styles.attribution}
       href={href ?? 'https://open.spotify.com'}
       target="_blank"
       rel="noopener noreferrer"

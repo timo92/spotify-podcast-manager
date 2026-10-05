@@ -1,4 +1,4 @@
-/* Buttons, icon buttons, sync and play-target buttons. */
+/* Buttons, icon buttons and pill buttons. */
 
 .btn {
   display: inline-flex;
@@ -95,8 +95,8 @@
   color: var(--accent);
 }
 
-.sync-btn,
-.target-btn {
+/* Small rounded buttons in the top bar (play target, sync). */
+.pill-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -110,18 +110,16 @@
   cursor: pointer;
   max-width: 160px;
 }
-.target-label,
-.sync-label {
+.pill-btn-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sync-btn.is-running .icon {
+.pill-btn.is-running .icon {
   animation: spin 1s linear infinite;
 }
 @media (max-width: 420px) {
-  .sync-label,
-  .target-label {
+  .pill-btn-label {
     display: none;
   }
 }

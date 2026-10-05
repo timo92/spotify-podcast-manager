@@ -19,7 +19,9 @@ describe('PlanItemRow', () => {
     const { user } = renderSlot();
     const link = screen.getByRole('link', { name: 'Wissensreise' });
     expect(link).toHaveAttribute('href', '/podcasts/wissen');
-    expect(document.querySelector('a.plan-item-cover')).toHaveAttribute('href', '/podcasts/wissen');
+    // The cover links there too, hidden from assistive tech to avoid a duplicate link.
+    const links = [...document.querySelectorAll('a')].filter((a) => a.getAttribute('href') === '/podcasts/wissen');
+    expect(links).toHaveLength(2);
     await user.click(link);
     expect(screen.getByTestId('location')).toHaveTextContent('/podcasts/wissen');
   });
@@ -38,9 +40,8 @@ describe('PlanItemRow', () => {
     const picker = await screen.findByRole('dialog', { name: 'Folge wählen' });
     // open episodes only, newest first
     const titles = within(picker)
-      .getAllByRole('button')
-      .map((b) => b.querySelector('.pick-title')?.textContent)
-      .filter(Boolean);
+      .getAllByText(/^Reise: Teil/)
+      .map((el) => el.textContent);
     expect(titles).toEqual(['Reise: Teil 3', 'Reise: Teil 2']);
 
     await user.click(within(picker).getByText('Reise: Teil 2'));

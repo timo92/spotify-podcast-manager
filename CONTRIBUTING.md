@@ -44,8 +44,9 @@ CLI arguments instead.
   services, the Spotify client and the stores. `dev/` holds the local server,
   `test/` the tests and fakes.
 - **`packages/frontend`**: the React SPA. Pages in `src/pages`, components in
-  `src/components`, API calls and queries in `src/lib`, styles in
-  `src/styles`. `dev/` holds development-only helpers; the app itself has no
+  `src/components`, API calls and queries in `src/lib`. A component's
+  styles sit next to it as `<Component>.module.css`; `src/styles` holds the
+  global ones (D20). `dev/` holds development-only helpers; the app itself has no
   demo mode.
 - **`packages/infra`**: the CDK app. Names, stage and tags come from
   `lib/config.ts`.
@@ -105,6 +106,11 @@ There is no formatter yet; match the surrounding code:
 - Icons from `lucide-react` via `src/components/Icon.tsx`.
 - Plain CSS with the design tokens in `src/styles/tokens.css`; no inline colours
   or magic numbers.
+- Component styles go into `<Component>.module.css` next to the component
+  (camelCase class names, joined with `cx`). Only tokens, base styles and
+  shared primitives (buttons, chips, badges, cards, sheets, …) are global.
+  Refer to a global class from a module with `:global(.name)` and to shared
+  keyframes with `global(name)`.
 - Keep the Spotify compliance from D16 intact: attribution and official logos,
   artwork never cropped, "Open in Spotify" links.
 - Mobile first: every page must work at phone width.

@@ -1,16 +1,23 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { PlannedItem } from '@podcast/shared';
 import { Link } from 'react-router-dom';
 import { useEpisodeActions } from '../lib/actions';
+import { cx } from '../lib/cx';
 import { DAY_PART_LABEL, formatDuration } from '../lib/format';
 import { PlayButton } from './EpisodeCard';
 import { EpisodePickerSheet } from './EpisodePicker';
 import { Icon } from './Icon';
+import styles from './PlanItem.module.css';
 import { Cover, IconButton } from './ui';
 
 const STATE_TEXT: Partial<Record<PlannedItem['state'], string>> = {
   latest: 'Neueste Folge des Tages',
 };
+
+/** The list holding PlanItemRows; `card` puts it on a card of its own. */
+export function PlanList({ card, children }: { card?: boolean; children: ReactNode }) {
+  return <ul className={cx(styles.list, card && 'card', card && styles.inCard)}>{children}</ul>;
+}
 
 /** One slot of the weekly plan with its concrete episode. */
 export function PlanItemRow({
@@ -39,13 +46,13 @@ export function PlanItemRow({
     STATE_TEXT[item.state] ?? (item.show.mode === 'MANUAL' ? 'Keine Folge gewählt' : 'Alles gehört 🎉');
 
   return (
-    <li className={`plan-item${done ? ' is-done' : ''}`}>
-      <span className="plan-part">{DAY_PART_LABEL[item.part]}</span>
+    <li className={cx(styles.item, done && styles.isDone)}>
+      <span className={styles.part}>{DAY_PART_LABEL[item.part]}</span>
       {/* Same target as the name; hidden from assistive tech and the tab order to avoid a duplicate link. */}
-      <Link to={showPath} className="plan-item-cover" tabIndex={-1} aria-hidden>
+      <Link to={showPath} className={styles.cover} tabIndex={-1} aria-hidden>
         <Cover src={ep?.imageUrl ?? item.show.imageUrl} alt={item.show.name} size={44} />
       </Link>
-      <div className="plan-item-body">
+      <div className={styles.body}>
         <Link to={showPath} className="show-name">
           {item.show.name}
         </Link>
@@ -64,9 +71,9 @@ export function PlanItemRow({
           </span>
         )}
       </div>
-      <div className="plan-item-actions">
+      <div className={styles.actions}>
         {done && (
-          <span className="done-check" title="Heute gehört">
+          <span className={styles.doneCheck} title="Heute gehört">
             <Icon name="check" size={18} />
           </span>
         )}

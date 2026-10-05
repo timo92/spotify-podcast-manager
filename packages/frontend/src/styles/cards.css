@@ -146,27 +146,6 @@
   color: var(--text);
 }
 
-.simple-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-.simple-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-}
-.simple-list li:last-child {
-  border-bottom: none;
-}
-.simple-list .linklike {
-  font-weight: 600;
-}
-
 .budget {
   font-size: 0.85rem;
   font-weight: 600;

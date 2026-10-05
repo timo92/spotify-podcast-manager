@@ -1,0 +1,9 @@
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

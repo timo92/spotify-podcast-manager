@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { EpisodeCard } from '../components/EpisodeCard';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { EpisodeSheet } from '../components/EpisodeSheet';
-import { PlanItemRow } from '../components/PlanItem';
+import { PlanItemRow, PlanList } from '../components/PlanItem';
 import { Cover, Empty, ErrorBox, Spinner } from '../components/ui';
 import { api } from '../lib/api';
 import { formatRelative, greeting } from '../lib/format';
@@ -69,11 +69,11 @@ export function TodayPage() {
                   Wochenplan
                 </Link>
               </div>
-              <ul className="plan-list card">
+              <PlanList card>
                 {t.plan.map((item) => (
                   <PlanItemRow key={item.ruleId} item={item} isToday onOpen={onOpen} />
                 ))}
-              </ul>
+              </PlanList>
             </section>
           )}
 

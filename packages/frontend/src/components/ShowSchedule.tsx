@@ -3,11 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { removeRule, replaceRule, type ScheduleRule } from '@podcast/shared';
 import { Link } from 'react-router-dom';
 import { useSaveSchedule } from '../lib/actions';
+import { cx } from '../lib/cx';
 import { api } from '../lib/api';
 import { DAY_PART_LABEL, formatWeekdays } from '../lib/format';
 import { qk } from '../lib/queries';
 import { Icon } from './Icon';
 import { ScheduleRuleSheet } from './ScheduleRuleSheet';
+import styles from './ShowSchedule.module.css';
 import { IconButton, Spinner } from './ui';
 
 /** A podcast's rules in the weekly plan, editable with the same sheet as on Woche. */
@@ -33,11 +35,11 @@ export function ShowSchedule({ showId, showName }: { showId: string; showName: s
       ) : own.length === 0 ? (
         <p className="muted small">Nicht im Wochenplan.</p>
       ) : (
-        <ul className="rule-list">
+        <ul className={styles.rules}>
           {own.map((r) => (
             <li key={r.id}>
               <Icon name="calendar" size={18} />
-              <span className="grow">{label(r)}</span>
+              <span className={cx('grow', styles.rule)}>{label(r)}</span>
               <IconButton icon="note" label={`${label(r)} bearbeiten`} onClick={() => setEditing(r)} />
               <IconButton
                 icon="close"

@@ -1,0 +1,13 @@
+{
+  "title": "History",
+  "view": "View",
+  "tabPlayed": "Played",
+  "tabNotes": "Notes",
+  "notesEmptyTitle": "No notes yet",
+  "notesEmptyText": "Open an episode or tap <icon/> in the player – notes are saved automatically.",
+  "notesSearch": "Search notes",
+  "lastWeek": "{{time}} in the last 7 days",
+  "recent": "Recently played episodes",
+  "emptyTitle": "Nothing played yet",
+  "emptyText": "Mark episodes as played – they will appear here."
+}

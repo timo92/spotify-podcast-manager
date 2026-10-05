@@ -1,20 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { EpisodeStatus, EpisodeView, ScheduleRule } from '@podcast/shared';
 import { api } from './api';
 import { qk, useInvalidateLibrary } from './queries';
 import { useToast } from './toast';
 
-const DONE_MESSAGE: Record<EpisodeStatus, string> = {
-  COMPLETED: 'Als gehört markiert',
-  SKIPPED: 'Übersprungen',
-  UNSEEN: 'Als ungehört markiert',
-  IN_PROGRESS: 'Als begonnen markiert',
-};
-
 type EpisodeRef = Pick<EpisodeView, 'id' | 'showId' | 'status' | 'statusSource'>;
 
 /** Episode mutations with toast feedback and undo. */
 export function useEpisodeActions() {
+  const { t } = useTranslation();
   const invalidate = useInvalidateLibrary();
   const toast = useToast();
 
@@ -27,7 +22,7 @@ export function useEpisodeActions() {
         tone: 'success',
         action: undo
           ? {
-              label: 'Rückgängig',
+              label: t('episode.undo'),
               onClick: () => {
                 void undo()
                   .then(invalidate)
@@ -47,15 +42,15 @@ export function useEpisodeActions() {
 
   return {
     setStatus: (ep: EpisodeRef, status: EpisodeStatus) =>
-      run(() => api.setStatus(ep.showId, ep.id, status), DONE_MESSAGE[status], restore(ep)),
+      run(() => api.setStatus(ep.showId, ep.id, status), t(`episode.done.${status}`), restore(ep)),
     resetStatus: (ep: EpisodeRef) =>
-      run(() => api.setStatus(ep.showId, ep.id, null), 'Status zurückgesetzt – Spotify-Stand gilt', restore(ep)),
+      run(() => api.setStatus(ep.showId, ep.id, null), t('episode.statusReset'), restore(ep)),
     completeBefore: (ep: EpisodeRef) =>
-      run(() => api.completeBefore(ep.showId, ep.id), 'Alle früheren Folgen als gehört markiert'),
+      run(() => api.completeBefore(ep.showId, ep.id), t('episode.completedBefore')),
     pin: (showId: string, episodeId: string | null, previous?: string | null) =>
       run(
         () => api.updateShow(showId, { pinnedEpisodeId: episodeId }),
-        episodeId ? 'Als nächste Folge festgelegt' : 'Auswahl aufgehoben',
+        episodeId ? t('episode.pinned') : t('episode.unpinned'),
         () => api.updateShow(showId, { pinnedEpisodeId: previous ?? null }),
       ),
   };

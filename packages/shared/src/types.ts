@@ -6,6 +6,8 @@
  * never overwritten by a sync.
  */
 
+import type { ErrorCode, ErrorParams } from './errors.js';
+
 export type ConsumptionMode = 'LATEST' | 'SEQUENTIAL' | 'MANUAL';
 
 export const CONSUMPTION_MODES: ConsumptionMode[] = ['LATEST', 'SEQUENTIAL', 'MANUAL'];
@@ -219,9 +221,16 @@ export interface SyncState {
   startedAt?: string;
   finishedAt?: string;
   lastSuccessAt?: string;
+  /** German status text, for logs; clients build their own from the fields below. */
   message?: string;
   error?: string;
+  /** Stable code and parameters of `error` when it is a known API error, for the client's translation. */
+  errorCode?: ErrorCode;
+  errorParams?: ErrorParams[ErrorCode];
+  /** While running: the podcast reloaded on its own (absent for a library sync). */
+  showId?: string;
   showsSynced?: number;
+  showsFailed?: number;
   newEpisodes?: number;
   /** Identifies the sync that holds the lease while status is 'running'. */
   leaseId?: string;
@@ -257,9 +266,11 @@ export interface PlayerDevice {
   isActive: boolean;
 }
 
-export interface ApiErrorBody {
-  error: string;
+/** Error response of the API: a stable code the client translates with `params`; `message` is a German fallback. */
+export interface ApiErrorBody<C extends ErrorCode = ErrorCode> {
+  error: C;
   message: string;
+  params?: ErrorParams[C];
 }
 
 // ---------------------------------------------------------------- weekly plan

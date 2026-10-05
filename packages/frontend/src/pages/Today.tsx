@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { EpisodeCard } from '../components/EpisodeCard';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
@@ -8,11 +9,12 @@ import { PlanItemRow, PlanList } from '../components/PlanItem';
 import { Cover, Empty, ErrorBox, Spinner } from '../components/ui';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatRelative, greeting } from '../lib/format';
+import { formatLongDate, formatRelative, greeting, syncError } from '../lib/format';
 import { qk, useStatus } from '../lib/queries';
 import styles from './Today.module.css';
 
 export function TodayPage() {
+  const { t } = useTranslation('today');
   const { data: status } = useStatus();
   const today = useQuery({ queryKey: qk.today, queryFn: api.today });
   const [params] = useSearchParams();
@@ -22,7 +24,7 @@ export function TodayPage() {
   const syncing = status?.sync?.status === 'running';
   const welcome = params.get('welcome') === '1';
   const name = status?.user?.displayName?.split(' ')[0];
-  const t = today.data;
+  const data = today.data;
 
   return (
     <div className="page">
@@ -32,47 +34,44 @@ export function TodayPage() {
           {name ? `, ${name}` : ''}
         </h1>
         <p className="muted">
-          {new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}
-          {t && t.newCount > 0 && ` · ${t.newCount} neue ${t.newCount === 1 ? 'Folge' : 'Folgen'}`}
+          {formatLongDate(new Date())}
+          {data && data.newCount > 0 && ` · ${t('newEpisodes', { count: data.newCount })}`}
         </p>
         <SpotifyAttribution on="page" />
       </header>
 
-      {syncing && (welcome || !t?.recommended.length) && (
+      {syncing && (welcome || !data?.recommended.length) && (
         <div className="banner banner-info">
-          <span>Deine Podcasts werden aus Spotify importiert. Das dauert beim ersten Mal einen Moment…</span>
+          <span>{t('importing')}</span>
         </div>
       )}
-      {t && t.needsReviewCount > 0 && !syncing && (
+      {data && data.needsReviewCount > 0 && !syncing && (
         <div className="banner banner-info">
-          <span>
-            {t.needsReviewCount} {t.needsReviewCount === 1 ? 'Podcast wartet' : 'Podcasts warten'} auf deine Einordnung
-            (Aktualität oder Reihenfolge?).
-          </span>
+          <span>{t('review', { count: data.needsReviewCount })}</span>
           <Link className="btn btn-small" to="/podcasts?pruefen=1">
-            Jetzt prüfen
+            {t('reviewNow')}
           </Link>
         </div>
       )}
       {status?.sync?.status === 'error' && (
-        <ErrorBox error={`Letzter Sync fehlgeschlagen: ${status.sync.error ?? 'unbekannter Fehler'}`} />
+        <ErrorBox error={t('lastSyncFailed', { error: syncError(status.sync) || t('unknownError') })} />
       )}
 
       {today.isLoading && <Spinner />}
       {today.error && <ErrorBox error={today.error} onRetry={() => void today.refetch()} />}
 
-      {t && (
+      {data && (
         <>
-          {t.plan.length > 0 && (
+          {data.plan.length > 0 && (
             <section className="section">
               <div className="section-head">
-                <h2>Dein Plan für heute</h2>
+                <h2>{t('plan')}</h2>
                 <Link to="/woche" className="small">
-                  Wochenplan
+                  {t('weekPlan')}
                 </Link>
               </div>
               <PlanList card>
-                {t.plan.map((item) => (
+                {data.plan.map((item) => (
                   <PlanItemRow key={item.ruleId} item={item} isToday onOpen={onOpen} />
                 ))}
               </PlanList>
@@ -81,59 +80,60 @@ export function TodayPage() {
 
           <section className="section">
             <div className="section-head">
-              <h2>{t.plan.length ? 'Außerdem empfohlen' : 'Heute empfohlen'}</h2>
-              {t.budgetMinutes > 0 && (
+              <h2>{data.plan.length ? t('alsoRecommended') : t('recommended')}</h2>
+              {data.budgetMinutes > 0 && (
                 <span
                   className={cx(
                     styles.budget,
-                    t.budgetFit === 'perfect' && styles.perfect,
-                    t.budgetFit === 'over' && styles.over,
+                    data.budgetFit === 'perfect' && styles.perfect,
+                    data.budgetFit === 'over' && styles.over,
                   )}
                 >
-                  {t.recommendedMinutes} / {t.budgetMinutes} min
-                  {t.budgetFit === 'perfect' && ' · passt'}
-                  {t.budgetFit === 'over' && (t.recommendedMinutes <= t.budgetMinutes * 1.2 ? ' · knapp drüber' : ' · über Budget')}
+                  {t('budget', { used: data.recommendedMinutes, budget: data.budgetMinutes })}
+                  {data.budgetFit === 'perfect' && ` · ${t('budgetFits')}`}
+                  {data.budgetFit === 'over' &&
+                    ` · ${data.recommendedMinutes <= data.budgetMinutes * 1.2 ? t('budgetSlightlyOver') : t('budgetOver')}`}
                 </span>
               )}
             </div>
-            {t.recommended.length === 0 ? (
-              <Empty title={t.more.length ? (t.plan.length ? 'Budget durch deinen Plan ausgeschöpft' : 'Nichts passt ins Zeitbudget') : 'Alles gehört!'}>
-                {t.more.length
-                  ? 'Unten findest du weitere Folgen – oder erhöhe dein Budget in den Einstellungen.'
-                  : syncing
-                    ? 'Sobald der Import fertig ist, erscheinen hier deine Folgen.'
-                    : 'Keine offenen Folgen. Zeit für etwas Neues?'}
+            {data.recommended.length === 0 ? (
+              <Empty
+                title={
+                  data.more.length ? (data.plan.length ? t('emptyPlanFull') : t('emptyNothingFits')) : t('emptyAllHeard')
+                }
+              >
+                {data.more.length ? t('emptyMore') : syncing ? t('emptyImporting') : t('emptyNothingOpen')}
               </Empty>
             ) : (
               <div className="card-list">
-                {t.recommended.map((item) => (
+                {data.recommended.map((item) => (
                   <EpisodeCard key={item.episode.id} item={item} onOpen={onOpen} />
                 ))}
               </div>
             )}
           </section>
 
-          {t.more.length > 0 && (
+          {data.more.length > 0 && (
             <section className="section">
               <div className="section-head">
-                <h2>Weitere Folgen</h2>
-                <span className="muted small">außerhalb des Budgets</span>
+                <h2>{t('more')}</h2>
+                <span className="muted small">{t('outsideBudget')}</span>
               </div>
               <div className="card-list">
-                {t.more.map((item) => (
+                {data.more.map((item) => (
                   <EpisodeCard key={item.episode.id} item={item} onOpen={onOpen} />
                 ))}
               </div>
             </section>
           )}
 
-          {t.noNewEpisode.length > 0 && (
+          {data.noNewEpisode.length > 0 && (
             <section className="section">
               <div className="section-head">
-                <h2>Keine neue Folge</h2>
+                <h2>{t('noNewEpisode')}</h2>
               </div>
               <div className={styles.pills}>
-                {t.noNewEpisode.map((s) => (
+                {data.noNewEpisode.map((s) => (
                   <Link key={s.id} to={`/podcasts/${encodeURIComponent(s.id)}`} className={styles.pill}>
                     <Cover src={s.imageUrl} alt={s.name} size={28} />
                     <span>{s.name}</span>
@@ -143,16 +143,16 @@ export function TodayPage() {
             </section>
           )}
 
-          {t.recent.length > 0 && (
+          {data.recent.length > 0 && (
             <section className="section">
               <div className="section-head">
-                <h2>Zuletzt gehört</h2>
+                <h2>{t('recent')}</h2>
                 <Link to="/verlauf" className="small">
-                  Alle
+                  {t('all')}
                 </Link>
               </div>
               <ul className="simple-list">
-                {t.recent.map((r) => (
+                {data.recent.map((r) => (
                   <li key={`${r.showId}-${r.episodeId}`}>
                     <button type="button" className="linklike" onClick={() => onOpen(r.showId, r.episodeId)}>
                       {r.episodeName}

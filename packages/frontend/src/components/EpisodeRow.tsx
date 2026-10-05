@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { EpisodeView, Show } from '@podcast/shared';
 import { useEpisodeActions } from '../lib/actions';
 import { cx } from '../lib/cx';
@@ -18,6 +19,7 @@ export function EpisodeRow({
   isNext: boolean;
   onOpen: (episodeId: string) => void;
 }) {
+  const { t } = useTranslation('episode');
   const actions = useEpisodeActions();
   const done = episode.status === 'COMPLETED';
   const pinned = show.pinnedEpisodeId === episode.id;
@@ -32,12 +34,12 @@ export function EpisodeRow({
           <span>{formatReleaseDate(episode.releaseDate)}</span>
           <span>{formatDuration(episode.durationMs)}</span>
           {(episode.status !== 'UNSEEN' || episode.isNew) && <StatusBadge status={episode.status} isNew={episode.isNew} />}
-          {isNext && <Badge tone="next">Als Nächstes</Badge>}
-          {pinned && <Badge tone="pinned">Gewählt</Badge>}
-          {episode.statusSource === 'spotify' && <span title="Status stammt aus Spotify">· Spotify</span>}
+          {isNext && <Badge tone="next">{t('row.next')}</Badge>}
+          {pinned && <Badge tone="pinned">{t('row.chosen')}</Badge>}
+          {episode.statusSource === 'spotify' && <span title={t('row.fromSpotify')}>· Spotify</span>}
           {episode.hasNote && (
-            <button type="button" className={styles.noteFlag} onClick={() => onOpen(episode.id)} title="Notiz vorhanden">
-              <Icon name="note" size={14} /> Notiz
+            <button type="button" className={styles.noteFlag} onClick={() => onOpen(episode.id)} title={t('row.noteExists')}>
+              <Icon name="note" size={14} /> {t('row.note')}
             </button>
           )}
         </div>
@@ -46,21 +48,21 @@ export function EpisodeRow({
         <PlayButton item={{ show, episode }} compact primary={isNext} />
         <IconButton
           icon="check"
-          label={done ? 'Als ungehört markieren' : 'Als gehört markieren'}
+          label={done ? t('action.markUnplayed') : t('episode.markPlayed', { ns: 'common' })}
           active={done}
           onClick={() => actions.setStatus(episode, done ? 'UNSEEN' : 'COMPLETED')}
         />
         <Menu
           items={[
-            { label: 'Überspringen', icon: 'skip', onClick: () => actions.setStatus(episode, 'SKIPPED'), hidden: episode.status === 'SKIPPED' },
-            { label: 'Als ungehört markieren', icon: 'undo', onClick: () => actions.setStatus(episode, 'UNSEEN'), hidden: episode.status === 'UNSEEN' },
+            { label: t('action.skip'), icon: 'skip', onClick: () => actions.setStatus(episode, 'SKIPPED'), hidden: episode.status === 'SKIPPED' },
+            { label: t('action.markUnplayed'), icon: 'undo', onClick: () => actions.setStatus(episode, 'UNSEEN'), hidden: episode.status === 'UNSEEN' },
             {
-              label: pinned ? 'Auswahl aufheben' : 'Als nächste Folge festlegen',
+              label: pinned ? t('action.unpin') : t('action.pin'),
               icon: 'pin',
               onClick: () => actions.pin(show.id, pinned ? null : episode.id, show.pinnedEpisodeId),
             },
-            { label: 'Alle früheren als gehört', icon: 'check', onClick: () => actions.completeBefore(episode), hidden: episode.index <= 1 },
-            { label: 'Status zurücksetzen (Spotify)', icon: 'refresh', onClick: () => actions.resetStatus(episode), hidden: episode.statusSource !== 'local' },
+            { label: t('action.completeBeforeMenu'), icon: 'check', onClick: () => actions.completeBefore(episode), hidden: episode.index <= 1 },
+            { label: t('action.resetStatus'), icon: 'refresh', onClick: () => actions.resetStatus(episode), hidden: episode.statusSource !== 'local' },
             { label: 'LISTEN ON SPOTIFY', icon: 'external', href: episode.spotifyUrl },
           ]}
         />

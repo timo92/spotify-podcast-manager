@@ -1,0 +1,141 @@
+{
+  "appName": "Podcast-Cockpit",
+  "duration": {
+    "minutes": "{{minutes}} min",
+    "hours": "{{hours}} h",
+    "hoursMinutes": "{{hours}} h {{minutes}} min"
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "never": "never",
+    "justNow": "just now",
+    "minutesAgo": "{{count}} min ago",
+    "hoursAgo": "{{count}} h ago",
+    "yesterdayInline": "yesterday",
+    "daysAgo": "{{count}} days ago"
+  },
+  "greeting": {
+    "night": "Good night",
+    "morning": "Good morning",
+    "day": "Hello",
+    "evening": "Good evening"
+  },
+  "mode": {
+    "LATEST": "Latest",
+    "SEQUENTIAL": "In order",
+    "MANUAL": "Manual"
+  },
+  "modeHint": {
+    "LATEST": "Always the newest episode",
+    "SEQUENTIAL": "Work through from the start",
+    "MANUAL": "You choose the next episode"
+  },
+  "status": {
+    "UNSEEN": "Unplayed",
+    "IN_PROGRESS": "Started",
+    "COMPLETED": "Played",
+    "SKIPPED": "Skipped"
+  },
+  "todayLabel": {
+    "NEU": "New",
+    "WEITER": "Continue",
+    "NAECHSTE": "Next",
+    "GEWAEHLT": "Chosen"
+  },
+  "dayPart": {
+    "MORNING": "Morning",
+    "MIDDAY": "Midday",
+    "EVENING": "Evening",
+    "ANYTIME": "Anytime"
+  },
+  "weekdayShort": {
+    "1": "Mon",
+    "2": "Tue",
+    "3": "Wed",
+    "4": "Thu",
+    "5": "Fri",
+    "6": "Sat",
+    "7": "Sun"
+  },
+  "weekdayLong": {
+    "1": "Monday",
+    "2": "Tuesday",
+    "3": "Wednesday",
+    "4": "Thursday",
+    "5": "Friday",
+    "6": "Saturday",
+    "7": "Sunday"
+  },
+  "ui": {
+    "new": "New",
+    "moreActions": "More actions",
+    "loading": "Loading…",
+    "retry": "Try again",
+    "close": "Close",
+    "edit": "Edit",
+    "done": "Done",
+    "save": "Save",
+    "change": "Change",
+    "progress": "Progress",
+    "notFound": "Not found",
+    "mode": "Mode",
+    "filter": "Filter",
+    "all": "All",
+    "back": "Back",
+    "paused": "Paused",
+    "noConnection": "No connection to the server",
+    "newCategory": "New category",
+    "categoryPlaceholder": "+ Category"
+  },
+  "nav": {
+    "main": "Main navigation",
+    "bottom": "Navigation",
+    "today": "Today",
+    "week": "Week",
+    "podcasts": "Podcasts",
+    "history": "History",
+    "settings": "Settings"
+  },
+  "sync": {
+    "button": "Sync with Spotify",
+    "title": "Sync",
+    "lastSynced": "Last synced {{when}}",
+    "runningShort": "Syncing…",
+    "running": "Syncing with Spotify…",
+    "reloadingShow": "Reloading podcast…",
+    "failed": "Sync failed: {{error}}",
+    "done_one": "{{count}} podcast synced, {{newEpisodes}} new episodes.",
+    "done_other": "{{count}} podcasts synced, {{newEpisodes}} new episodes.",
+    "doneWithErrors_one": "{{count}} podcast synced, {{failed}} with errors.",
+    "doneWithErrors_other": "{{count}} podcasts synced, {{failed}} with errors."
+  },
+  "banner": {
+    "disconnected": "The connection to Spotify was removed.",
+    "deletionDate": "Without a new login, your data will be deleted on {{date}}.",
+    "reconnect": "Reconnect",
+    "missingScopes": "Spotify permissions are missing ({{scopes}}). Some features are limited."
+  },
+  "episode": {
+    "done": {
+      "COMPLETED": "Marked as played",
+      "SKIPPED": "Skipped",
+      "UNSEEN": "Marked as unplayed",
+      "IN_PROGRESS": "Marked as started"
+    },
+    "undo": "Undo",
+    "statusReset": "Status reset – Spotify's state applies",
+    "completedBefore": "All earlier episodes marked as played",
+    "pinned": "Set as the next episode",
+    "unpinned": "Choice removed",
+    "markPlayed": "Mark as played",
+    "autoCompleted": "“{{name}}” marked as played",
+    "number": "Episode {{index}}",
+    "remaining": "{{time}} left",
+    "ofTotal": "Episode {{index}} / {{total}}"
+  },
+  "attribution": {
+    "contentFrom": "Content from",
+    "open": "Open on Spotify"
+  }
+}

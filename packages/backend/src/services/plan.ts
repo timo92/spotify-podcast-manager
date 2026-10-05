@@ -28,9 +28,9 @@ export function validTimeZone(tz: string | undefined): string {
 
 /** Distinct weekdays, ascending; at least one. */
 function parseWeekdays(value: unknown): Weekday[] {
-  if (!Array.isArray(value) || value.length === 0) throw badRequest('Mindestens ein Wochentag');
+  if (!Array.isArray(value) || value.length === 0) throw badRequest('weekdays_required', 'Mindestens ein Wochentag');
   const days = value.map(Number);
-  if (days.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) throw badRequest('Ungültiger Wochentag');
+  if (days.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) throw badRequest('invalid_weekday', 'Ungültiger Wochentag');
   return [...new Set(days)].sort((a, b) => a - b) as Weekday[];
 }
 
@@ -47,13 +47,13 @@ export class PlanService {
    */
   async saveSchedule(input: unknown): Promise<Schedule> {
     const raw = (input as { rules?: unknown })?.rules;
-    if (!Array.isArray(raw)) throw badRequest('rules muss eine Liste sein');
-    if (raw.length > MAX_RULES) throw badRequest(`Höchstens ${MAX_RULES} Regeln`);
+    if (!Array.isArray(raw)) throw badRequest('invalid_schedule', 'rules muss eine Liste sein');
+    if (raw.length > MAX_RULES) throw badRequest('too_many_rules', `Höchstens ${MAX_RULES} Regeln`, { max: MAX_RULES });
     const shows = new Set((await this.store.listShows()).map((s) => s.id));
     const ids = new Set<string>();
     const rules: ScheduleRule[] = raw
       .map((r: Partial<ScheduleRule> | null) => {
-        if (typeof r?.showId !== 'string' || !r.showId) throw badRequest('Podcast fehlt im Plan');
+        if (typeof r?.showId !== 'string' || !r.showId) throw badRequest('rule_show_missing', 'Podcast fehlt im Plan');
         const weekdays = parseWeekdays(r.weekdays);
         const part = (DAY_PARTS.includes(r.part as DayPart) ? r.part : 'ANYTIME') as DayPart;
         let id = typeof r.id === 'string' ? r.id.slice(0, 64) : '';

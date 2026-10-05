@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { removeRule, removeWeekday, replaceRule, type PlannedItem, type ScheduleRule, type Weekday } from '@podcast/shared';
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
@@ -9,12 +10,13 @@ import { ScheduleRuleSheet } from '../components/ScheduleRuleSheet';
 import { Empty, ErrorBox, IconButton, Spinner } from '../components/ui';
 import { useSaveSchedule } from '../lib/actions';
 import { api } from '../lib/api';
-import { DAY_PART_LABEL, formatDayMonth, formatDuration, formatWeekdays, WEEKDAY_LONG, WEEKDAY_SHORT } from '../lib/format';
+import { formatDayMonth, formatDuration, formatRule, formatWeekdays, weekdayLong, weekdayShort } from '../lib/format';
 import { cx } from '../lib/cx';
 import { qk } from '../lib/queries';
 import styles from './Week.module.css';
 
 export function WeekPage() {
+  const { t } = useTranslation('plan');
   const week = useQuery({ queryKey: qk.week, queryFn: api.week });
   const schedule = useQuery({ queryKey: qk.schedule, queryFn: api.schedule });
   const save = useSaveSchedule();
@@ -34,7 +36,7 @@ export function WeekPage() {
     const rule = ruleOf(item);
     if (!rule) return;
     if (rule.weekdays.length > 1) setRemoving({ rule, item, weekday });
-    else void save(removeRule(rules, rule.id), `${item.show.name} am ${WEEKDAY_LONG[weekday]} entfernt`);
+    else void save(removeRule(rules, rule.id), t('toast.dayRemoved', { show: item.show.name, day: weekdayLong(weekday) }));
   }
 
   const weekMinutes = (week.data?.days ?? []).reduce((sum, d) => sum + d.openMs, 0);
@@ -43,17 +45,18 @@ export function WeekPage() {
     <div className="page">
       <header className="page-head row-between">
         <div>
-          <h1>Wochenplan</h1>
+          <h1>{t('week.title')}</h1>
           <p className="muted">
             {slotCount
-              ? `${slotCount} feste ${slotCount === 1 ? 'Termin' : 'Termine'} pro Woche · ${formatDuration(weekMinutes)} offen in den nächsten 7 Tagen`
-              : 'Lege fest, an welchen Tagen du welchen Podcast hörst.'}
+              ? t('week.summary', { count: slotCount, open: formatDuration(weekMinutes) })
+              : t('week.intro')}
           </p>
           <SpotifyAttribution on="page" />
         </div>
         {rules.length > 0 && (
           <button type="button" className={`btn btn-small${editing ? ' btn-primary' : ''}`} onClick={() => setEditing((e) => !e)}>
-            <Icon name={editing ? 'check' : 'note'} size={16} /> {editing ? 'Fertig' : 'Bearbeiten'}
+            <Icon name={editing ? 'check' : 'note'} size={16} />{' '}
+            {editing ? t('ui.done', { ns: 'common' }) : t('ui.edit', { ns: 'common' })}
           </button>
         )}
       </header>
@@ -62,13 +65,10 @@ export function WeekPage() {
       {week.error && <ErrorBox error={week.error} onRetry={() => void week.refetch()} />}
 
       {schedule.data && rules.length === 0 && (
-        <Empty title="Noch kein Plan">
-          <p>
-            Zum Beispiel: werktags morgens die Nachrichten, dienstags und donnerstags abends eine Folge deiner
-            Geschichtsreihe. Die passende Folge sucht die App jeweils automatisch aus.
-          </p>
+        <Empty title={t('week.emptyTitle')}>
+          <p>{t('week.emptyText')}</p>
           <button className="btn btn-primary" onClick={() => setAdding([1, 2, 3, 4, 5])}>
-            <Icon name="plus" size={18} /> Ersten Termin anlegen
+            <Icon name="plus" size={18} /> {t('week.firstSlot')}
           </button>
         </Empty>
       )}
@@ -79,16 +79,16 @@ export function WeekPage() {
             <section key={day.date} className={cx('card', styles.day, day.isToday && styles.isToday)}>
               <div className={styles.dayHead}>
                 <h2 className="h3">
-                  {day.isToday ? 'Heute' : WEEKDAY_LONG[day.weekday]}
-                  <span className="muted small"> · {day.isToday ? WEEKDAY_SHORT[day.weekday] + ', ' : ''}{formatDayMonth(day.date)}</span>
+                  {day.isToday ? t('week.today') : weekdayLong(day.weekday)}
+                  <span className="muted small"> · {day.isToday ? weekdayShort(day.weekday) + ', ' : ''}{formatDayMonth(day.date)}</span>
                 </h2>
                 {day.openMs > 0 && <span className="muted small">{formatDuration(day.openMs)}</span>}
                 {editing && (
-                  <IconButton icon="plus" label={`Termin am ${WEEKDAY_LONG[day.weekday]} hinzufügen`} onClick={() => setAdding([day.weekday])} />
+                  <IconButton icon="plus" label={t('week.addOn', { day: weekdayLong(day.weekday) })} onClick={() => setAdding([day.weekday])} />
                 )}
               </div>
               {day.items.length === 0 ? (
-                <p className={cx('muted small', styles.dayEmpty)}>Nichts geplant</p>
+                <p className={cx('muted small', styles.dayEmpty)}>{t('week.nothingPlanned')}</p>
               ) : (
                 <PlanList>
                   {day.items.map((item) => (
@@ -106,12 +106,9 @@ export function WeekPage() {
             </section>
           ))}
           <button className="btn btn-block" onClick={() => setAdding([])}>
-            <Icon name="plus" size={18} /> Termin hinzufügen
+            <Icon name="plus" size={18} /> {t('week.addSlot')}
           </button>
-          <p className="muted small">
-            Termine wiederholen sich jede Woche. Bei Reihen wird pro Termin die jeweils nächste Folge eingeplant; was du
-            heute schon gehört hast, wird abgehakt.
-          </p>
+          <p className="muted small">{t('week.footnote')}</p>
         </div>
       )}
 
@@ -121,7 +118,7 @@ export function WeekPage() {
           onClose={() => setAdding(null)}
           onSave={(rule, showName) => {
             setAdding(null);
-            void save([...rules, rule], `${showName} eingeplant`);
+            void save([...rules, rule], t('toast.planned', { show: showName }));
           }}
         />
       )}
@@ -133,12 +130,12 @@ export function WeekPage() {
             setEditingRule(null);
             void save(
               replaceRule(rules, rule),
-              `${showName}: ${formatWeekdays(rule.weekdays)} · ${DAY_PART_LABEL[rule.part]}`,
+              `${showName}: ${formatRule(rule)}`,
             );
           }}
           onDelete={() => {
             setEditingRule(null);
-            void save(removeRule(rules, editingRule.id), 'Regel entfernt');
+            void save(removeRule(rules, editingRule.id), t('toast.ruleRemoved'));
           }}
         />
       )}
@@ -150,12 +147,12 @@ export function WeekPage() {
             setRemoving(null);
             void save(
               removeWeekday(rules, removing.rule.id, removing.weekday),
-              `${removing.item.show.name} am ${WEEKDAY_LONG[removing.weekday]} entfernt`,
+              t('toast.dayRemoved', { show: removing.item.show.name, day: weekdayLong(removing.weekday) }),
             );
           }}
           onRemoveRule={() => {
             setRemoving(null);
-            void save(removeRule(rules, removing.rule.id), `${removing.item.show.name}: Regel entfernt`);
+            void save(removeRule(rules, removing.rule.id), t('toast.showRuleRemoved', { show: removing.item.show.name }));
           }}
         />
       )}
@@ -179,21 +176,22 @@ function RemoveSlotSheet({
   onRemoveDay: () => void;
   onRemoveRule: () => void;
 }) {
+  const { t } = useTranslation('plan');
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label="Termin entfernen" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label={t('remove.title')} onClick={(e) => e.stopPropagation()}>
         <div className="row-between">
-          <h2>Termin entfernen</h2>
-          <IconButton icon="close" label="Schließen" onClick={onClose} />
+          <h2>{t('remove.title')}</h2>
+          <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
         </div>
         <p>
-          {item.show.name} ist für {formatWeekdays(rule.weekdays)} · {DAY_PART_LABEL[rule.part]} geplant.
+          {t('remove.text', { show: item.show.name, rule: formatRule(rule) })}
         </p>
         <button className="btn btn-block" onClick={onRemoveDay}>
-          Nur am {WEEKDAY_LONG[weekday]}
+          {t('remove.onlyDay', { day: weekdayLong(weekday) })}
         </button>
         <button className="btn btn-danger btn-block" onClick={onRemoveRule}>
-          Ganze Regel ({formatWeekdays(rule.weekdays)})
+          {t('remove.wholeRule', { days: formatWeekdays(rule.weekdays) })}
         </button>
       </div>
     </div>

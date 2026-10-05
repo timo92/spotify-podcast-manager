@@ -1,0 +1,141 @@
+{
+  "appName": "Podcast-Cockpit",
+  "duration": {
+    "minutes": "{{minutes}} min",
+    "hours": "{{hours}} h",
+    "hoursMinutes": "{{hours}} h {{minutes}} min"
+  },
+  "time": {
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "never": "nie",
+    "justNow": "gerade eben",
+    "minutesAgo": "vor {{count}} min",
+    "hoursAgo": "vor {{count}} h",
+    "yesterdayInline": "gestern",
+    "daysAgo": "vor {{count}} Tagen"
+  },
+  "greeting": {
+    "night": "Gute Nacht",
+    "morning": "Guten Morgen",
+    "day": "Guten Tag",
+    "evening": "Guten Abend"
+  },
+  "mode": {
+    "LATEST": "Aktualität",
+    "SEQUENTIAL": "Reihenfolge",
+    "MANUAL": "Frei"
+  },
+  "modeHint": {
+    "LATEST": "Immer die neueste Folge",
+    "SEQUENTIAL": "Von vorne durcharbeiten",
+    "MANUAL": "Du wählst die nächste Folge"
+  },
+  "status": {
+    "UNSEEN": "Ungehört",
+    "IN_PROGRESS": "Begonnen",
+    "COMPLETED": "Gehört",
+    "SKIPPED": "Übersprungen"
+  },
+  "todayLabel": {
+    "NEU": "Neu",
+    "WEITER": "Weiter",
+    "NAECHSTE": "Nächste",
+    "GEWAEHLT": "Gewählt"
+  },
+  "dayPart": {
+    "MORNING": "Morgens",
+    "MIDDAY": "Mittags",
+    "EVENING": "Abends",
+    "ANYTIME": "Jederzeit"
+  },
+  "weekdayShort": {
+    "1": "Mo",
+    "2": "Di",
+    "3": "Mi",
+    "4": "Do",
+    "5": "Fr",
+    "6": "Sa",
+    "7": "So"
+  },
+  "weekdayLong": {
+    "1": "Montag",
+    "2": "Dienstag",
+    "3": "Mittwoch",
+    "4": "Donnerstag",
+    "5": "Freitag",
+    "6": "Samstag",
+    "7": "Sonntag"
+  },
+  "ui": {
+    "new": "Neu",
+    "moreActions": "Weitere Aktionen",
+    "loading": "Lädt…",
+    "retry": "Erneut versuchen",
+    "close": "Schließen",
+    "edit": "Bearbeiten",
+    "done": "Fertig",
+    "save": "Speichern",
+    "change": "Ändern",
+    "progress": "Fortschritt",
+    "notFound": "Nicht gefunden",
+    "mode": "Modus",
+    "filter": "Filter",
+    "all": "Alle",
+    "back": "Zurück",
+    "paused": "Pausiert",
+    "noConnection": "Keine Verbindung zum Server",
+    "newCategory": "Neue Kategorie",
+    "categoryPlaceholder": "+ Kategorie"
+  },
+  "nav": {
+    "main": "Hauptnavigation",
+    "bottom": "Navigation",
+    "today": "Heute",
+    "week": "Woche",
+    "podcasts": "Podcasts",
+    "history": "Verlauf",
+    "settings": "Einstellungen"
+  },
+  "sync": {
+    "button": "Mit Spotify synchronisieren",
+    "title": "Synchronisieren",
+    "lastSynced": "Zuletzt synchronisiert {{when}}",
+    "runningShort": "Sync läuft…",
+    "running": "Synchronisiere mit Spotify…",
+    "reloadingShow": "Podcast wird neu geladen…",
+    "failed": "Sync fehlgeschlagen: {{error}}",
+    "done_one": "{{count}} Podcast synchronisiert, {{newEpisodes}} neue Folgen.",
+    "done_other": "{{count}} Podcasts synchronisiert, {{newEpisodes}} neue Folgen.",
+    "doneWithErrors_one": "{{count}} Podcast synchronisiert, {{failed}} mit Fehlern.",
+    "doneWithErrors_other": "{{count}} Podcasts synchronisiert, {{failed}} mit Fehlern."
+  },
+  "banner": {
+    "disconnected": "Die Verbindung zu Spotify wurde getrennt.",
+    "deletionDate": "Ohne neue Anmeldung werden deine Daten am {{date}} gelöscht.",
+    "reconnect": "Neu verbinden",
+    "missingScopes": "Spotify-Berechtigungen fehlen ({{scopes}}). Einige Funktionen sind eingeschränkt."
+  },
+  "episode": {
+    "done": {
+      "COMPLETED": "Als gehört markiert",
+      "SKIPPED": "Übersprungen",
+      "UNSEEN": "Als ungehört markiert",
+      "IN_PROGRESS": "Als begonnen markiert"
+    },
+    "undo": "Rückgängig",
+    "statusReset": "Status zurückgesetzt – Spotify-Stand gilt",
+    "completedBefore": "Alle früheren Folgen als gehört markiert",
+    "pinned": "Als nächste Folge festgelegt",
+    "unpinned": "Auswahl aufgehoben",
+    "markPlayed": "Als gehört markieren",
+    "autoCompleted": "„{{name}}“ als gehört markiert",
+    "number": "Folge {{index}}",
+    "remaining": "noch {{time}}",
+    "ofTotal": "Folge {{index}} / {{total}}"
+  },
+  "attribution": {
+    "contentFrom": "Inhalte von",
+    "open": "Auf Spotify öffnen"
+  }
+}

@@ -36,6 +36,11 @@ async function fetchMe(accessToken: string): Promise<SpotifyUser> {
       'Dieser Spotify-Account ist nicht in der User-Liste der Spotify-App.',
     );
   }
-  if (!res.ok) throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_error', `Spotify /me fehlgeschlagen (${res.status})`);
+  if (!res.ok) {
+    throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_error', `Spotify /me fehlgeschlagen (${res.status})`, {
+      status: res.status,
+      detail: '/me',
+    });
+  }
   return (await res.json()) as SpotifyUser;
 }

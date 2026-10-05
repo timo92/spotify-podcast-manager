@@ -1,39 +1,49 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ConsumptionMode, Show } from '@podcast/shared';
 import { Icon } from '../components/Icon';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, IconButton, ProgressBar, Segmented, Spinner } from '../components/ui';
+import i18n from '../i18n';
+import type { resources } from '../i18n/resources';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatRelative, MODE_HINT, MODE_LABEL } from '../lib/format';
+import { formatRelative, modeHint, modeLabel } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import styles from './Shows.module.css';
 
-export const MODE_OPTIONS: { value: ConsumptionMode; label: string; hint: string }[] = (
-  ['LATEST', 'SEQUENTIAL', 'MANUAL'] as ConsumptionMode[]
-).map((m) => ({ value: m, label: MODE_LABEL[m], hint: MODE_HINT[m] }));
+type ProgressKey = keyof (typeof resources)['de']['shows']['progress'];
+
+const MODES: ConsumptionMode[] = ['LATEST', 'SEQUENTIAL', 'MANUAL'];
+
+/** The modes as options of a Segmented control, in the active language. */
+export const modeOptions = () => MODES.map((m) => ({ value: m, label: modeLabel(m), hint: modeHint(m) }));
 
 export function progressText(show: Show): { text: string; tone?: 'new' | 'muted' } {
+  const t = (key: ProgressKey, values?: Record<string, number>) => i18n.t(`progress.${key}`, { ns: 'shows', ...values });
   const s = show.summary;
-  if (!s || s.total === 0) return { text: 'Noch keine Folgen', tone: 'muted' };
+  if (!s || s.total === 0) return { text: t('noEpisodes'), tone: 'muted' };
   const next = s.nextEpisode;
-  if (show.pinnedEpisodeId && next?.id === show.pinnedEpisodeId) return { text: `Gewählt: Folge ${next.index} / ${s.total}` };
+  if (show.pinnedEpisodeId && next?.id === show.pinnedEpisodeId) {
+    return { text: t('chosen', { index: next.index, total: s.total }) };
+  }
   switch (show.mode) {
     case 'LATEST':
-      if (!next) return { text: 'Keine neue Folge', tone: 'muted' };
-      return next.isNew ? { text: '● Neue Folge verfügbar', tone: 'new' } : { text: 'Neueste Folge offen' };
+      if (!next) return { text: t('noNew'), tone: 'muted' };
+      return next.isNew ? { text: t('newAvailable'), tone: 'new' } : { text: t('newestOpen') };
     case 'SEQUENTIAL':
-      if (!next) return { text: `Alle ${s.total} Folgen erledigt`, tone: 'muted' };
-      return { text: `Folge ${next.index} / ${s.total}` };
+      if (!next) return { text: t('allDone', { total: s.total }), tone: 'muted' };
+      return { text: i18n.t('episode.ofTotal', { index: next.index, total: s.total }) };
     default:
-      return { text: 'Keine Folge gewählt', tone: 'muted' };
+      return { text: t('noneChosen'), tone: 'muted' };
   }
 }
 
 export function ShowsPage() {
+  const { t } = useTranslation('shows');
   const shows = useQuery({ queryKey: qk.shows, queryFn: api.shows });
   const { data: settings } = useSettings();
   const [params, setParams] = useSearchParams();
@@ -85,7 +95,7 @@ export function ShowsPage() {
       await Promise.all(visible.map((s) => api.updateShow(s.id, { needsReview: false })));
       await invalidate();
       setParams({});
-      toast({ message: 'Alle Podcasts bestätigt', tone: 'success' });
+      toast({ message: t('list.allConfirmed'), tone: 'success' });
     } catch (e) {
       toast({ message: (e as Error).message, tone: 'error' });
     }
@@ -95,47 +105,45 @@ export function ShowsPage() {
     <div className="page">
       <header className="page-head row-between">
         <div>
-          <h1>{reviewMode ? 'Podcasts einordnen' : 'Meine Podcasts'}</h1>
+          <h1>{reviewMode ? t('list.titleReview') : t('list.title')}</h1>
           <p className="muted">
             {reviewMode
-              ? 'Wähle pro Podcast, ob du immer die neueste Folge hörst oder ihn der Reihe nach durcharbeitest.'
-              : `${(shows.data ?? []).filter((s) => s.followed).length} Podcasts aus deiner Spotify-Bibliothek`}
+              ? t('list.introReview')
+              : t('list.intro', { count: (shows.data ?? []).filter((s) => s.followed).length })}
           </p>
           <SpotifyAttribution on="page" />
         </div>
         {!reviewMode && (
           <button type="button" className={`btn btn-small${reorder ? ' btn-primary' : ''}`} onClick={() => setReorder((r) => !r)}>
-            <Icon name="sort" size={18} /> {reorder ? 'Fertig' : 'Priorität'}
+            <Icon name="sort" size={18} /> {reorder ? t('ui.done', { ns: 'common' }) : t('list.priority')}
           </button>
         )}
       </header>
 
       {!reviewMode && reviewCount > 0 && (
         <div className="banner banner-info">
-          <span>
-            {reviewCount} {reviewCount === 1 ? 'neuer Podcast' : 'neue Podcasts'} – Modus und Kategorie wurden geraten.
-          </span>
+          <span>{t('list.reviewBanner', { count: reviewCount })}</span>
           <Link className="btn btn-small" to="?pruefen=1">
-            Prüfen
+            {t('list.review')}
           </Link>
         </div>
       )}
       {reviewMode && (
         <div className="row gap">
           <button className="btn btn-primary" onClick={() => void confirmAll()} disabled={!visible.length}>
-            <Icon name="check" size={18} /> Alle bestätigen
+            <Icon name="check" size={18} /> {t('list.confirmAll')}
           </button>
           <Link className="btn" to="/podcasts">
-            Zurück
+            {t('ui.back', { ns: 'common' })}
           </Link>
         </div>
       )}
-      {reorder && <p className="muted small">Höhere Priorität = weiter oben auf „Heute“ und zuerst im Zeitbudget.</p>}
+      {reorder && <p className="muted small">{t('list.priorityHint')}</p>}
 
       {!reviewMode && !reorder && (
-        <div className="chips" role="toolbar" aria-label="Filter">
+        <div className="chips" role="toolbar" aria-label={t('ui.filter', { ns: 'common' })}>
           <Chip active={filter === 'alle'} onClick={() => setFilter('alle')}>
-            Alle
+            {t('ui.all', { ns: 'common' })}
           </Chip>
           {categoryCounts.map(([c, n]) => (
             <Chip key={c} active={filter === c} onClick={() => setFilter(c)} count={n}>
@@ -143,11 +151,11 @@ export function ShowsPage() {
             </Chip>
           ))}
           <Chip active={filter === 'pausiert'} onClick={() => setFilter('pausiert')}>
-            Pausiert
+            {t('ui.paused', { ns: 'common' })}
           </Chip>
           {(shows.data ?? []).some((s) => !s.followed) && (
             <Chip active={filter === 'entfolgt'} onClick={() => setFilter('entfolgt')}>
-              Nicht mehr gefolgt
+              {t('list.unfollowed')}
             </Chip>
           )}
         </div>
@@ -156,12 +164,8 @@ export function ShowsPage() {
       {shows.isLoading && <Spinner />}
       {shows.error && <ErrorBox error={shows.error} onRetry={() => void shows.refetch()} />}
       {shows.data && visible.length === 0 && (
-        <Empty title={reviewMode ? 'Alles eingeordnet' : 'Keine Podcasts'}>
-          {reviewMode ? (
-            <Link to="/podcasts">Zur Übersicht</Link>
-          ) : (
-            'Folge Podcasts in Spotify und synchronisiere – sie erscheinen dann hier.'
-          )}
+        <Empty title={reviewMode ? t('list.emptyReview') : t('list.empty')}>
+          {reviewMode ? <Link to="/podcasts">{t('list.toOverview')}</Link> : t('list.emptyText')}
         </Empty>
       )}
 
@@ -173,8 +177,8 @@ export function ShowsPage() {
             <div key={show.id} className={styles.rowWrap}>
               {reorder && (
                 <div className={styles.reorder}>
-                  <IconButton icon="up" label="Nach oben" onClick={() => void move(i, -1)} disabled={i === 0} />
-                  <IconButton icon="down" label="Nach unten" onClick={() => void move(i, 1)} disabled={i === visible.length - 1} />
+                  <IconButton icon="up" label={t('list.moveUp')} onClick={() => void move(i, -1)} disabled={i === 0} />
+                  <IconButton icon="down" label={t('list.moveDown')} onClick={() => void move(i, 1)} disabled={i === visible.length - 1} />
                 </div>
               )}
               <ShowCard show={show} rank={reorder ? i + 1 : undefined} />
@@ -187,6 +191,7 @@ export function ShowsPage() {
 }
 
 function ShowCard({ show, rank }: { show: Show; rank?: number }) {
+  const { t } = useTranslation('shows');
   const s = show.summary;
   const progress = progressText(show);
   return (
@@ -196,13 +201,13 @@ function ShowCard({ show, rank }: { show: Show; rank?: number }) {
       <div className={styles.body}>
         <div className={styles.title}>
           <strong>{show.name}</strong>
-          {s && s.newCount > 0 && <Badge tone="new">{s.newCount} neu</Badge>}
-          {show.paused && <Badge tone="muted">Pausiert</Badge>}
-          {show.hiddenFromToday && <Badge tone="muted">Nicht auf Heute</Badge>}
-          {show.needsReview && <Badge tone="warn">Prüfen</Badge>}
+          {s && s.newCount > 0 && <Badge tone="new">{t('card.newCount', { count: s.newCount })}</Badge>}
+          {show.paused && <Badge tone="muted">{t('ui.paused', { ns: 'common' })}</Badge>}
+          {show.hiddenFromToday && <Badge tone="muted">{t('card.notOnToday')}</Badge>}
+          {show.needsReview && <Badge tone="warn">{t('card.review')}</Badge>}
         </div>
         <div className="muted small">
-          {MODE_LABEL[show.mode]}
+          {modeLabel(show.mode)}
           {show.categories.length > 0 && ` · ${show.categories.join(', ')}`}
         </div>
         <div className={`small ${progress.tone === 'new' ? 'text-new' : progress.tone === 'muted' ? 'muted' : ''}`}>
@@ -210,22 +215,22 @@ function ShowCard({ show, rank }: { show: Show; rank?: number }) {
         </div>
         {s?.nextEpisode && (
           <div className="small ellipsis">
-            <span className="muted">Als Nächstes: </span>
+            <span className="muted">{t('card.next')} </span>
             {s.nextEpisode.name}
           </div>
         )}
         {s?.lastCompleted && (
           <div className="small ellipsis muted">
-            Zuletzt gehört: {s.lastCompleted.name}
+            {t('card.lastPlayed', { name: s.lastCompleted.name })}
             {s.lastCompleted.at && ` · ${formatRelative(s.lastCompleted.at)}`}
           </div>
         )}
         {show.mode === 'SEQUENTIAL' && s && s.total > 0 && (
-          <ProgressBar value={s.completed + s.skipped} max={s.total} label="Fortschritt" />
+          <ProgressBar value={s.completed + s.skipped} max={s.total} label={t('ui.progress', { ns: 'common' })} />
         )}
         <div className="muted tiny">
-          Sync {formatRelative(show.lastSyncedAt)}
-          {show.lastSyncError && <span className="text-error"> · Fehler beim letzten Sync</span>}
+          {t('card.synced', { when: formatRelative(show.lastSyncedAt) })}
+          {show.lastSyncError && <span className="text-error"> · {t('card.syncError')}</span>}
         </div>
       </div>
     </Link>
@@ -233,6 +238,7 @@ function ShowCard({ show, rank }: { show: Show; rank?: number }) {
 }
 
 function ReviewCard({ show, categories }: { show: Show; categories: string[] }) {
+  const { t } = useTranslation('shows');
   const invalidate = useInvalidateLibrary();
   const toast = useToast();
   const [mode, setMode] = useState(show.mode);
@@ -253,19 +259,19 @@ function ReviewCard({ show, categories }: { show: Show; categories: string[] }) 
         <Cover src={show.imageUrl} alt={show.name} size={56} />
         <div className="grow">
           <strong>{show.name}</strong>
-          <div className="muted small">{show.summary?.total ?? 0} Folgen</div>
+          <div className="muted small">{t('review.episodes', { count: show.summary?.total ?? 0 })}</div>
         </div>
       </div>
       <Segmented
-        label="Modus"
+        label={t('ui.mode', { ns: 'common' })}
         value={mode}
-        options={MODE_OPTIONS}
+        options={modeOptions()}
         onChange={(m) => {
           setMode(m);
           void save({ mode: m });
         }}
       />
-      <div className="muted small">{MODE_HINT[mode]}</div>
+      <div className="muted small">{modeHint(mode)}</div>
       <div className="chips">
         {categories.map((c) => (
           <Chip
@@ -283,10 +289,10 @@ function ReviewCard({ show, categories }: { show: Show; categories: string[] }) 
       </div>
       <div className="row gap">
         <button className="btn btn-primary btn-small" onClick={() => void save({ needsReview: false })}>
-          <Icon name="check" size={16} /> Passt
+          <Icon name="check" size={16} /> {t('review.ok')}
         </button>
         <button className="btn btn-small" onClick={() => void save({ needsReview: false, hiddenFromToday: true })}>
-          Nicht auf „Heute“
+          {t('review.notOnToday')}
         </button>
       </div>
     </div>

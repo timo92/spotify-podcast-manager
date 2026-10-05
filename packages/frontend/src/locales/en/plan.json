@@ -1,0 +1,70 @@
+{
+  "slot": {
+    "latest": "The day's newest episode",
+    "noneChosen": "No episode chosen",
+    "allHeard": "All played 🎉",
+    "heard": "played",
+    "expected": "expected",
+    "heardToday": "Played today",
+    "pick": "Choose episode",
+    "edit": "Edit slot",
+    "remove": "Remove from the weekly plan"
+  },
+  "week": {
+    "title": "Weekly plan",
+    "summary_one": "{{count}} slot per week · {{open}} open in the next 7 days",
+    "summary_other": "{{count}} slots per week · {{open}} open in the next 7 days",
+    "intro": "Decide which podcast you listen to on which days.",
+    "emptyTitle": "No plan yet",
+    "emptyText": "For example: the news on weekday mornings, and an episode of your history series on Tuesday and Thursday evenings. The app picks the right episode each time.",
+    "firstSlot": "Add the first slot",
+    "today": "Today",
+    "addOn": "Add a slot on {{day}}",
+    "nothingPlanned": "Nothing planned",
+    "addSlot": "Add slot",
+    "footnote": "Slots repeat every week. For a series, each slot gets the next episode; what you've already played today is ticked off."
+  },
+  "toast": {
+    "planned": "{{show}} planned",
+    "dayRemoved": "{{show}} removed on {{day}}",
+    "ruleRemoved": "Rule removed",
+    "showRuleRemoved": "{{show}}: rule removed",
+    "showRuleRemovedNamed": "{{show}}: {{rule}} removed"
+  },
+  "remove": {
+    "title": "Remove slot",
+    "text": "{{show}} is planned for {{rule}}.",
+    "onlyDay": "Only on {{day}}",
+    "wholeRule": "Whole rule ({{days}})"
+  },
+  "rule": {
+    "add": "Add slot",
+    "edit": "Edit slot",
+    "podcast": "Podcast",
+    "searchPodcast": "Search podcasts",
+    "days": "Days",
+    "weekdays": "Weekdays",
+    "weekend": "Weekend",
+    "daily": "Daily",
+    "part": "Time of day",
+    "appliesTo": "Applies to {{rule}}",
+    "chooseDay": "Choose at least one day.",
+    "choosePodcast": "Choose a podcast",
+    "plan": "Plan {{show}}",
+    "removeWhole": "Remove the whole rule"
+  },
+  "show": {
+    "title": "Weekly plan",
+    "add": "Slot",
+    "notPlanned": "Not in the weekly plan.",
+    "editRule": "Edit {{rule}}",
+    "removeRule": "Remove {{rule}}",
+    "toWeek": "Go to the weekly plan"
+  },
+  "picker": {
+    "title": "Choose episode",
+    "search": "Search episodes",
+    "empty": "No open episodes",
+    "allEpisodes": "All of the podcast's episodes"
+  }
+}

@@ -1,34 +1,35 @@
+import { Trans, useTranslation } from 'react-i18next';
 import type { Status } from '../lib/api';
 import { cx } from '../lib/cx';
 import styles from './auth.module.css';
 
 /** Shown when the deployment has no Spotify client ID. There is nothing to enter here on purpose. */
 export function NotConfiguredPage({ status }: { status: Status }) {
+  const { t } = useTranslation('auth');
   return (
     <div className={styles.page}>
       <div className={cx(styles.card, styles.wide)}>
         <img src="/icon.svg" alt="" width={56} height={56} />
-        <h1>Spotify-App fehlt</h1>
-        <p className="muted">
-          Die Zugangsdaten der Spotify-App sind Teil der Installation und werden nicht hier eingegeben.
-        </p>
+        <h1>{t('setup.title')}</h1>
+        <p className="muted">{t('setup.intro')}</p>
         <ol className={styles.steps}>
           <li>
-            Im{' '}
-            <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer">
-              Spotify Developer Dashboard
-            </a>{' '}
-            eine App anlegen (APIs: <strong>Web API</strong> und <strong>Web Playback SDK</strong>) und diese
-            Redirect-URI eintragen:
+            <Trans
+              t={t}
+              i18nKey="setup.step1"
+              components={{
+                dashboard: <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer" />,
+                strong: <strong />,
+              }}
+            />
             <div className={styles.copyField}>
               <code>{status.redirectUri}</code>
             </div>
           </li>
           <li>
-            Client-ID als <code>SPOTIFY_CLIENT_ID</code> und das Secret in die <code>.env</code> eintragen
-            (lokal) bzw. mit <code>pnpm run secret:put</code> im Parameter Store ablegen (AWS).
+            <Trans t={t} i18nKey="setup.step2" components={{ code: <code /> }} />
           </li>
-          <li>Neu starten bzw. neu deployen – Details in der README.</li>
+          <li>{t('setup.step3')}</li>
         </ol>
       </div>
     </div>

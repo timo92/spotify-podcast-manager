@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import type { EpisodeView, ShowSettingsPatch } from '@podcast/shared';
 import { PlayButton } from '../components/EpisodeCard';
@@ -11,21 +12,21 @@ import { ListenOnSpotify, SpotifyAttribution } from '../components/SpotifyAttrib
 import { Badge, Chip, Cover, Empty, ErrorBox, ProgressBar, Segmented, Spinner, Toggle } from '../components/ui';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatDeletionDate, formatDuration, formatRelative, formatReleaseDate, MODE_HINT } from '../lib/format';
+import { formatDeletionDate, formatDuration, formatRelative, formatReleaseDate, modeHint } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import styles from './ShowDetail.module.css';
-import { MODE_OPTIONS, progressText } from './Shows';
+import { modeOptions, progressText } from './Shows';
 
 type Filter = 'alle' | 'ungehoert' | 'gehoert' | 'uebersprungen' | 'neu' | 'begonnen';
 
-const FILTERS: { value: Filter; label: string; test: (e: EpisodeView) => boolean }[] = [
-  { value: 'alle', label: 'Alle', test: () => true },
-  { value: 'ungehoert', label: 'Ungehört', test: (e) => e.status === 'UNSEEN' || e.status === 'IN_PROGRESS' },
-  { value: 'neu', label: 'Neu', test: (e) => e.isNew },
-  { value: 'begonnen', label: 'Begonnen', test: (e) => e.status === 'IN_PROGRESS' },
-  { value: 'gehoert', label: 'Gehört', test: (e) => e.status === 'COMPLETED' },
-  { value: 'uebersprungen', label: 'Übersprungen', test: (e) => e.status === 'SKIPPED' },
+const FILTERS: { value: Filter; test: (e: EpisodeView) => boolean }[] = [
+  { value: 'alle', test: () => true },
+  { value: 'ungehoert', test: (e) => e.status === 'UNSEEN' || e.status === 'IN_PROGRESS' },
+  { value: 'neu', test: (e) => e.isNew },
+  { value: 'begonnen', test: (e) => e.status === 'IN_PROGRESS' },
+  { value: 'gehoert', test: (e) => e.status === 'COMPLETED' },
+  { value: 'uebersprungen', test: (e) => e.status === 'SKIPPED' },
 ];
 
 const PAGE = 60;
@@ -33,6 +34,7 @@ const PAGE = 60;
 export function ShowDetailPage() {
   const { id = '' } = useParams();
   const detail = useQuery({ queryKey: qk.show(id), queryFn: () => api.show(id) });
+  const { t } = useTranslation('shows');
   const { data: settings } = useSettings();
   const invalidate = useInvalidateLibrary();
   const qc = useQueryClient();
@@ -58,7 +60,7 @@ export function ShowDetailPage() {
   }, [detail.data, filter, query, asc]);
 
   if (detail.isLoading) return <Spinner />;
-  if (detail.error || !show) return <ErrorBox error={detail.error ?? 'Nicht gefunden'} onRetry={() => void detail.refetch()} />;
+  if (detail.error || !show) return <ErrorBox error={detail.error ?? t('ui.notFound', { ns: 'common' })} onRetry={() => void detail.refetch()} />;
 
   const s = show.summary;
   const next = s?.nextEpisode ?? null;
@@ -79,7 +81,7 @@ export function ShowDetailPage() {
   return (
     <div className="page">
       <Link to="/podcasts" className={styles.backLink}>
-        <Icon name="back" size={18} /> Podcasts
+        <Icon name="back" size={18} /> {t('detail.back')}
       </Link>
 
       <header className={styles.hero}>
@@ -90,12 +92,12 @@ export function ShowDetailPage() {
           <div className="badges">
             {!show.followed && (
               <Badge tone="warn">
-                Nicht mehr in deiner Spotify-Bibliothek
-                {show.unfollowedAt && ` – wird am ${formatDeletionDate(show.unfollowedAt)} entfernt`}
+                {t('detail.unfollowed')}
+                {show.unfollowedAt && ` – ${t('detail.removedOn', { date: formatDeletionDate(show.unfollowedAt) })}`}
               </Badge>
             )}
-            {show.paused && <Badge tone="muted">Pausiert</Badge>}
-            {s && s.newCount > 0 && <Badge tone="new">{s.newCount} neu</Badge>}
+            {show.paused && <Badge tone="muted">{t('ui.paused', { ns: 'common' })}</Badge>}
+            {s && s.newCount > 0 && <Badge tone="new">{t('card.newCount', { count: s.newCount })}</Badge>}
           </div>
           <div className="row gap wrap">
             <ListenOnSpotify href={show.spotifyUrl} small />
@@ -105,13 +107,13 @@ export function ShowDetailPage() {
                 api
                   .syncShow(show.id)
                   .then(() => {
-                    toast({ message: 'Folgen werden neu geladen…' });
+                    toast({ message: t('detail.reloading') });
                     return qc.invalidateQueries({ queryKey: qk.status });
                   })
                   .catch((e: Error) => toast({ message: e.message, tone: 'error' }))
               }
             >
-              <Icon name="refresh" size={16} /> Neu laden
+              <Icon name="refresh" size={16} /> {t('detail.reload')}
             </button>
           </div>
           <SpotifyAttribution href={show.spotifyUrl} on="page" />
@@ -126,13 +128,13 @@ export function ShowDetailPage() {
 
       {next && (
         <section className={cx('card', styles.nextCard)}>
-          <div className="muted small">{show.mode === 'LATEST' ? 'Neueste Folge' : 'Als Nächstes'}</div>
+          <div className="muted small">{show.mode === 'LATEST' ? t('detail.newest') : t('detail.next')}</div>
           <button type="button" className="episode-title linklike" onClick={() => setOpenEpisode(next.id)}>
             {next.name}
           </button>
           <div className="muted small">
-            Folge {next.index} · {formatReleaseDate(next.releaseDate)} · {formatDuration(next.remainingMs)}
-            {next.remainingMs < next.durationMs && ' übrig'}
+            {t('episode.number', { ns: 'common', index: next.index })} · {formatReleaseDate(next.releaseDate)} · {formatDuration(next.remainingMs)}
+            {next.remainingMs < next.durationMs && ` ${t('detail.left')}`}
           </div>
           <div className="row gap">
             <PlayButton item={{ show, episode: next }} />
@@ -141,9 +143,9 @@ export function ShowDetailPage() {
       )}
 
       <section className="card settings-card">
-        <h2 className="h3">Einordnung</h2>
-        <Segmented label="Modus" value={show.mode} options={MODE_OPTIONS} onChange={(mode) => void update({ mode })} />
-        <p className="muted small">{MODE_HINT[show.mode]}</p>
+        <h2 className="h3">{t('detail.settings')}</h2>
+        <Segmented label={t('ui.mode', { ns: 'common' })} value={show.mode} options={modeOptions()} onChange={(mode) => void update({ mode })} />
+        <p className="muted small">{modeHint(show.mode)}</p>
         <div className="chips">
           {categories.map((c) => (
             <Chip
@@ -168,27 +170,29 @@ export function ShowDetailPage() {
               void update({ categories: [...show.categories, c] });
             }}
           >
-            <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="+ Kategorie" aria-label="Neue Kategorie" />
+            <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder={t('ui.categoryPlaceholder', { ns: 'common' })}
+              aria-label={t('ui.newCategory', { ns: 'common' })}
+            />
           </form>
         </div>
-        <Toggle label="Pausieren" hint="Vorübergehend nicht auf „Heute“ vorschlagen" checked={show.paused} onChange={(paused) => void update({ paused })} />
+        <Toggle label={t('detail.pause')} hint={t('detail.pauseHint')} checked={show.paused} onChange={(paused) => void update({ paused })} />
         <Toggle
-          label="Nicht auf „Heute“ anzeigen"
-          hint="Bleibt in der Übersicht, wird aber nie vorgeschlagen"
+          label={t('detail.hide')}
+          hint={t('detail.hideHint')}
           checked={show.hiddenFromToday}
           onChange={(hiddenFromToday) => void update({ hiddenFromToday })}
         />
         {show.mode === 'SEQUENTIAL' && (
           <Toggle
-            label="Übersprungene erneut anbieten"
-            hint="Wenn alles andere gehört ist"
+            label={t('detail.reoffer')}
+            hint={t('detail.reofferHint')}
             checked={show.reofferSkipped}
             onChange={(reofferSkipped) => void update({ reofferSkipped })}
           />
         )}
         {show.needsReview && (
           <button className="btn btn-primary btn-small" onClick={() => void update({ needsReview: false })}>
-            <Icon name="check" size={16} /> Einordnung bestätigen
+            <Icon name="check" size={16} /> {t('detail.confirm')}
           </button>
         )}
       </section>
@@ -200,26 +204,26 @@ export function ShowDetailPage() {
           <div className="row-between small">
             <strong>{progressText(show).text}</strong>
             <span className="muted">
-              {s.completed} gehört · {s.skipped} übersprungen · {s.unseen + s.inProgress} offen
+              {t('detail.counts', { played: s.completed, skipped: s.skipped, open: s.unseen + s.inProgress })}
             </span>
           </div>
-          <ProgressBar value={s.completed + s.skipped} max={s.total} label="Fortschritt" />
-          <div className="muted tiny">Synchronisiert {formatRelative(show.lastSyncedAt)}</div>
+          <ProgressBar value={s.completed + s.skipped} max={s.total} label={t('ui.progress', { ns: 'common' })} />
+          <div className="muted tiny">{t('detail.synced', { when: formatRelative(show.lastSyncedAt) })}</div>
         </section>
       )}
 
       <section className="section">
         <div className="section-head">
-          <h2>Folgen</h2>
-          <button className="btn btn-small" onClick={() => setSortAsc(!asc)} aria-label="Sortierung umkehren">
-            <Icon name="sort" size={16} /> {asc ? 'Älteste zuerst' : 'Neueste zuerst'}
+          <h2>{t('detail.episodes')}</h2>
+          <button className="btn btn-small" onClick={() => setSortAsc(!asc)} aria-label={t('detail.reverse')}>
+            <Icon name="sort" size={16} /> {asc ? t('detail.oldestFirst') : t('detail.newestFirst')}
           </button>
         </div>
         <label className="search">
           <Icon name="search" size={18} />
           <input
             type="search"
-            placeholder="Folgen durchsuchen"
+            placeholder={t('detail.search')}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -227,7 +231,7 @@ export function ShowDetailPage() {
             }}
           />
         </label>
-        <div className="chips" role="toolbar" aria-label="Filter">
+        <div className="chips" role="toolbar" aria-label={t('ui.filter', { ns: 'common' })}>
           {FILTERS.map((f) => (
             <Chip
               key={f.value}
@@ -238,12 +242,12 @@ export function ShowDetailPage() {
                 setLimit(PAGE);
               }}
             >
-              {f.label}
+              {t(`detail.filter.${f.value}`)}
             </Chip>
           ))}
         </div>
         {episodes.length === 0 ? (
-          <Empty title="Keine Folgen gefunden" />
+          <Empty title={t('detail.noneFound')} />
         ) : (
           <ul className={styles.episodes}>
             {episodes.slice(0, limit).map((e) => (
@@ -253,7 +257,7 @@ export function ShowDetailPage() {
         )}
         {episodes.length > limit && (
           <button className="btn btn-block" onClick={() => setLimit((l) => l + PAGE * 2)}>
-            Weitere {Math.min(PAGE * 2, episodes.length - limit)} von {episodes.length - limit} anzeigen
+            {t('detail.more', { count: Math.min(PAGE * 2, episodes.length - limit), rest: episodes.length - limit })}
           </button>
         )}
       </section>

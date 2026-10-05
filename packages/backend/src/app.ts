@@ -2,9 +2,12 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   buildToday,
   DEFAULT_SETTINGS,
+  type ApiErrorBody,
   type AppStatus,
+  type ErrorCode,
   type EpisodeStatus,
   type HistoryItem,
+  type LoginErrorCode,
   type PlayerDevice,
   type Settings,
   type ShowSettingsPatch,
@@ -60,7 +63,7 @@ async function readBody<T>(c: Context): Promise<Partial<T>> {
     const parsed: unknown = JSON.parse(text);
     return parsed && typeof parsed === 'object' ? (parsed as Partial<T>) : {};
   } catch {
-    throw badRequest('Ungültiges JSON');
+    throw badRequest('invalid_json', 'Ungültiges JSON');
   }
 }
 
@@ -100,13 +103,17 @@ export function createApp(deps: AppDeps) {
    * second click can't start a parallel sync, then hands it to the sync run.
    */
   async function startSync(opts: SyncOptions) {
-    const lease = await acquireSyncLease(store, { message: 'Gestartet…' });
+    const lease = await acquireSyncLease(store, { message: 'Gestartet…', showId: opts.showId });
     if (!lease) return store.getSyncState();
     try {
       await deps.triggerSync({ ...opts, leaseId: lease.leaseId });
     } catch (e) {
       // Nothing will run under this lease, so free it instead of blocking syncs.
-      await releaseSyncLease(store, lease, 'Sync konnte nicht gestartet werden.');
+      await releaseSyncLease(
+        store,
+        lease,
+        new ApiError(StatusCodes.BAD_GATEWAY, 'sync_start_failed', 'Sync konnte nicht gestartet werden.'),
+      );
       throw e;
     }
     return lease;
@@ -132,15 +139,19 @@ export function createApp(deps: AppDeps) {
 
   app.onError((err, c) => {
     c.header('Cache-Control', 'no-store');
-    if (err instanceof ApiError) return c.json({ error: err.code, message: err.message }, err.status as never);
+    if (err instanceof ApiError) {
+      const body: ApiErrorBody = { error: err.code, message: err.message, params: err.params };
+      return c.json(body, err.status as never);
+    }
     console.error('Unhandled error', err);
-    return c.json(
-      { error: 'internal', message: 'Interner Fehler – Details im CloudWatch-Log.' },
-      StatusCodes.INTERNAL_SERVER_ERROR,
-    );
+    const body: ApiErrorBody = { error: 'internal', message: 'Interner Fehler – Details im CloudWatch-Log.' };
+    return c.json(body, StatusCodes.INTERNAL_SERVER_ERROR);
   });
 
-  app.notFound((c) => c.json({ error: 'not_found', message: 'Unbekannter Endpunkt' }, StatusCodes.NOT_FOUND));
+  app.notFound((c) => {
+    const body: ApiErrorBody = { error: 'not_found', message: 'Unbekannter Endpunkt' };
+    return c.json(body, StatusCodes.NOT_FOUND);
+  });
 
   // ---------------------------------------------------------------- status
 
@@ -172,7 +183,7 @@ export function createApp(deps: AppDeps) {
   // ------------------------------------------------------------------ auth
 
   app.get('/api/auth/login', async (c) => {
-    if (!deps.credentials.clientId) return c.redirect('/login?error=not_configured');
+    if (!deps.credentials.clientId) return c.redirect(`/login?error=${'not_configured' satisfies LoginErrorCode}`);
     const state = randomBytes(16).toString('base64url');
     setCookie(c, STATE_COOKIE, state, { ...stateCookieOptions(c), maxAge: 600 });
     return c.redirect(auth.authorizeUrl(deps.credentials.clientId, redirectUri(c), state));
@@ -181,9 +192,11 @@ export function createApp(deps: AppDeps) {
   app.get('/api/auth/callback', async (c) => {
     const expected = getCookie(c, STATE_COOKIE);
     deleteCookie(c, STATE_COOKIE, stateCookieOptions(c));
-    const fail = (code: string) => c.redirect(`/login?error=${encodeURIComponent(code)}`);
+    const redirectError = (code: string) => c.redirect(`/login?error=${encodeURIComponent(code)}`);
+    const fail = (code: LoginErrorCode | ErrorCode) => redirectError(code);
     const { error, state, code } = c.req.query();
-    if (error) return fail(error);
+    // Spotify's own OAuth error is passed on as it is; the login page explains the ones it knows.
+    if (error) return redirectError(error);
     if (!expected || !state || !safeEqual(expected, state)) return fail('state_mismatch');
 
     let login: { tokens: SpotifyTokens; user: { id: string; display_name?: string | null } };
@@ -387,9 +400,9 @@ export function createApp(deps: AppDeps) {
       /** Explicit start position, e.g. from a timestamp in a note. */
       positionMs?: number;
     }>(c);
-    if (!showId || !episodeId) throw badRequest('showId und episodeId sind erforderlich');
+    if (!showId || !episodeId) throw badRequest('episode_required', 'showId und episodeId sind erforderlich');
     const cached = await store.getEpisode(showId, episodeId);
-    if (!cached) throw notFound('Folge nicht gefunden');
+    if (!cached) throw notFound('episode_not_found', 'Folge nicht gefunden');
 
     // Fetch the episode fresh so we resume where Spotify left off.
     const spotify = deps.spotify();

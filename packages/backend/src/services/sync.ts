@@ -34,7 +34,7 @@ export const STALE_SYNC_MS = 16 * 60 * 1000;
  */
 export async function acquireSyncLease(
   store: Store,
-  fields: Pick<SyncState, 'message'>,
+  fields: Pick<SyncState, 'message' | 'showId'>,
   takeOver?: string,
   now = new Date(),
 ): Promise<(SyncState & { leaseId: string }) | undefined> {
@@ -42,9 +42,12 @@ export async function acquireSyncLease(
   const state = {
     ...prev,
     ...fields,
+    showId: fields.showId,
     status: 'running' as const,
     startedAt: now.toISOString(),
     error: undefined,
+    errorCode: undefined,
+    errorParams: undefined,
     leaseId: randomUUID(),
   };
   const acquired = await store.acquireSyncLease(state, new Date(now.getTime() - STALE_SYNC_MS).toISOString(), takeOver);
@@ -52,11 +55,14 @@ export async function acquireSyncLease(
 }
 
 /** Ends a lease without a sync result, e.g. when the triggered run could not start. */
-export async function releaseSyncLease(store: Store, lease: SyncState & { leaseId: string }, error?: string) {
+export async function releaseSyncLease(store: Store, lease: SyncState & { leaseId: string }, error?: ApiError) {
   await store.releaseSyncLease(lease.leaseId, {
     ...lease,
     status: error ? 'error' : 'idle',
-    error,
+    error: error?.message,
+    errorCode: error?.code,
+    errorParams: error?.params,
+    showId: undefined,
     message: undefined,
     leaseId: undefined,
     finishedAt: new Date().toISOString(),
@@ -118,7 +124,7 @@ export class SyncService {
   /** Runs a sync, or returns the current state unchanged if another sync holds the lease. */
   async run(opts: SyncOptions = {}): Promise<SyncState> {
     const message = opts.showId ? 'Podcast wird neu geladen…' : 'Synchronisiere mit Spotify…';
-    const lease = await acquireSyncLease(this.store, { message }, opts.leaseId);
+    const lease = await acquireSyncLease(this.store, { message, showId: opts.showId }, opts.leaseId);
     if (!lease) return this.store.getSyncState();
     const { leaseId, startedAt } = lease;
     let state: SyncState;
@@ -131,6 +137,7 @@ export class SyncService {
         finishedAt,
         lastSuccessAt: finishedAt,
         showsSynced: result.shows,
+        showsFailed: result.failed,
         newEpisodes: result.newEpisodes,
         message:
           result.failed > 0
@@ -144,6 +151,9 @@ export class SyncService {
         startedAt,
         finishedAt: new Date().toISOString(),
         error: e instanceof Error ? e.message : String(e),
+        errorCode: e instanceof ApiError ? e.code : undefined,
+        errorParams: e instanceof ApiError ? e.params : undefined,
+        showId: undefined,
         message: undefined,
         leaseId: undefined,
       };
@@ -239,7 +249,7 @@ export class SyncService {
 
   private async syncSingle(showId: string) {
     const show = await this.store.getShow(showId);
-    if (!show) throw notFound('Podcast nicht gefunden');
+    if (!show) throw notFound('show_not_found', 'Podcast nicht gefunden');
     const settings = await this.store.getSettings();
     const newEpisodes = await this.syncShow(showId, undefined, show, true, settings, () => show.priority);
     return { shows: 1, newEpisodes, failed: 0 };

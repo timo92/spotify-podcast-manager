@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { EpisodeView } from '@podcast/shared';
+import i18n from '../i18n';
 import { api, ApiError } from './api';
 import { useInvalidateLibrary, useSettings } from './queries';
 import { useToast } from './toast';
@@ -80,7 +81,7 @@ function loadSdk(): Promise<void> {
     script.async = true;
     script.onerror = () => {
       sdkPromise = null;
-      reject(new Error('Spotify-Player konnte nicht geladen werden.'));
+      reject(new Error(i18n.t('sdk.loadFailed', { ns: 'player' })));
     };
     document.body.appendChild(script);
   });
@@ -124,12 +125,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           api
             .playerToken()
             .then((t) => cb(t.accessToken))
-            .catch(() => toast({ message: 'Spotify-Token konnte nicht geladen werden.', tone: 'error' }));
+            .catch(() => toast({ message: i18n.t('sdk.tokenFailed', { ns: 'player' }), tone: 'error' }));
         },
       });
       playerRef.current = player;
       const deviceId = await new Promise<string>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('Spotify-Player antwortet nicht.')), 15000);
+        const timer = setTimeout(() => reject(new Error(i18n.t('sdk.timeout', { ns: 'player' }))), 15000);
         player.addListener('ready', ({ device_id }) => {
           clearTimeout(timer);
           resolve(device_id);
@@ -138,14 +139,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           clearTimeout(timer);
           reject(new Error(`${prefix}: ${e.message}`));
         };
-        player.addListener('initialization_error', fail('Browser wird nicht unterstützt'));
-        player.addListener('authentication_error', fail('Spotify-Anmeldung fehlgeschlagen'));
-        player.addListener('account_error', fail('Spotify Premium erforderlich'));
+        player.addListener('initialization_error', fail(i18n.t('sdk.unsupported', { ns: 'player' })));
+        player.addListener('authentication_error', fail(i18n.t('sdk.authFailed', { ns: 'player' })));
+        player.addListener('account_error', fail(i18n.t('sdk.premiumRequired', { ns: 'player' })));
         void player.connect();
       });
-      player.addListener('playback_error', (e) => toast({ message: `Wiedergabefehler: ${e.message}`, tone: 'error' }));
+      player.addListener('playback_error', (e) =>
+        toast({ message: i18n.t('sdk.playbackError', { ns: 'player', message: e.message }), tone: 'error' }),
+      );
       player.addListener('autoplay_failed', () =>
-        toast({ message: 'Der Browser hat Autoplay blockiert – bitte erneut auf Play tippen.', tone: 'error' }),
+        toast({ message: i18n.t('sdk.autoplayBlocked', { ns: 'player' }), tone: 'error' }),
       );
       player.addListener('not_ready', () => {
         deviceRef.current = null;
@@ -205,7 +208,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           target: t,
           completed: item.episode.status === 'COMPLETED',
         });
-        if (t.kind === 'device') toast({ message: `Läuft auf „${t.name}“` });
+        if (t.kind === 'device') toast({ message: i18n.t('playingOn', { ns: 'player', device: t.name }) });
       } catch (e) {
         toast({ message: (e as Error).message, tone: 'error' });
       } finally {
@@ -241,10 +244,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         .then(() => {
           void invalidate();
           toast({
-            message: `„${cur.name}“ als gehört markiert`,
+            message: i18n.t('episode.autoCompleted', { name: cur.name }),
             tone: 'success',
             action: {
-              label: 'Rückgängig',
+              label: i18n.t('episode.undo'),
               onClick: () => void api.setStatus(cur.showId, cur.episodeId, null).then(invalidate),
             },
           });

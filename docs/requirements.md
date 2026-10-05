@@ -104,7 +104,7 @@ Each podcast has exactly one mode.
 | N2 | Deployable with AWS CDK, optionally on a custom domain with TLS. | ✅ |
 | N3 | Running costs in the range of cents per month for one user (plus an optional Route 53 hosted zone). | ✅ |
 | N4 | The Spotify integration can be replaced, e.g. by a fake for development and tests or by further sources. | ✅ |
-| N5 | The UI can be translated (German and English). | ⏳ |
+| N5 | The UI is available in German and English. The language follows the browser and can be chosen in the settings (remembered per browser). Dates and durations are formatted for the active language. | ✅ |
 | N6 | The app follows Spotify's Design & Branding Guidelines: official Spotify logo next to Spotify content, approved link wording, uncropped artwork with 4/8 px corners, and an own visual identity (no Spotify Green, no Spotify-like name or icon). | ✅ |
 | N7 | The app is non-commercial: no ads, no paid access, no in-app monetisation (Spotify forbids commercial streaming apps). | ✅ |
 

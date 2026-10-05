@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { PlanItemRow } from '../../src/components/PlanItem';
+import i18n from '../../src/i18n';
 import { api } from '../../src/lib/api';
 import { episode, plannedItem, settings, show, showLite } from '../support/fixtures';
 import { renderWithProviders } from '../support/render';
@@ -53,5 +54,13 @@ describe('PlanItemRow', () => {
     renderSlot(plannedItem({ episode: null, state: 'none' }));
     expect(screen.getByText('Alles gehört 🎉')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Folge wählen' })).not.toBeInTheDocument();
+  });
+
+  it('renders in English', async () => {
+    await i18n.changeLanguage('en');
+    renderSlot(plannedItem({ show: showLite(show({ mode: 'MANUAL' })), episode: null, state: 'none', part: 'MORNING' }));
+    expect(screen.getByText('Morning')).toBeInTheDocument();
+    expect(screen.getByText('No episode chosen')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose episode' })).toBeInTheDocument();
   });
 });

@@ -1,0 +1,82 @@
+{
+  "progress": {
+    "noEpisodes": "Noch keine Folgen",
+    "chosen": "Gewählt: Folge {{index}} / {{total}}",
+    "noNew": "Keine neue Folge",
+    "newAvailable": "● Neue Folge verfügbar",
+    "newestOpen": "Neueste Folge offen",
+    "allDone": "Alle {{total}} Folgen erledigt",
+    "noneChosen": "Keine Folge gewählt"
+  },
+  "list": {
+    "allConfirmed": "Alle Podcasts bestätigt",
+    "titleReview": "Podcasts einordnen",
+    "title": "Meine Podcasts",
+    "introReview": "Wähle pro Podcast, ob du immer die neueste Folge hörst oder ihn der Reihe nach durcharbeitest.",
+    "intro": "{{count}} Podcasts aus deiner Spotify-Bibliothek",
+    "priority": "Priorität",
+    "reviewBanner_one": "{{count}} neuer Podcast – Modus und Kategorie wurden geraten.",
+    "reviewBanner_other": "{{count}} neue Podcasts – Modus und Kategorie wurden geraten.",
+    "review": "Prüfen",
+    "confirmAll": "Alle bestätigen",
+    "priorityHint": "Höhere Priorität = weiter oben auf „Heute“ und zuerst im Zeitbudget.",
+    "unfollowed": "Nicht mehr gefolgt",
+    "emptyReview": "Alles eingeordnet",
+    "empty": "Keine Podcasts",
+    "toOverview": "Zur Übersicht",
+    "emptyText": "Folge Podcasts in Spotify und synchronisiere – sie erscheinen dann hier.",
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten"
+  },
+  "card": {
+    "newCount": "{{count}} neu",
+    "notOnToday": "Nicht auf Heute",
+    "review": "Prüfen",
+    "next": "Als Nächstes:",
+    "lastPlayed": "Zuletzt gehört: {{name}}",
+    "synced": "Sync {{when}}",
+    "syncError": "Fehler beim letzten Sync"
+  },
+  "review": {
+    "episodes": "{{count}} Folgen",
+    "ok": "Passt",
+    "notOnToday": "Nicht auf „Heute“"
+  },
+  "detail": {
+    "filter": {
+      "alle": "Alle",
+      "ungehoert": "Ungehört",
+      "neu": "Neu",
+      "begonnen": "Begonnen",
+      "gehoert": "Gehört",
+      "uebersprungen": "Übersprungen"
+    },
+    "back": "Podcasts",
+    "unfollowed": "Nicht mehr in deiner Spotify-Bibliothek",
+    "removedOn": "wird am {{date}} entfernt",
+    "reloading": "Folgen werden neu geladen…",
+    "reload": "Neu laden",
+    "newest": "Neueste Folge",
+    "next": "Als Nächstes",
+    "left": "übrig",
+    "settings": "Einordnung",
+    "newCategory": "Neue Kategorie",
+    "categoryPlaceholder": "+ Kategorie",
+    "pause": "Pausieren",
+    "pauseHint": "Vorübergehend nicht auf „Heute“ vorschlagen",
+    "hide": "Nicht auf „Heute“ anzeigen",
+    "hideHint": "Bleibt in der Übersicht, wird aber nie vorgeschlagen",
+    "reoffer": "Übersprungene erneut anbieten",
+    "reofferHint": "Wenn alles andere gehört ist",
+    "confirm": "Einordnung bestätigen",
+    "counts": "{{played}} gehört · {{skipped}} übersprungen · {{open}} offen",
+    "synced": "Synchronisiert {{when}}",
+    "episodes": "Folgen",
+    "reverse": "Sortierung umkehren",
+    "oldestFirst": "Älteste zuerst",
+    "newestFirst": "Neueste zuerst",
+    "search": "Folgen durchsuchen",
+    "noneFound": "Keine Folgen gefunden",
+    "more": "Weitere {{count}} von {{rest}} anzeigen"
+  }
+}

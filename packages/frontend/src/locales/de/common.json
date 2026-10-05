@@ -76,7 +76,14 @@
     "edit": "Bearbeiten",
     "done": "Fertig",
     "save": "Speichern",
-    "change": "Ändern"
+    "change": "Ändern",
+    "progress": "Fortschritt",
+    "notFound": "Nicht gefunden",
+    "mode": "Modus",
+    "filter": "Filter",
+    "all": "Alle",
+    "back": "Zurück",
+    "paused": "Pausiert"
   },
   "nav": {
     "main": "Hauptnavigation",

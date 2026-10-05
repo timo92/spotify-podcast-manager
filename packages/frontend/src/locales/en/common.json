@@ -76,7 +76,14 @@
     "edit": "Edit",
     "done": "Done",
     "save": "Save",
-    "change": "Change"
+    "change": "Change",
+    "progress": "Progress",
+    "notFound": "Not found",
+    "mode": "Mode",
+    "filter": "Filter",
+    "all": "All",
+    "back": "Back",
+    "paused": "Paused"
   },
   "nav": {
     "main": "Main navigation",

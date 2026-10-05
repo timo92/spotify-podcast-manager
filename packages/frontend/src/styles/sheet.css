@@ -37,28 +37,3 @@
     opacity: 0;
   }
 }
-.sheet-head {
-  display: flex;
-  justify-content: flex-end;
-  position: sticky;
-  top: 0;
-}
-.sheet-hero {
-  display: flex;
-  gap: 14px;
-}
-.sheet-hero > div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-.sheet-title {
-  font-size: 1.2rem;
-  overflow-wrap: anywhere;
-}
-.sheet-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}

@@ -7,6 +7,7 @@ import { formatDateTime, formatDuration, formatReleaseDate } from '../lib/format
 import { usePlayer, type PlayableItem } from '../lib/player';
 import { qk } from '../lib/queries';
 import { PlayButton } from './EpisodeCard';
+import styles from './EpisodeSheet.module.css';
 import { Icon } from './Icon';
 import { ListenOnSpotify, SpotifyAttribution } from './SpotifyAttribution';
 import { NoteEditor } from './Notes';
@@ -35,14 +36,14 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label="Folge" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-head">
+        <div className={styles.head}>
           <IconButton icon="close" label="Schließen" onClick={onClose} />
         </div>
         {episode.isLoading && <Spinner />}
         {episode.error && <ErrorBox error={episode.error} />}
         {ep && (
           <>
-            <div className="sheet-hero">
+            <div className={styles.hero}>
               <Cover src={ep.imageUrl ?? s?.imageUrl} alt={s?.name ?? ''} size={96} />
               <div>
                 {s && (
@@ -50,7 +51,7 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
                     {s.name}
                   </Link>
                 )}
-                <h2 className="sheet-title">{ep.name}</h2>
+                <h2 className={styles.title}>{ep.name}</h2>
                 <div className="muted small">
                   Folge {ep.index} · {formatReleaseDate(ep.releaseDate)} · {formatDuration(ep.durationMs)}
                 </div>
@@ -75,13 +76,13 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
               <p className="muted small">Übersprungen am {formatDateTime(ep.skippedAt)}</p>
             )}
 
-            <div className="sheet-actions">
+            <div className={styles.actions}>
               {s && <PlayButton item={{ show: s, episode: ep }} />}
               {ep.remainingMs < ep.durationMs && s && <PlayFromStart item={{ show: s, episode: ep }} />}
               <ListenOnSpotify href={ep.spotifyUrl} />
             </div>
             <SpotifyAttribution href={ep.spotifyUrl} />
-            <div className="sheet-actions">
+            <div className={styles.actions}>
               {ep.status !== 'COMPLETED' ? (
                 <button className="btn" onClick={() => actions.setStatus(ep, 'COMPLETED')}>
                   <Icon name="check" size={18} /> Gehört

@@ -1,7 +1,9 @@
 import type { TodayItem } from '@podcast/shared';
 import { useEpisodeActions } from '../lib/actions';
+import { cx } from '../lib/cx';
 import { formatDuration, formatReleaseDate, TODAY_LABEL } from '../lib/format';
 import { usePlayer, type PlayableItem } from '../lib/player';
+import styles from './EpisodeCard.module.css';
 import { Icon } from './Icon';
 import { Badge, Cover, IconButton, Menu, ProgressBar, type BadgeTone } from './ui';
 
@@ -56,9 +58,8 @@ export function EpisodeCard({ item, onOpen }: { item: TodayItem; onOpen: (showId
     show.mode === 'SEQUENTIAL' || item.label === 'GEWAEHLT' ? `Folge ${episode.index} / ${show.total}` : null;
 
   return (
-    <article className="card episode-card">
+    <article className={cx('card', styles.card)}>
       <a
-        className="episode-card-cover"
         href={`/podcasts/${encodeURIComponent(show.id)}`}
         onClick={(e) => {
           e.preventDefault();
@@ -68,8 +69,8 @@ export function EpisodeCard({ item, onOpen }: { item: TodayItem; onOpen: (showId
       >
         <Cover src={episode.imageUrl ?? show.imageUrl} alt={show.name} size={72} />
       </a>
-      <div className="episode-card-body">
-        <div className="episode-card-meta">
+      <div className={styles.body}>
+        <div className={styles.meta}>
           <span className="show-name">{show.name}</span>
           <Badge tone={LABEL_TONE[item.label]}>{TODAY_LABEL[item.label]}</Badge>
           {position && <span className="muted small">{position}</span>}
@@ -82,7 +83,7 @@ export function EpisodeCard({ item, onOpen }: { item: TodayItem; onOpen: (showId
           {started ? `noch ${formatDuration(episode.remainingMs)}` : formatDuration(episode.durationMs)}
         </div>
         {started && <ProgressBar value={episode.durationMs - episode.remainingMs} max={episode.durationMs} label="Fortschritt" />}
-        <div className="episode-card-actions">
+        <div className={styles.actions}>
           <PlayButton item={{ show, episode }} />
           <IconButton icon="check" label="Als gehört markieren" variant="soft" onClick={() => actions.setStatus(episode, 'COMPLETED')} />
           <IconButton icon="skip" label="Überspringen" variant="soft" onClick={() => actions.setStatus(episode, 'SKIPPED')} />

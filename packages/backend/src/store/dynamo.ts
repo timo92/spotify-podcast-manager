@@ -12,9 +12,11 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import {
   DEFAULT_SETTINGS,
+  migrateSchedule,
   type Episode,
   type EpisodeNote,
   type EpisodeProgress,
+  type LegacySchedule,
   type Schedule,
   type Settings,
   type Show,
@@ -30,7 +32,7 @@ import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
  *   META          TOKENS      SpotifyTokens
  *   META          SETTINGS    Settings
  *   META          SYNC        SyncState
- *   META          SCHEDULE    Schedule (weekly plan)
+ *   META          SCHEDULE    Schedule (weekly plan; legacy `entries` shape converted on read)
  *   SESSION#<id>  SESSION     Session (TTL attribute `ttl`)
  *   SHOW          <showId>    Show
  *   EP#<showId>   <epId>      Episode           (written by sync only)
@@ -295,7 +297,8 @@ export class DynamoStore implements Store {
   }
 
   async getSchedule(): Promise<Schedule> {
-    return (await this.get<Schedule>('META', 'SCHEDULE')) ?? { entries: [] };
+    const stored = await this.get<Schedule | LegacySchedule>('META', 'SCHEDULE');
+    return stored ? migrateSchedule(stored) : { rules: [] };
   }
   async putSchedule(schedule: Schedule, expectedUpdatedAt?: string | null) {
     if (expectedUpdatedAt === undefined) {

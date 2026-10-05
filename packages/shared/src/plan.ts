@@ -1,10 +1,12 @@
 import { isDone, plannedOpenMs, selectNextEpisode, toShowLite } from './logic.js';
 import {
   DAY_PARTS,
+  type DayPart,
   type EpisodeView,
   type PlanDay,
   type PlannedItem,
   type Schedule,
+  type ScheduleRule,
   type Show,
   type Weekday,
 } from './types.js';
@@ -85,18 +87,18 @@ export function buildWeek(
     const date = addDays(start, i);
     const weekday = weekdayOf(date);
     const isToday = date === today;
-    const entries = schedule.entries
-      .map((e, idx) => ({ e, idx }))
-      .filter(({ e }) => e.weekday === weekday && inputs.has(e.showId))
-      .sort((a, b) => order(a.e.part) - order(b.e.part) || a.idx - b.idx)
-      .map(({ e }) => e);
+    const rules = schedule.rules
+      .map((rule, idx) => ({ rule, idx }))
+      .filter(({ rule }) => rule.weekdays.includes(weekday) && inputs.has(rule.showId))
+      .sort((a, b) => order(a.rule.part) - order(b.rule.part) || a.idx - b.idx)
+      .map(({ rule }) => rule);
 
     const items: PlannedItem[] = [];
-    for (const entry of entries) {
+    for (const rule of rules) {
       if (date < today) continue;
-      const input = inputs.get(entry.showId)!;
-      const base = { entryId: entry.id, part: entry.part, show: toShowLite(input.show) };
-      const doneQueue = done.get(entry.showId)!;
+      const input = inputs.get(rule.showId)!;
+      const base = { ruleId: rule.id, part: rule.part, show: toShowLite(input.show) };
+      const doneQueue = done.get(rule.showId)!;
       if (isToday && doneQueue.length) {
         items.push({ ...base, episode: doneQueue.shift()!, state: 'done' });
         continue;
@@ -105,15 +107,54 @@ export function buildWeek(
         items.push({ ...base, episode: null, state: 'latest' });
         continue;
       }
-      const queue = queues.get(entry.showId)!;
+      const queue = queues.get(rule.showId)!;
       const ep = (input.show.mode === 'SEQUENTIAL' ? queue.shift() : queue[0]) ?? null;
       if (!ep) {
         items.push({ ...base, episode: null, state: 'none' });
         continue;
       }
-      items.push({ ...base, episode: ep, state: ep.id === heads.get(entry.showId) ? 'next' : 'upcoming' });
+      items.push({ ...base, episode: ep, state: ep.id === heads.get(rule.showId) ? 'next' : 'upcoming' });
     }
     result.push({ date, weekday, isToday, items, openMs: plannedOpenMs(items) });
   }
   return result;
+}
+
+/** One slot per weekday, the schedule shape before plan rules. */
+export interface LegacyScheduleEntry {
+  id: string;
+  showId: string;
+  weekday: Weekday;
+  part: DayPart;
+}
+
+export interface LegacySchedule {
+  entries: LegacyScheduleEntry[];
+  updatedAt?: string;
+}
+
+export function isLegacySchedule(value: unknown): value is LegacySchedule {
+  if (typeof value !== 'object' || value === null || 'rules' in value) return false;
+  const entries = (value as { entries?: unknown }).entries;
+  return Array.isArray(entries) && entries.every((e) => typeof e === 'object' && e !== null);
+}
+
+/**
+ * Converts a schedule in the legacy shape into rules: one rule per podcast and
+ * part of day, holding all its weekdays, with the id of its first slot.
+ * Duplicate slots (same podcast, weekday and part of day) collapse into one.
+ * Rules keep the order of their first slot. A schedule already made of rules
+ * is returned unchanged.
+ */
+export function migrateSchedule(schedule: Schedule | LegacySchedule): Schedule {
+  if (!isLegacySchedule(schedule)) return schedule;
+  const rules = new Map<string, ScheduleRule>();
+  for (const entry of schedule.entries) {
+    const key = `${entry.showId} ${entry.part}`;
+    const rule = rules.get(key);
+    if (!rule) rules.set(key, { id: entry.id, showId: entry.showId, weekdays: [entry.weekday], part: entry.part });
+    else if (!rule.weekdays.includes(entry.weekday)) rule.weekdays.push(entry.weekday);
+  }
+  for (const rule of rules.values()) rule.weekdays.sort((a, b) => a - b);
+  return { rules: [...rules.values()], ...(schedule.updatedAt ? { updatedAt: schedule.updatedAt } : {}) };
 }

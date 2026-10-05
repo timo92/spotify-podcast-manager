@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DAY_PARTS, type DayPart, type ScheduleEntry, type Show, type Weekday } from '@podcast/shared';
+import { DAY_PARTS, type DayPart, type ScheduleRule, type Show, type Weekday } from '@podcast/shared';
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Icon } from '../components/Icon';
@@ -23,11 +23,12 @@ export function WeekPage() {
   const [adding, setAdding] = useState<Weekday[] | null>(null);
   const [open, setOpen] = useState<{ showId: string; episodeId: string } | null>(null);
 
-  const entries = schedule.data?.entries ?? [];
+  const rules = schedule.data?.rules ?? [];
+  const slotCount = rules.reduce((n, r) => n + r.weekdays.length, 0);
 
-  async function save(next: ScheduleEntry[], message: string) {
+  async function save(next: ScheduleRule[], message: string) {
     try {
-      const saved = await api.saveSchedule({ entries: next });
+      const saved = await api.saveSchedule({ rules: next });
       qc.setQueryData(qk.schedule, saved);
       await invalidate();
       toast({ message, tone: 'success' });
@@ -44,13 +45,13 @@ export function WeekPage() {
         <div>
           <h1>Wochenplan</h1>
           <p className="muted">
-            {entries.length
-              ? `${entries.length} feste ${entries.length === 1 ? 'Termin' : 'Termine'} pro Woche · ${formatDuration(weekMinutes)} offen in den nächsten 7 Tagen`
+            {slotCount
+              ? `${slotCount} feste ${slotCount === 1 ? 'Termin' : 'Termine'} pro Woche · ${formatDuration(weekMinutes)} offen in den nächsten 7 Tagen`
               : 'Lege fest, an welchen Tagen du welchen Podcast hörst.'}
           </p>
           <SpotifyAttribution on="page" />
         </div>
-        {entries.length > 0 && (
+        {rules.length > 0 && (
           <button type="button" className={`btn btn-small${editing ? ' btn-primary' : ''}`} onClick={() => setEditing((e) => !e)}>
             <Icon name={editing ? 'check' : 'note'} size={16} /> {editing ? 'Fertig' : 'Bearbeiten'}
           </button>
@@ -60,7 +61,7 @@ export function WeekPage() {
       {(week.isLoading || schedule.isLoading) && <Spinner />}
       {week.error && <ErrorBox error={week.error} onRetry={() => void week.refetch()} />}
 
-      {schedule.data && entries.length === 0 && (
+      {schedule.data && rules.length === 0 && (
         <Empty title="Noch kein Plan">
           <p>
             Zum Beispiel: werktags morgens die Nachrichten, dienstags und donnerstags abends eine Folge deiner
@@ -72,7 +73,7 @@ export function WeekPage() {
         </Empty>
       )}
 
-      {week.data && entries.length > 0 && (
+      {week.data && rules.length > 0 && (
         <div className="week">
           {week.data.days.map((day) => (
             <section key={day.date} className={`card day-card${day.isToday ? ' is-today' : ''}`}>
@@ -92,7 +93,7 @@ export function WeekPage() {
                 <ul className="plan-list">
                   {day.items.map((item) => (
                     <PlanItemRow
-                      key={item.entryId}
+                      key={item.ruleId}
                       item={item}
                       isToday={day.isToday}
                       onOpen={(showId, episodeId) => setOpen({ showId, episodeId })}
@@ -100,7 +101,7 @@ export function WeekPage() {
                         editing
                           ? () =>
                               void save(
-                                entries.filter((e) => e.id !== item.entryId),
+                                withoutDay(rules, item.ruleId, day.weekday),
                                 `${item.show.name} am ${WEEKDAY_LONG[day.weekday]} entfernt`,
                               )
                           : undefined
@@ -126,16 +127,22 @@ export function WeekPage() {
           initialDays={adding}
           onClose={() => setAdding(null)}
           onSave={(showId, days, part, showName) => {
-            // The server assigns ids to new entries.
-            const added = days.map((weekday) => ({ id: '', showId, weekday, part }));
+            // The server assigns ids to new rules.
             setAdding(null);
-            void save([...entries, ...added], `${showName} eingeplant`);
+            void save([...rules, { id: '', showId, weekdays: days, part }], `${showName} eingeplant`);
           }}
         />
       )}
       {open && <EpisodeSheet {...open} onClose={() => setOpen(null)} />}
     </div>
   );
+}
+
+/** Removes one weekday from a rule, and the rule once it has no weekday left. */
+function withoutDay(rules: ScheduleRule[], ruleId: string, weekday: Weekday): ScheduleRule[] {
+  return rules
+    .map((r) => (r.id === ruleId ? { ...r, weekdays: r.weekdays.filter((d) => d !== weekday) } : r))
+    .filter((r) => r.weekdays.length > 0);
 }
 
 const PRESETS: { label: string; days: Weekday[] }[] = [

@@ -2,18 +2,21 @@ import { randomUUID } from 'node:crypto';
 import {
   buildWeek,
   DAY_PARTS,
+  isLegacySchedule,
   localDate,
+  migrateSchedule,
   type DayPart,
   type PlanDay,
   type PlanInput,
   type Schedule,
-  type ScheduleEntry,
+  type ScheduleRule,
+  type Weekday,
 } from '@podcast/shared';
 import { badRequest } from '../errors.js';
 import type { Store } from '../store/types.js';
 import type { LibraryService } from './library.js';
 
-const MAX_ENTRIES = 200;
+const MAX_RULES = 200;
 
 export function validTimeZone(tz: string | undefined): string {
   if (!tz) return 'UTC';
@@ -25,35 +28,47 @@ export function validTimeZone(tz: string | undefined): string {
   }
 }
 
-/** Weekly plan: recurring slots, projected onto concrete episodes. */
+/** Distinct weekdays, ascending; at least one. */
+function parseWeekdays(value: unknown): Weekday[] {
+  if (!Array.isArray(value) || value.length === 0) throw badRequest('Mindestens ein Wochentag');
+  const days = value.map(Number);
+  if (days.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) throw badRequest('Ungültiger Wochentag');
+  return [...new Set(days)].sort((a, b) => a - b) as Weekday[];
+}
+
+/** Weekly plan: recurring rules, projected onto concrete episodes. */
 export class PlanService {
   constructor(
     private readonly store: Store,
     private readonly library: LibraryService,
   ) {}
 
+  /**
+   * Validates and stores the whole plan. A body in the legacy `entries` shape
+   * (e.g. from an older export) is converted into rules first. Rules without a
+   * unique id get a new one.
+   */
   async saveSchedule(input: unknown): Promise<Schedule> {
-    const raw = (input as { entries?: unknown })?.entries;
-    if (!Array.isArray(raw)) throw badRequest('entries muss eine Liste sein');
-    if (raw.length > MAX_ENTRIES) throw badRequest(`Höchstens ${MAX_ENTRIES} Einträge`);
+    const body = isLegacySchedule(input) ? migrateSchedule(input) : input;
+    const raw = (body as { rules?: unknown })?.rules;
+    if (!Array.isArray(raw)) throw badRequest('rules muss eine Liste sein');
+    if (raw.length > MAX_RULES) throw badRequest(`Höchstens ${MAX_RULES} Regeln`);
     const shows = new Set((await this.store.listShows()).map((s) => s.id));
-    const entries: ScheduleEntry[] = raw
-      .map((e: Partial<ScheduleEntry>) => {
-        const weekday = Number(e?.weekday);
-        if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7) throw badRequest('Ungültiger Wochentag');
-        if (!e?.showId) throw badRequest('Podcast fehlt im Plan');
-        const part = (DAY_PARTS.includes(e.part as DayPart) ? e.part : 'ANYTIME') as DayPart;
-        return {
-          id: typeof e.id === 'string' && e.id ? e.id.slice(0, 64) : randomUUID(),
-          showId: e.showId,
-          weekday: weekday as ScheduleEntry['weekday'],
-          part,
-        };
+    const ids = new Set<string>();
+    const rules: ScheduleRule[] = raw
+      .map((r: Partial<ScheduleRule> | null) => {
+        if (typeof r?.showId !== 'string' || !r.showId) throw badRequest('Podcast fehlt im Plan');
+        const weekdays = parseWeekdays(r.weekdays);
+        const part = (DAY_PARTS.includes(r.part as DayPart) ? r.part : 'ANYTIME') as DayPart;
+        let id = typeof r.id === 'string' ? r.id.slice(0, 64) : '';
+        if (!id || ids.has(id)) id = randomUUID();
+        ids.add(id);
+        return { id, showId: r.showId, weekdays, part };
       })
       // A plan loaded before a podcast was deleted (retention) may still contain
-      // it; its slots are dropped instead of rejecting the whole save.
-      .filter((e) => shows.has(e.showId));
-    const schedule = { entries, updatedAt: new Date().toISOString() };
+      // it; its rules are dropped instead of rejecting the whole save.
+      .filter((r) => shows.has(r.showId));
+    const schedule = { rules, updatedAt: new Date().toISOString() };
     await this.store.putSchedule(schedule);
     return schedule;
   }
@@ -67,7 +82,7 @@ export class PlanService {
       this.store.getSettings(),
       this.store.listHistory(100),
     ]);
-    const showIds = [...new Set(schedule.entries.map((e) => e.showId))];
+    const showIds = [...new Set(schedule.rules.map((r) => r.showId))];
 
     // Episodes finished today, oldest first, per show.
     const doneTodayIds = new Map<string, string[]>();

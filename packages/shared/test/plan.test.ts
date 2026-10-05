@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildEpisodeViews, buildToday, summarizeShow } from '../src/logic.js';
-import { addDays, buildWeek, localDate, weekdayOf, type PlanInput } from '../src/plan.js';
+import { addDays, buildWeek, isLegacySchedule, localDate, migrateSchedule, weekdayOf, type PlanInput } from '../src/plan.js';
 import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Schedule, type Show } from '../src/types.js';
 
 const now = new Date('2026-10-05T08:00:00Z'); // a Monday
@@ -64,12 +64,10 @@ describe('dates', () => {
 
 describe('buildWeek', () => {
   const schedule: Schedule = {
-    entries: [
-      { id: '1', showId: 'series', weekday: 1, part: 'EVENING' },
-      { id: '2', showId: 'news', weekday: 1, part: 'MORNING' },
-      { id: '3', showId: 'series', weekday: 3, part: 'EVENING' },
-      { id: '4', showId: 'news', weekday: 2, part: 'MORNING' },
-      { id: '5', showId: 'series', weekday: 1, part: 'EVENING' },
+    rules: [
+      { id: '1', showId: 'series', weekdays: [1, 3], part: 'EVENING' },
+      { id: '2', showId: 'news', weekdays: [1, 2], part: 'MORNING' },
+      { id: '5', showId: 'series', weekdays: [1], part: 'EVENING' },
     ],
   };
 
@@ -114,9 +112,9 @@ describe('buildWeek', () => {
     const manual = show('manual', 'MANUAL');
     manual.pinnedEpisodeId = 'manual-2';
     const twice: Schedule = {
-      entries: [
-        { id: 'a', showId: 'manual', weekday: 2, part: 'MORNING' },
-        { id: 'b', showId: 'manual', weekday: 4, part: 'EVENING' },
+      rules: [
+        { id: 'a', showId: 'manual', weekdays: [2], part: 'MORNING' },
+        { id: 'b', showId: 'manual', weekdays: [4], part: 'EVENING' },
       ],
     };
     const inputs = new Map([['manual', input(manual, eps('manual', 3))]]);
@@ -127,9 +125,9 @@ describe('buildWeek', () => {
 
   it('shows the newest episode of a news show in every slot of today, counting it once', () => {
     const twice: Schedule = {
-      entries: [
-        { id: 'a', showId: 'news', weekday: 1, part: 'MORNING' },
-        { id: 'b', showId: 'news', weekday: 1, part: 'EVENING' },
+      rules: [
+        { id: 'a', showId: 'news', weekdays: [1], part: 'MORNING' },
+        { id: 'b', showId: 'news', weekdays: [1], part: 'EVENING' },
       ],
     };
     const inputs = new Map([['news', input(show('news', 'LATEST'), eps('news', 5))]]);
@@ -143,9 +141,9 @@ describe('buildWeek', () => {
 
   it('ticks off only one slot when a repeated episode was heard today', () => {
     const twice: Schedule = {
-      entries: [
-        { id: 'a', showId: 'news', weekday: 1, part: 'MORNING' },
-        { id: 'b', showId: 'news', weekday: 1, part: 'EVENING' },
+      rules: [
+        { id: 'a', showId: 'news', weekdays: [1], part: 'MORNING' },
+        { id: 'b', showId: 'news', weekdays: [1], part: 'EVENING' },
       ],
     };
     const inputs = new Map([
@@ -165,6 +163,37 @@ describe('buildWeek', () => {
   });
 });
 
+describe('migrateSchedule', () => {
+  it('groups legacy slots into one rule per podcast and part of day', () => {
+    const legacy = {
+      entries: [
+        { id: 'a', showId: 'news', weekday: 3 as const, part: 'MORNING' as const },
+        { id: 'b', showId: 'series', weekday: 2 as const, part: 'EVENING' as const },
+        { id: 'c', showId: 'news', weekday: 1 as const, part: 'MORNING' as const },
+        { id: 'd', showId: 'news', weekday: 6 as const, part: 'EVENING' as const },
+        { id: 'e', showId: 'news', weekday: 1 as const, part: 'MORNING' as const },
+      ],
+      updatedAt: 'v1',
+    };
+    expect(isLegacySchedule(legacy)).toBe(true);
+    expect(migrateSchedule(legacy)).toEqual({
+      rules: [
+        { id: 'a', showId: 'news', weekdays: [1, 3], part: 'MORNING' },
+        { id: 'b', showId: 'series', weekdays: [2], part: 'EVENING' },
+        { id: 'd', showId: 'news', weekdays: [6], part: 'EVENING' },
+      ],
+      updatedAt: 'v1',
+    });
+  });
+
+  it('leaves rules unchanged', () => {
+    const schedule: Schedule = { rules: [{ id: 'a', showId: 'news', weekdays: [1], part: 'ANYTIME' }] };
+    expect(isLegacySchedule(schedule)).toBe(false);
+    expect(migrateSchedule(schedule)).toBe(schedule);
+    expect(migrateSchedule({ entries: [] })).toEqual({ rules: [] });
+  });
+});
+
 describe('buildToday with a plan', () => {
   it('counts planned episodes against the budget and does not repeat them', () => {
     const series = show('series', 'SEQUENTIAL');
@@ -172,7 +201,7 @@ describe('buildToday with a plan', () => {
     const inputs = new Map([['series', input(series, eps('series', 3, 20))]]);
     series.summary = summarizeShow(series, inputs.get('series')!.views, now);
     other.summary = summarizeShow(other, buildEpisodeViews(eps('other', 3, 15), new Map(), DEFAULT_SETTINGS, now), now);
-    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, { entries: [{ id: 'x', showId: 'series', weekday: 1, part: 'ANYTIME' }] }, inputs);
+    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, { rules: [{ id: 'x', showId: 'series', weekdays: [1], part: 'ANYTIME' }] }, inputs);
     const today = buildToday([series, other], { ...DEFAULT_SETTINGS, audioBudgetMinutes: 30, budgetTolerancePercent: 0 }, [], mon.items);
     expect(today.plan).toHaveLength(1);
     expect(today.recommended).toHaveLength(0);
@@ -185,9 +214,9 @@ describe('buildToday with a plan', () => {
     manual.pinnedEpisodeId = 'manual-1';
     const inputs = new Map([['manual', input(manual, eps('manual', 2, 20))]]);
     const twice: Schedule = {
-      entries: [
-        { id: 'a', showId: 'manual', weekday: 1, part: 'MORNING' },
-        { id: 'b', showId: 'manual', weekday: 1, part: 'EVENING' },
+      rules: [
+        { id: 'a', showId: 'manual', weekdays: [1], part: 'MORNING' },
+        { id: 'b', showId: 'manual', weekdays: [1], part: 'EVENING' },
       ],
     };
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, twice, inputs);

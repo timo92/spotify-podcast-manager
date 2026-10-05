@@ -271,16 +271,21 @@ export type DayPart = 'MORNING' | 'MIDDAY' | 'EVENING' | 'ANYTIME';
 
 export const DAY_PARTS: DayPart[] = ['MORNING', 'MIDDAY', 'EVENING', 'ANYTIME'];
 
-/** A recurring slot: "listen to <show> on <weekday> in the <part>". */
-export interface ScheduleEntry {
+/**
+ * A recurring plan rule: "listen to <show> on <weekdays> in the <part>". Each
+ * weekday of a rule is one slot in the week; a podcast can have several rules
+ * (e.g. weekdays in the morning, weekends in the evening).
+ */
+export interface ScheduleRule {
   id: string;
   showId: string;
-  weekday: Weekday;
+  /** Distinct weekdays, ascending. */
+  weekdays: Weekday[];
   part: DayPart;
 }
 
 export interface Schedule {
-  entries: ScheduleEntry[];
+  rules: ScheduleRule[];
   updatedAt?: string;
 }
 
@@ -294,7 +299,8 @@ export interface Schedule {
 export type PlannedState = 'done' | 'next' | 'upcoming' | 'latest' | 'none';
 
 export interface PlannedItem {
-  entryId: string;
+  /** The rule this slot comes from; unique within a day. */
+  ruleId: string;
   part: DayPart;
   show: ShowLite;
   episode: EpisodeView | null;

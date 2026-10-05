@@ -90,6 +90,7 @@ export interface Store {
   /** Most recently completed episodes across all shows, newest first. */
   listHistory(limit: number): Promise<EpisodeProgress[]>;
 
+  /** The weekly plan as rules; a schedule stored in the legacy shape is converted (migrateSchedule). */
   getSchedule(): Promise<Schedule>;
   /**
    * With `expectedUpdatedAt`, writes only if the stored schedule still has that

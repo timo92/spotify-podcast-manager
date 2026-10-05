@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertSpotifyConfigured, DEFAULT_SECRET_PARAMETER, resolveConfig } from '../lib/config.js';
+import { assertSpotifyConfigured, resolveConfig } from '../lib/config.js';
 
 describe('resolveConfig', () => {
   it('prefers environment variables over CDK context', () => {
@@ -9,7 +9,6 @@ describe('resolveConfig', () => {
       spotifyClientId: 'from-env',
       domainName: 'podcasts.example.com',
       hostedZoneName: 'example.com',
-      spotifyClientSecretParameter: DEFAULT_SECRET_PARAMETER,
       stackName: 'PodcastCockpit',
     });
   });

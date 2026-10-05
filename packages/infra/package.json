@@ -6,18 +6,19 @@
   "scripts": {
     "cdk": "cdk",
     "synth": "cdk synth",
-    "deploy": "tsx scripts/check-deploy.ts && cdk deploy --all",
+    "deploy": "cdk deploy --all",
     "diff": "cdk diff --all",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "secret:put": "tsx scripts/put-spotify-secret.ts",
-    "check": "tsx scripts/check-deploy.ts"
+    "secret:put": "tsx --env-file-if-exists=../../.env scripts/put-spotify-secret.ts"
   },
   "dependencies": {
+    "@podcast/shared": "workspace:*",
     "aws-cdk-lib": "^2.272.0",
     "constructs": "^10.8.1"
   },
   "devDependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1146.0",
     "@aws-sdk/client-ssm": "^3.1146.0",
     "@types/node": "^22.20.5",
     "aws-cdk": "^2.1144.0",

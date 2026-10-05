@@ -137,9 +137,13 @@ export function createApp(deps: AppDeps) {
   // ---------------------------------------------------------------- status
 
   app.get('/api/status', async (c) => {
-    const [config, authenticated] = await Promise.all([store.getConfig(), isAuthenticated(c)]);
+    const [config, authenticated, configured] = await Promise.all([
+      store.getConfig(),
+      isAuthenticated(c),
+      deps.credentials.ready(),
+    ]);
     const status: AppStatus = {
-      configured: deps.credentials.configured,
+      configured,
       authenticated,
       redirectUri: redirectUri(c),
       claimed: !!config,

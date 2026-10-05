@@ -3,24 +3,24 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { App } from 'aws-cdk-lib';
 import { CertificateStack } from '../lib/certificate-stack.js';
-import { assertSpotifyConfigured, loadDotEnv, resolveConfig } from '../lib/config.js';
+import { assertSpotifyConfigured, resolveConfig } from '../lib/config.js';
 import { PodcastStack } from '../lib/podcast-stack.js';
 
 /**
  * Configuration: environment variables (CI, or the repository's `.env` file,
- * see .env.example) or CDK context (`cdk.json` / `-c key=value`):
+ * see .env.example – loaded by the `app` command in cdk.json) or CDK context
+ * (`cdk.json` / `-c key=value`):
  *
- *   SPOTIFY_CLIENT_ID                 spotifyClientId               your Spotify app's client ID
- *   SPOTIFY_CLIENT_SECRET_PARAMETER   spotifyClientSecretParameter  SSM parameter with the secret
- *   DOMAIN_NAME                       domainName                    podcasts.example.com (optional)
- *   HOSTED_ZONE_NAME                  hostedZoneName                example.com (optional)
- *   CERTIFICATE_ARN                   certificateArn                us-east-1 certificate (optional)
- *   STACK_NAME                        stackName                     PodcastCockpit
+ *   SPOTIFY_CLIENT_ID   spotifyClientId   your Spotify app's client ID
+ *   DOMAIN_NAME         domainName        podcasts.example.com (optional)
+ *   HOSTED_ZONE_NAME    hostedZoneName    example.com (optional)
+ *   CERTIFICATE_ARN     certificateArn    us-east-1 certificate (optional)
+ *   STACK_NAME          stackName         PodcastCockpit
  *
- * The client secret itself never goes through CDK: store it once with
- * `pnpm run secret:put` (or `aws ssm put-parameter` in CI).
+ * The client secret never goes through CDK: the stack creates its parameter
+ * with a placeholder, and you set the value after deploying
+ * (`pnpm run secret:put`).
  */
-loadDotEnv();
 const app = new App();
 const config = resolveConfig((key) => app.node.tryGetContext(key));
 assertSpotifyConfigured(config);
@@ -51,7 +51,6 @@ const main = new PodcastStack(app, config.stackName, {
   certificate: certStack?.certificate,
   certificateArn: config.certificateArn,
   spotifyClientId: config.spotifyClientId,
-  spotifyClientSecretParameter: config.spotifyClientSecretParameter,
   frontendDir,
   description: 'Personal podcast cockpit in front of Spotify',
 });

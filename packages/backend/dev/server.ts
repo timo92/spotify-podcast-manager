@@ -3,7 +3,7 @@
  * proxies /api to it). Data is kept in .local-data/.
  *
  * Configuration comes from the environment or the repository's `.env` file
- * (see .env.example):
+ * (see .env.example; loaded by the package scripts via --env-file-if-exists):
  *   SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET   your Spotify developer app
  *   SPOTIFY_FAKE=1   offline demo: fake Spotify (shows, login, playback), no
  *                    Spotify app needed
@@ -12,7 +12,6 @@
  * Everything demo-specific lives here and in test/fakes – the app itself has
  * no demo mode.
  */
-import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
@@ -25,9 +24,6 @@ import { DynamoStore } from '../src/store/dynamo.js';
 import { MemoryStore } from '../src/store/memory.js';
 import type { Store } from '../src/store/types.js';
 import { FakeSpotifyApi, fakeSpotifyAuth } from '../test/fakes/fake-spotify.js';
-
-const envFile = resolve(import.meta.dirname, '../../../.env');
-if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const demo = process.env.SPOTIFY_FAKE === '1';
 const port = Number(process.env.PORT ?? 8787);
@@ -73,7 +69,7 @@ root.route('/', app);
 serve({ fetch: root.fetch, port, hostname: '127.0.0.1' }, () => {
   console.log(`API listening on http://127.0.0.1:${port} (${demo ? 'demo: fake Spotify' : 'real Spotify'})`);
   console.log(`Data: ${process.env.TABLE_NAME ? `DynamoDB table ${process.env.TABLE_NAME}` : dataFile}`);
-  if (!demo && !credentials.configured) {
-    console.warn('SPOTIFY_CLIENT_ID is not set – copy .env.example to .env and fill in your Spotify app.');
-  }
+  void credentials.ready().then((ok) => {
+    if (!ok) console.warn('Spotify credentials missing – copy .env.example to .env and fill in your Spotify app.');
+  });
 });

@@ -121,17 +121,19 @@ sessions can be revoked (logout, "delete all data"), unlike stateless tokens.
 ## D7 — Spotify credentials come from the deployment; the secret from SSM Parameter Store
 
 **Decision.**
-- The client ID is a plain environment variable (`SPOTIFY_CLIENT_ID`), set from
-  `.env` locally or from CI variables, and passed to the Lambdas by CDK.
-- The client secret is an SSM Parameter Store *SecureString*. It is written
-  once with `pnpm run secret:put` (or `aws ssm put-parameter` in CI), and the
-  Lambdas read it at runtime with `ssm:GetParameter`, cached for five minutes.
+- The client ID is a plain environment variable (`SPOTIFY_CLIENT_ID`), set
+  from `.env` locally or from CI variables, and passed to the Lambdas by CDK.
+  Synth fails without it.
+- The client secret lives in an SSM Parameter Store *SecureString* that the
+  stack creates, named after the stack, with a placeholder value (via a small
+  custom resource). Setting the real value is a documented post-deploy step
+  (`pnpm run secret:put`, which finds the name in the stack outputs, or the
+  console). The Lambdas read it at runtime and cache it for five minutes.
+  While the placeholder is in place, the app reports itself as not configured.
+- `.env` is loaded by Node itself (`--env-file-if-exists` in every script and
+  in the `cdk` app command), not by code or a dotenv dependency.
 - Spotify access/refresh tokens are stored in DynamoDB and never reach the
   browser, except a short-lived access token for the Web Playback SDK.
-- Missing configuration fails the deployment: synth stops without a client
-  ID, and `pnpm run deploy` checks that the secret parameter exists before
-  calling `cdk deploy`. A deployment that cannot log in is worse than one
-  that doesn't happen.
 
 **Why.**
 - Configuration belongs to the deployment, not to the app's data. It is
@@ -139,15 +141,18 @@ sessions can be revoked (logout, "delete all data"), unlike stateless tokens.
   to protect.
 - The secret must not be a plain Lambda environment variable, because that
   would write it into the CloudFormation template and the Lambda console.
-- Standard SecureString parameters are free and encrypted with the AWS-managed
-  KMS key.
+- Letting the stack own the parameter means its name is derived, not
+  configured, and the parameter is removed together with the stack. Standard
+  SecureString parameters are free and encrypted with the AWS-managed KMS key.
 
 **Alternatives.**
 - *Secrets Manager:* $0.40 per secret per month. Its main extra, managed
   rotation, doesn't apply, because a Spotify secret can only be rotated by
   hand in the Spotify dashboard.
-- *CloudFormation-created parameter:* not possible for SecureString, and it
-  would put the value into the template anyway.
+- *A configurable parameter name, created before the first deploy:* one more
+  setting, and a pre-deploy check to keep it in sync with the stack.
+- *A CloudFormation-managed parameter:* SecureString is not supported, and
+  the value would end up in the template anyway.
 - *Entering the credentials in the UI* (the earlier approach): needed a setup
   page and a setup code, and stored the secret in the app's own table.
 - *PKCE without a client secret:* Spotify then issues single-use refresh

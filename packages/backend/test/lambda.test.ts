@@ -19,7 +19,7 @@ beforeAll(async () => {
     AWS_SECRET_ACCESS_KEY: 'x',
     TABLE_NAME: 'lambda-test',
     SPOTIFY_CLIENT_ID: 'client-id',
-    SPOTIFY_CLIENT_SECRET_PARAMETER: '/podcast-cockpit/spotify-client-secret',
+    SPOTIFY_CLIENT_SECRET: 'secret',
   });
   const client = new DynamoDBClient({});
   await client.send(

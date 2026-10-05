@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { App } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
+import { SPOTIFY_CLIENT_SECRET_PLACEHOLDER } from '@podcast/shared';
 import { PodcastStack } from '../lib/podcast-stack.js';
 
 function fakeFrontend() {
@@ -19,7 +20,6 @@ function synth(props: Partial<ConstructorParameters<typeof PodcastStack>[2]> = {
   const stack = new PodcastStack(app, 'Test', {
     env: { account: '123456789012', region: 'eu-central-1' },
     spotifyClientId: 'client-id',
-    spotifyClientSecretParameter: '/podcast-cockpit/spotify-client-secret',
     frontendDir: fakeFrontend(),
     ...props,
   });
@@ -48,7 +48,7 @@ describe('PodcastStack', () => {
       Environment: {
         Variables: Match.objectLike({
           SPOTIFY_CLIENT_ID: 'client-id',
-          SPOTIFY_CLIENT_SECRET_PARAMETER: '/podcast-cockpit/spotify-client-secret',
+          SPOTIFY_CLIENT_SECRET_PARAMETER: '/Test/spotify-client-secret',
           SYNC_FUNCTION_NAME: Match.anyValue(),
         }),
       },
@@ -61,14 +61,19 @@ describe('PodcastStack', () => {
     template.resourceCountIs('AWS::Events::Rule', 2);
   });
 
-  it('lets both functions read the client secret parameter, without its value in the template', () => {
-    const policies = template.findResources('AWS::IAM::Policy');
-    const reads = Object.values(policies).filter((p) =>
-      JSON.stringify(p).includes(':parameter/podcast-cockpit/spotify-client-secret'),
-    );
-    expect(reads).toHaveLength(2);
-    // The parameter is created outside of CloudFormation, so no secret value is ever in a template.
+  it('creates the client-secret parameter with a placeholder and lets both functions read it', () => {
+    const resources = template.findResources('Custom::AWS');
+    const create = JSON.stringify(Object.values(resources)[0]);
+    expect(create).toContain('SecureString');
+    expect(create).toContain(SPOTIFY_CLIENT_SECRET_PLACEHOLDER);
+    expect(create).toContain('/Test/spotify-client-secret');
+    // CloudFormation never manages the value itself.
     template.resourceCountIs('AWS::SSM::Parameter', 0);
+    const reads = Object.values(template.findResources('AWS::IAM::Policy')).filter((p) => {
+      const json = JSON.stringify(p);
+      return json.includes(':parameter/Test/spotify-client-secret') && json.includes('ssm:GetParameter');
+    });
+    expect(reads).toHaveLength(2);
   });
 
   it('routes /api/* through CloudFront without caching', () => {

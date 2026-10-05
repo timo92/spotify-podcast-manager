@@ -1,5 +1,5 @@
 {
-  "app": "npx tsx bin/app.ts",
+  "app": "npx tsx --env-file-if-exists=../../.env bin/app.ts",
   "watch": {
     "include": [
       "bin",
@@ -8,7 +8,6 @@
   },
   "context": {
     "spotifyClientId": "",
-    "spotifyClientSecretParameter": "",
     "domainName": "",
     "hostedZoneName": "",
     "certificateArn": "",

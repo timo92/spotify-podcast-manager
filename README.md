@@ -121,46 +121,26 @@ pnpm typecheck
 ### 1. Configuration
 
 Every setting can come from an environment variable – your `.env` (copy
-[`.env.example`](.env.example)) or, in CI, the pipeline's variables and
-secrets – or from CDK context (`packages/infra/cdk.json` or `-c key=value`).
-The environment wins.
+[`.env.example`](.env.example)) or, in CI, the pipeline's variables – or from
+CDK context (`packages/infra/cdk.json` or `-c key=value`). The environment
+wins. There is no dotenv library: the package scripts and the `cdk` app
+command pass `--env-file-if-exists=../../.env` to Node, so every entry point
+loads the same file, and real environment variables take precedence over it.
 
 | Environment variable | CDK context | Example | Notes |
 | --- | --- | --- | --- |
-| `SPOTIFY_CLIENT_ID` | `spotifyClientId` | `3f1c…` | Client ID of [your Spotify app](#the-spotify-app). Not a secret. |
-| `SPOTIFY_CLIENT_SECRET` | – | | Only read locally and by `pnpm run secret:put`; never passed to CDK. |
-| `SPOTIFY_CLIENT_SECRET_PARAMETER` | `spotifyClientSecretParameter` | `/podcast-cockpit/spotify-client-secret` | SSM parameter holding the secret (this is the default). |
+| `SPOTIFY_CLIENT_ID` | `spotifyClientId` | `3f1c…` | Client ID of [your Spotify app](#the-spotify-app). Not a secret. Required – synth fails without it. |
 | `DOMAIN_NAME` | `domainName` | `podcasts.example.com` | Optional. Without it, the app runs on the CloudFront domain. |
 | `HOSTED_ZONE_NAME` | `hostedZoneName` | `example.com` | Defaults to the parent domain of `domainName`. Must be a Route 53 hosted zone in the same account. |
 | `CERTIFICATE_ARN` | `certificateArn` | `arn:aws:acm:us-east-1:…` | Only if your DNS is **not** in Route 53. The certificate must be in us-east-1. You then point a CNAME at the `DistributionDomain` output yourself. |
+| `STACK_NAME` | `stackName` | `PodcastCockpit` | Optional. |
+
+The client secret is **not** part of this configuration; it is set after the
+first deploy (step 4).
 
 The main stack goes to `CDK_DEFAULT_REGION` (your AWS profile's region). If
 none is set, it goes to `eu-central-1`. With a Route 53 domain, a small extra
 stack creates the TLS certificate in `us-east-1`, which CloudFront requires.
-
-An incomplete configuration fails early instead of producing an app that
-can't log in:
-- `cdk synth`/`deploy` stops if `SPOTIFY_CLIENT_ID` is missing.
-- `pnpm run deploy` first checks that the secret parameter exists in the
-  target region (no decryption, the value is never read).
-
-**Why the secret is in Parameter Store.** A plain Lambda environment variable
-would put the secret into the CloudFormation template, where anyone with read
-access to the stack can see it. A *SecureString* parameter in SSM Parameter
-Store is encrypted with KMS and read by the Lambdas at runtime (cached for a
-few minutes). Standard parameters cost nothing, unlike Secrets Manager
-($0.40 per secret per month). We don't need what Secrets Manager adds
-(automatic rotation), because a Spotify secret is rotated by hand in the
-Spotify dashboard anyway. CloudFormation cannot create SecureString
-parameters, so the value is stored once with a script instead of by CDK:
-
-```bash
-pnpm run secret:put     # reads SPOTIFY_CLIENT_SECRET from .env or the environment
-```
-
-Run it with the same AWS profile and region you deploy to, and again whenever
-you rotate the secret. In CI this is one step before the deploy:
-`aws ssm put-parameter --name /podcast-cockpit/spotify-client-secret --type SecureString --overwrite --value "$SPOTIFY_CLIENT_SECRET"`.
 
 ### 2. Bootstrap (once per account/region)
 
@@ -172,13 +152,41 @@ pnpm exec cdk bootstrap aws://<ACCOUNT>/eu-central-1 aws://<ACCOUNT>/us-east-1
 ### 3. Deploy
 
 ```bash
-pnpm run secret:put  # once, see above
 pnpm run deploy      # from the repo root: builds the frontend, then `cdk deploy --all`
 ```
 
-The outputs show `Url` and `SpotifyRedirectUri`.
+The outputs show `Url`, `SpotifyRedirectUri` and `SpotifyClientSecretParameter`.
 
-### 4. Log in
+### 4. Set the client secret (once, after the first deploy)
+
+The stack creates an SSM Parameter Store *SecureString* named
+`/<stack name>/spotify-client-secret` (the `SpotifyClientSecretParameter`
+output) with a placeholder. Until you replace it, the app shows *Spotify-App
+fehlt*. Set it with:
+
+```bash
+pnpm run secret:put  # reads SPOTIFY_CLIENT_SECRET from .env or the environment
+```
+
+The script looks up the parameter name in the stack's outputs and must run
+with the same AWS profile and region you deployed to. You can also edit the
+parameter in the AWS console, or in CI run
+`aws ssm put-parameter --name /PodcastCockpit/spotify-client-secret --type SecureString --overwrite --value "$SPOTIFY_CLIENT_SECRET"`.
+Redeploys never touch the value. Repeat this step when you rotate the secret
+in the Spotify dashboard; the app picks it up within five minutes.
+
+**Why Parameter Store.**
+- A plain Lambda environment variable would put the secret into the
+  CloudFormation template and the Lambda console. A SecureString is encrypted
+  with KMS and only read by the Lambdas at runtime.
+- Standard parameters cost nothing; Secrets Manager costs $0.40 per secret
+  per month, and its main extra (automatic rotation) doesn't apply to a
+  Spotify secret.
+- CloudFormation can't create SecureString parameters with a value. The stack
+  therefore creates the parameter with a placeholder through a small custom
+  resource, so the real value never appears in a template.
+
+### 5. Log in
 
 1. Add the `SpotifyRedirectUri` output to the redirect URIs of [your Spotify app](#the-spotify-app), e.g. `https://podcasts.example.com/api/auth/callback`.
 2. Open the `Url` and log in with Spotify. The first account that logs in becomes the owner; every other account is rejected. Only accounts listed under *User Management* of your Spotify app can log in at all, so nobody else can claim the installation first.

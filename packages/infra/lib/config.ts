@@ -1,19 +1,18 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-
-export const REPO_ROOT = join(import.meta.dirname, '../../..');
-export const DEFAULT_SECRET_PARAMETER = '/podcast-cockpit/spotify-client-secret';
 
 /**
  * Deployment configuration. Each value comes from an environment variable
- * (CI, or the repository's `.env` file) or from CDK context (`cdk.json` /
+ * (CI, or the repository's `.env` file, which the package scripts load with
+ * Node's --env-file-if-exists) or from CDK context (`cdk.json` /
  * `-c key=value`); the environment wins.
+ *
+ * The Spotify client secret is deliberately not part of it: the stack creates
+ * its parameter, and the value is set after deploying (`pnpm run secret:put`).
  */
 export interface DeployConfig {
   /** Client ID of your Spotify developer app (not a secret). */
   spotifyClientId?: string;
-  /** SSM SecureString holding the Spotify client secret. */
-  spotifyClientSecretParameter: string;
   domainName?: string;
   hostedZoneName?: string;
   certificateArn?: string;
@@ -22,18 +21,11 @@ export interface DeployConfig {
 
 const SETTINGS: [keyof DeployConfig, string][] = [
   ['spotifyClientId', 'SPOTIFY_CLIENT_ID'],
-  ['spotifyClientSecretParameter', 'SPOTIFY_CLIENT_SECRET_PARAMETER'],
   ['domainName', 'DOMAIN_NAME'],
   ['hostedZoneName', 'HOSTED_ZONE_NAME'],
   ['certificateArn', 'CERTIFICATE_ARN'],
   ['stackName', 'STACK_NAME'],
 ];
-
-/** Loads `<repo>/.env` into process.env if it exists (variables already set win). */
-export function loadDotEnv(): void {
-  const file = join(REPO_ROOT, '.env');
-  if (existsSync(file)) process.loadEnvFile(file);
-}
 
 /** Context values from cdk.json, for scripts that run outside of `cdk`. */
 export function cdkJsonContext(): (key: string) => unknown {
@@ -51,7 +43,6 @@ export function resolveConfig(context: (key: string) => unknown, env: NodeJS.Pro
   const { domainName, certificateArn } = raw;
   return {
     ...raw,
-    spotifyClientSecretParameter: raw.spotifyClientSecretParameter ?? DEFAULT_SECRET_PARAMETER,
     // With certificateArn, DNS records are only created if hostedZoneName is set explicitly.
     hostedZoneName:
       raw.hostedZoneName ?? (domainName && !certificateArn ? domainName.split('.').slice(1).join('.') : undefined),

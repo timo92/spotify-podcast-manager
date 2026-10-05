@@ -16,6 +16,8 @@ import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as cr from 'aws-cdk-lib/custom-resources';
+import { SPOTIFY_CLIENT_SECRET_PLACEHOLDER } from '@podcast/shared';
 import type { Construct } from 'constructs';
 
 const ROOT = join(import.meta.dirname, '../../..');
@@ -29,10 +31,8 @@ export interface PodcastStackProps extends StackProps {
   certificate?: acm.ICertificate;
   /** Alternative to `certificate`: ARN of an existing us-east-1 certificate. */
   certificateArn?: string;
-  /** Client ID of the Spotify developer app. Without it the app shows a configuration hint. */
-  spotifyClientId?: string;
-  /** Name of the SSM SecureString parameter holding the Spotify client secret. */
-  spotifyClientSecretParameter: string;
+  /** Client ID of the Spotify developer app. */
+  spotifyClientId: string;
   /** Built frontend (packages/frontend/dist). */
   frontendDir?: string;
   /** Hours between incremental syncs. */
@@ -80,6 +80,42 @@ export class PodcastStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
+    // ------------------------------------------------------ spotify secret
+
+    // CloudFormation cannot create SecureString parameters, so a custom resource
+    // creates it once with a placeholder. The real value is set after deploying
+    // (`pnpm run secret:put` or the console) and is never part of a template.
+    // Later deployments don't touch it; deleting the stack deletes it.
+    const clientSecretParameter = `/${this.stackName}/spotify-client-secret`;
+    const clientSecretArn = this.formatArn({
+      service: 'ssm',
+      resource: 'parameter',
+      resourceName: clientSecretParameter.slice(1),
+    });
+    new cr.AwsCustomResource(this, 'SpotifyClientSecret', {
+      onCreate: {
+        service: 'SSM',
+        action: 'putParameter',
+        parameters: {
+          Name: clientSecretParameter,
+          Type: 'SecureString',
+          Value: SPOTIFY_CLIENT_SECRET_PLACEHOLDER,
+          Description: 'Client secret of the Spotify developer app (set it with `pnpm run secret:put`)',
+        },
+        physicalResourceId: cr.PhysicalResourceId.of(clientSecretParameter),
+        // Keep an existing value, e.g. when the stack is recreated.
+        ignoreErrorCodesMatching: 'ParameterAlreadyExists',
+      },
+      onDelete: {
+        service: 'SSM',
+        action: 'deleteParameter',
+        parameters: { Name: clientSecretParameter },
+        ignoreErrorCodesMatching: 'ParameterNotFound',
+      },
+      policy: cr.AwsCustomResourcePolicy.fromSdkCalls({ resources: [clientSecretArn] }),
+      installLatestAwsSdk: false,
+    });
+
     // ------------------------------------------------------------ lambdas
 
     const common = {
@@ -99,8 +135,8 @@ export class PodcastStack extends Stack {
       },
       environment: {
         TABLE_NAME: table.tableName,
-        SPOTIFY_CLIENT_ID: props.spotifyClientId ?? '',
-        SPOTIFY_CLIENT_SECRET_PARAMETER: props.spotifyClientSecretParameter,
+        SPOTIFY_CLIENT_ID: props.spotifyClientId,
+        SPOTIFY_CLIENT_SECRET_PARAMETER: clientSecretParameter,
         NODE_OPTIONS: '--enable-source-maps',
       },
     } satisfies Partial<NodejsFunctionProps>;
@@ -139,10 +175,9 @@ export class PodcastStack extends Stack {
     table.grantReadWriteData(apiFn);
     syncFn.grantInvoke(apiFn);
 
-    // The secret is created outside of CloudFormation (`pnpm run secret:put`), so
-    // its value never appears in a template; both functions may read it.
-    const clientSecret = ssm.StringParameter.fromSecureStringParameterAttributes(this, 'SpotifyClientSecret', {
-      parameterName: props.spotifyClientSecretParameter,
+    // Both functions read the secret at runtime.
+    const clientSecret = ssm.StringParameter.fromSecureStringParameterAttributes(this, 'SpotifyClientSecretRef', {
+      parameterName: clientSecretParameter,
     });
     clientSecret.grantRead(apiFn);
     clientSecret.grantRead(syncFn);
@@ -274,8 +309,8 @@ function handler(event) {
       description: 'Register this redirect URI in your Spotify app',
     });
     new CfnOutput(this, 'SpotifyClientSecretParameter', {
-      value: props.spotifyClientSecretParameter,
-      description: 'SSM SecureString the app reads the Spotify client secret from',
+      value: clientSecretParameter,
+      description: 'SSM SecureString for the Spotify client secret – set it after deploying (pnpm run secret:put)',
     });
     new CfnOutput(this, 'DistributionDomain', {
       value: distribution.distributionDomainName,

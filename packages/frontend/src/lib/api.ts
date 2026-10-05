@@ -1,29 +1,33 @@
-import type {
-  ApiErrorBody,
-  AppStatus,
-  EpisodeNote,
-  Schedule,
-  WeekResponse,
-  EpisodeProgress,
-  EpisodeStatus,
-  EpisodeView,
-  PlayerDevice,
-  Settings,
-  Show,
-  ShowDetailResponse,
-  ShowSettingsPatch,
-  SyncState,
-  TodayResponse,
+import {
+  ERROR_PARAMS,
+  type ApiErrorBody,
+  type AppStatus,
+  type ErrorCode,
+  type EpisodeNote,
+  type Schedule,
+  type WeekResponse,
+  type EpisodeProgress,
+  type EpisodeStatus,
+  type EpisodeView,
+  type PlayerDevice,
+  type Settings,
+  type Show,
+  type ShowDetailResponse,
+  type ShowSettingsPatch,
+  type SyncState,
+  type TodayResponse,
 } from '@podcast/shared';
 import i18n from '../i18n';
-import type { resources } from '../i18n/resources';
 
-type ErrorCode = keyof (typeof resources)['de']['errors'];
+/** An error response as received; a newer server may send a code this build doesn't know. */
+type ErrorResponse = Partial<Omit<ApiErrorBody, 'error' | 'params'>> & { error?: string; params?: object };
+
+const isErrorCode = (code: string | undefined): code is ErrorCode => !!code && Object.hasOwn(ERROR_PARAMS, code);
 
 /** The error in the active language; codes the app doesn't know keep the server's (German) message. */
-export function errorMessage(body: Partial<ApiErrorBody> | undefined, status: number): string {
+export function errorMessage(body: ErrorResponse | undefined, status: number): string {
   const code = body?.error;
-  if (code && i18n.exists(code, { ns: 'errors' })) return i18n.t(code as ErrorCode, { ns: 'errors', ...body?.params });
+  if (isErrorCode(code)) return i18n.t(code, { ns: 'errors', ...body?.params });
   return body?.message ?? i18n.t('http', { ns: 'errors', status });
 }
 
@@ -48,7 +52,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const text = await res.text();
   const data = text ? JSON.parse(text) : undefined;
   if (!res.ok) {
-    const body = data as Partial<ApiErrorBody> | undefined;
+    const body = data as ErrorResponse | undefined;
     throw new ApiError(res.status, body?.error ?? 'error', errorMessage(body, res.status));
   }
   return data as T;

@@ -6,6 +6,8 @@
  * never overwritten by a sync.
  */
 
+import type { ErrorCode, ErrorParams } from './errors.js';
+
 export type ConsumptionMode = 'LATEST' | 'SEQUENTIAL' | 'MANUAL';
 
 export const CONSUMPTION_MODES: ConsumptionMode[] = ['LATEST', 'SEQUENTIAL', 'MANUAL'];
@@ -223,8 +225,8 @@ export interface SyncState {
   message?: string;
   error?: string;
   /** Stable code and parameters of `error` when it is a known API error, for the client's translation. */
-  errorCode?: string;
-  errorParams?: Record<string, string | number>;
+  errorCode?: ErrorCode;
+  errorParams?: ErrorParams[ErrorCode];
   /** While running: the podcast reloaded on its own (absent for a library sync). */
   showId?: string;
   showsSynced?: number;
@@ -264,11 +266,11 @@ export interface PlayerDevice {
   isActive: boolean;
 }
 
-/** Error response of the API: a stable `code` the client translates with `params`; `message` is a German fallback. */
-export interface ApiErrorBody {
-  error: string;
+/** Error response of the API: a stable code the client translates with `params`; `message` is a German fallback. */
+export interface ApiErrorBody<C extends ErrorCode = ErrorCode> {
+  error: C;
   message: string;
-  params?: Record<string, string | number>;
+  params?: ErrorParams[C];
 }
 
 // ---------------------------------------------------------------- weekly plan

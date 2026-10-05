@@ -446,6 +446,12 @@ for buttons and badges, which appear everywhere.
   durations use `Intl` with the browser's locale for the active language.
 - The API returns a stable error `code` with `params`; the frontend
   translates it, and the German `message` stays as a fallback and for logs.
+  The codes and their parameters are declared once in `shared`
+  (`ErrorParams`, plus `ERROR_PARAMS` for the parameter names at runtime).
+  The backend can only throw declared codes with their parameters, both
+  translation files must have a text for every code (`satisfies` on the
+  imported JSON), and a test checks that each text uses exactly the code's
+  parameters. Codes the login page explains are a `LoginErrorCode`.
   The sync state carries counts, the reloaded podcast and an error code,
   and the frontend builds its own messages from them.
 - User data stays as it is: category names, episode titles and the default
@@ -464,6 +470,9 @@ and matches the theme setting.
   for two languages and simple plurals.
 - *A hand-written dictionary:* no dependency, but no plurals, interpolation
   or typed keys without writing them ourselves.
+- *Error codes only as string literals, checked by scanning the backend
+  source:* catches a missing translation, but not a mistyped code or a
+  parameter named differently on each side.
 - *Translated messages from the backend (Accept-Language):* every error and
   status text would need both languages on the server, and cached responses
   would depend on the header.

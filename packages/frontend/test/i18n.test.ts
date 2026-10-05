@@ -1,6 +1,5 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { ERROR_PARAMS } from '@podcast/shared';
 import { resources } from '../src/i18n/resources';
 
 type Tree = { [key: string]: string | Tree };
@@ -38,23 +37,13 @@ describe('translations', () => {
     });
   }
 
-  it('cover every error code the API returns', () => {
-    const files: string[] = [];
-    const walk = (dir: string) => {
-      for (const name of readdirSync(dir)) {
-        const path = join(dir, name);
-        if (statSync(path).isDirectory()) walk(path);
-        else if (path.endsWith('.ts')) files.push(path);
+  it('translate every API error code with exactly its parameters', () => {
+    for (const lang of [de, en]) {
+      const texts: Record<string, string> = lang.errors;
+      expect(Object.keys(texts).sort()).toEqual([...Object.keys(ERROR_PARAMS), 'http'].sort());
+      for (const [code, params] of Object.entries(ERROR_PARAMS)) {
+        expect(variables(texts[code]), code).toEqual([...params].sort());
       }
-    };
-    walk(join(__dirname, '../../backend/src'));
-    const codes = new Set<string>(['unauthorized', 'internal']);
-    const patterns = [/new ApiError\(\s*[\w.]+,\s*'(\w+)'/g, /(?:badRequest|notFound)\(\s*'(\w+)'/g, /error: '(\w+)'/g];
-    for (const file of files) {
-      const source = readFileSync(file, 'utf8');
-      for (const re of patterns) for (const m of source.matchAll(re)) codes.add(m[1]);
     }
-    const translated = Object.keys(de.errors);
-    expect([...codes].filter((c) => !translated.includes(c))).toEqual([]);
   });
 });

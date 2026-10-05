@@ -1,3 +1,4 @@
+import type { ErrorCode, LoginErrorCode } from '@podcast/shared';
 import deAuth from '../locales/de/auth.json';
 import deCommon from '../locales/de/common.json';
 import deEpisode from '../locales/de/episode.json';
@@ -19,13 +20,18 @@ import enSettings from '../locales/en/settings.json';
 import enShows from '../locales/en/shows.json';
 import enToday from '../locales/en/today.json';
 
+/** Every API error code has a text (plus `http` for responses without a code). */
+type ErrorTexts = Record<ErrorCode | 'http', string>;
+/** The login page explains every code the OAuth callback sends it. */
+type AuthTexts = { error: Record<LoginErrorCode, string> };
+
 /** All translations, one namespace per area; `de` defines the keys (see i18next.d.ts). */
 export const resources = {
   de: {
-    auth: deAuth,
+    auth: deAuth satisfies AuthTexts,
     common: deCommon,
     episode: deEpisode,
-    errors: deErrors,
+    errors: deErrors satisfies ErrorTexts,
     history: deHistory,
     plan: dePlan,
     player: dePlayer,
@@ -34,10 +40,10 @@ export const resources = {
     today: deToday,
   },
   en: {
-    auth: enAuth,
+    auth: enAuth satisfies AuthTexts,
     common: enCommon,
     episode: enEpisode,
-    errors: enErrors,
+    errors: enErrors satisfies ErrorTexts,
     history: enHistory,
     plan: enPlan,
     player: enPlayer,

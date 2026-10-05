@@ -2,9 +2,12 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   buildToday,
   DEFAULT_SETTINGS,
+  type ApiErrorBody,
   type AppStatus,
+  type ErrorCode,
   type EpisodeStatus,
   type HistoryItem,
+  type LoginErrorCode,
   type PlayerDevice,
   type Settings,
   type ShowSettingsPatch,
@@ -137,16 +140,18 @@ export function createApp(deps: AppDeps) {
   app.onError((err, c) => {
     c.header('Cache-Control', 'no-store');
     if (err instanceof ApiError) {
-      return c.json({ error: err.code, message: err.message, params: err.params }, err.status as never);
+      const body: ApiErrorBody = { error: err.code, message: err.message, params: err.params };
+      return c.json(body, err.status as never);
     }
     console.error('Unhandled error', err);
-    return c.json(
-      { error: 'internal', message: 'Interner Fehler – Details im CloudWatch-Log.' },
-      StatusCodes.INTERNAL_SERVER_ERROR,
-    );
+    const body: ApiErrorBody = { error: 'internal', message: 'Interner Fehler – Details im CloudWatch-Log.' };
+    return c.json(body, StatusCodes.INTERNAL_SERVER_ERROR);
   });
 
-  app.notFound((c) => c.json({ error: 'not_found', message: 'Unbekannter Endpunkt' }, StatusCodes.NOT_FOUND));
+  app.notFound((c) => {
+    const body: ApiErrorBody = { error: 'not_found', message: 'Unbekannter Endpunkt' };
+    return c.json(body, StatusCodes.NOT_FOUND);
+  });
 
   // ---------------------------------------------------------------- status
 
@@ -178,7 +183,7 @@ export function createApp(deps: AppDeps) {
   // ------------------------------------------------------------------ auth
 
   app.get('/api/auth/login', async (c) => {
-    if (!deps.credentials.clientId) return c.redirect('/login?error=not_configured');
+    if (!deps.credentials.clientId) return c.redirect(`/login?error=${'not_configured' satisfies LoginErrorCode}`);
     const state = randomBytes(16).toString('base64url');
     setCookie(c, STATE_COOKIE, state, { ...stateCookieOptions(c), maxAge: 600 });
     return c.redirect(auth.authorizeUrl(deps.credentials.clientId, redirectUri(c), state));
@@ -187,9 +192,11 @@ export function createApp(deps: AppDeps) {
   app.get('/api/auth/callback', async (c) => {
     const expected = getCookie(c, STATE_COOKIE);
     deleteCookie(c, STATE_COOKIE, stateCookieOptions(c));
-    const fail = (code: string) => c.redirect(`/login?error=${encodeURIComponent(code)}`);
+    const redirectError = (code: string) => c.redirect(`/login?error=${encodeURIComponent(code)}`);
+    const fail = (code: LoginErrorCode | ErrorCode) => redirectError(code);
     const { error, state, code } = c.req.query();
-    if (error) return fail(error);
+    // Spotify's own OAuth error is passed on as it is; the login page explains the ones it knows.
+    if (error) return redirectError(error);
     if (!expected || !state || !safeEqual(expected, state)) return fail('state_mismatch');
 
     let login: { tokens: SpotifyTokens; user: { id: string; display_name?: string | null } };

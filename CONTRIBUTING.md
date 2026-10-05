@@ -121,8 +121,13 @@ There is no formatter yet; match the surrounding code:
 - Vitest; tests live in each package's `test/` folder.
 - Every behaviour change comes with a test: pure logic in `shared`, API
   behaviour through the backend app tests (with `MemoryStore` and the fake
-  Spotify), store changes in the store contract tests, infra through CDK
-  assertions.
+  Spotify), store changes in the store contract tests, UI behaviour through
+  frontend component tests, infra through CDK assertions.
+- Frontend component tests live in `frontend/test/components` and
+  `frontend/test/pages`. They render with `renderWithProviders`
+  (`test/support/render.tsx`) and mock the API per test with
+  `vi.spyOn(api, …)`; an unmocked request fails the test. Query elements by
+  role and visible text, as a user would find them.
 - A bug fix starts with a test that fails without the fix.
 
 ### Docs

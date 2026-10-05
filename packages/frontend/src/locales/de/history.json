@@ -9,5 +9,23 @@
   "lastWeek": "{{time}} in den letzten 7 Tagen",
   "recent": "Zuletzt gehörte Folgen",
   "emptyTitle": "Noch nichts gehört",
-  "emptyText": "Markiere Folgen als gehört – sie erscheinen dann hier."
+  "emptyText": "Markiere Folgen als gehört – sie erscheinen dann hier.",
+  "notes": {
+    "grouping": "Gruppierung",
+    "list": "Liste",
+    "byShow": "Nach Podcast",
+    "period": "Zeitraum",
+    "periodAll": "Alle",
+    "preset": {
+      "week": "Diese Woche",
+      "last30": "Letzte 30 Tage",
+      "year": "Dieses Jahr"
+    },
+    "custom": "Zeitraum…",
+    "from": "Von",
+    "to": "Bis",
+    "noneFound": "Keine Notizen in diesem Zeitraum",
+    "count_one": "{{count}} Notiz",
+    "count_other": "{{count}} Notizen"
+  }
 }

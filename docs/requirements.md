@@ -75,7 +75,7 @@ Each podcast has exactly one mode.
 | --- | --- | --- |
 | L1 | An episode can be played in the browser (Spotify Premium), on any Spotify Connect device, or opened in the Spotify app. Playback resumes at Spotify's resume point; the user can also start from the beginning. | ✅ |
 | L2 | When an episode ends in the browser player, it can automatically be marked as heard (with undo). | ✅ |
-| L3 | The user can write notes per episode, including while listening. While playing in the browser, the current position can be inserted as a timestamp; clicking a timestamp later jumps to that position. Notes are searchable. | ✅ |
+| L3 | The user can write notes per episode, including while listening. While playing in the browser, the current position can be inserted as a timestamp; clicking a timestamp later jumps to that position. Notes are searchable, can be grouped by podcast (in episode order) and limited to a period of their last edit (this week, last 30 days, this year or a custom range); grouping and period are remembered per browser. | ✅ |
 
 ## 8. Synchronisation
 

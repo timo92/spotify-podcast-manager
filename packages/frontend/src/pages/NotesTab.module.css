@@ -1,0 +1,49 @@
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  & label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  & input {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+}
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+
+  &:hover {
+    text-decoration: none;
+  }
+  & :global(.grow) {
+    display: flex;
+    flex-direction: column;
+  }
+}
+.noteCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  & :global(.row-between) {
+    align-items: flex-start;
+  }
+  & :global(.grow) {
+    display: flex;
+    flex-direction: column;
+  }
+}

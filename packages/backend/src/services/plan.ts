@@ -10,7 +10,8 @@ import {
   type ScheduleRule,
   type Weekday,
 } from '@podcast/shared';
-import { badRequest } from '../errors.js';
+import { StatusCodes } from 'http-status-codes';
+import { ApiError, badRequest } from '../errors.js';
 import type { Store } from '../store/types.js';
 import type { LibraryService } from './library.js';
 
@@ -43,10 +44,12 @@ export class PlanService {
 
   /**
    * Validates and stores the whole plan. Rules without a unique id get a new
-   * one.
+   * one. With `expectedUpdatedAt` (see ScheduleSave), a plan that changed in
+   * the meantime is not overwritten: the save fails with `schedule_conflict`.
    */
   async saveSchedule(input: unknown): Promise<Schedule> {
-    const raw = (input as { rules?: unknown })?.rules;
+    const body = input as { rules?: unknown; expectedUpdatedAt?: unknown } | null;
+    const raw = body?.rules;
     if (!Array.isArray(raw)) throw badRequest('invalid_schedule', 'rules muss eine Liste sein');
     if (raw.length > MAX_RULES) throw badRequest('too_many_rules', `Höchstens ${MAX_RULES} Regeln`, { max: MAX_RULES });
     const shows = new Set((await this.store.listShows()).map((s) => s.id));
@@ -64,8 +67,16 @@ export class PlanService {
       // A plan loaded before a podcast was deleted (retention) may still contain
       // it; its rules are dropped instead of rejecting the whole save.
       .filter((r) => shows.has(r.showId));
+    const expected =
+      body && 'expectedUpdatedAt' in body
+        ? typeof body.expectedUpdatedAt === 'string'
+          ? body.expectedUpdatedAt
+          : null
+        : undefined;
     const schedule = { rules, updatedAt: new Date().toISOString() };
-    await this.store.putSchedule(schedule);
+    if (!(await this.store.putSchedule(schedule, expected))) {
+      throw new ApiError(StatusCodes.CONFLICT, 'schedule_conflict', 'Der Wochenplan wurde inzwischen geändert.');
+    }
     return schedule;
   }
 

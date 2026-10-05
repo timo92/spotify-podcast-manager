@@ -36,7 +36,12 @@ export function WeekPage() {
     const rule = ruleOf(item);
     if (!rule) return;
     if (rule.weekdays.length > 1) setRemoving({ rule, item, weekday });
-    else void save(removeRule(rules, rule.id), t('toast.dayRemoved', { show: item.show.name, day: weekdayLong(weekday) }));
+    else {
+      void save(
+        (current) => removeRule(current, rule.id),
+        t('toast.dayRemoved', { show: item.show.name, day: weekdayLong(weekday) }),
+      );
+    }
   }
 
   const weekOpenMs = (week.data?.days ?? []).reduce((sum, d) => sum + d.openMs, 0);
@@ -119,7 +124,7 @@ export function WeekPage() {
           onClose={() => setAdding(null)}
           onSave={(rule, showName) => {
             setAdding(null);
-            void save([...rules, rule], t('toast.planned', { show: showName }));
+            void save((current) => [...current, rule], t('toast.planned', { show: showName }));
           }}
         />
       )}
@@ -129,14 +134,11 @@ export function WeekPage() {
           onClose={() => setEditingRule(null)}
           onSave={(rule, showName) => {
             setEditingRule(null);
-            void save(
-              replaceRule(rules, rule),
-              `${showName}: ${formatRule(rule)}`,
-            );
+            void save((current) => replaceRule(current, rule), `${showName}: ${formatRule(rule)}`);
           }}
           onDelete={() => {
             setEditingRule(null);
-            void save(removeRule(rules, editingRule.id), t('toast.ruleRemoved'));
+            void save((current) => removeRule(current, editingRule.id), t('toast.ruleRemoved'));
           }}
         />
       )}
@@ -147,13 +149,16 @@ export function WeekPage() {
           onRemoveDay={() => {
             setRemoving(null);
             void save(
-              removeWeekday(rules, removing.rule.id, removing.weekday),
+              (current) => removeWeekday(current, removing.rule.id, removing.weekday),
               t('toast.dayRemoved', { show: removing.item.show.name, day: weekdayLong(removing.weekday) }),
             );
           }}
           onRemoveRule={() => {
             setRemoving(null);
-            void save(removeRule(rules, removing.rule.id), t('toast.showRuleRemoved', { show: removing.item.show.name }));
+            void save(
+              (current) => removeRule(current, removing.rule.id),
+              t('toast.showRuleRemoved', { show: removing.item.show.name }),
+            );
           }}
         />
       )}

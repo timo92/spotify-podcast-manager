@@ -5,6 +5,7 @@ import {
   type ErrorCode,
   type EpisodeNote,
   type Schedule,
+  type ScheduleSave,
   type WeekResponse,
   type EpisodeProgress,
   type EpisodeStatus,
@@ -107,7 +108,7 @@ export const api = {
     request<{ ok: true; positionMs: number; durationMs: number }>('POST', '/api/player/play', input),
 
   schedule: () => request<Schedule>('GET', '/api/schedule'),
-  saveSchedule: (schedule: Schedule) => request<Schedule>('PUT', '/api/schedule', schedule),
+  saveSchedule: (schedule: ScheduleSave) => request<Schedule>('PUT', '/api/schedule', schedule),
   week: () => request<WeekResponse>('GET', `/api/week?tz=${encodeURIComponent(TIME_ZONE)}`),
 
   notes: () => request<EpisodeNote[]>('GET', '/api/notes'),

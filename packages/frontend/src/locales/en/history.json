@@ -9,5 +9,23 @@
   "lastWeek": "{{time}} in the last 7 days",
   "recent": "Recently played episodes",
   "emptyTitle": "Nothing played yet",
-  "emptyText": "Mark episodes as played – they will appear here."
+  "emptyText": "Mark episodes as played – they will appear here.",
+  "notes": {
+    "grouping": "Grouping",
+    "list": "List",
+    "byShow": "By podcast",
+    "period": "Period",
+    "periodAll": "All",
+    "preset": {
+      "week": "This week",
+      "last30": "Last 30 days",
+      "year": "This year"
+    },
+    "custom": "Custom…",
+    "from": "From",
+    "to": "To",
+    "noneFound": "No notes in this period",
+    "count_one": "{{count}} note",
+    "count_other": "{{count}} notes"
+  }
 }

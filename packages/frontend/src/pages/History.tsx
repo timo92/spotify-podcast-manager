@@ -1,19 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { EpisodeProgress } from '@podcast/shared';
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
-import { Icon } from '../components/Icon';
-import { NoteText } from '../components/Notes';
 import { Empty, ErrorBox, Segmented, Spinner } from '../components/ui';
 import i18n from '../i18n';
 import { api } from '../lib/api';
-import { cx } from '../lib/cx';
-import { formatDuration, formatLongDate, formatRelative } from '../lib/format';
+import { formatDuration, formatLongDate } from '../lib/format';
 import { qk } from '../lib/queries';
-import styles from './History.module.css';
+import { NotesTab } from './NotesTab';
 
 function dayLabel(iso: string): string {
   const d = new Date(iso);
@@ -49,74 +46,9 @@ export function HistoryPage() {
           { value: 'notizen', label: t('tabNotes') },
         ]}
       />
-      {tab === 'gehoert' ? <Listened onOpen={onOpen} /> : <Notes onOpen={onOpen} />}
+      {tab === 'gehoert' ? <Listened onOpen={onOpen} /> : <NotesTab onOpen={onOpen} />}
       {open && <EpisodeSheet {...open} onClose={() => setOpen(null)} />}
     </div>
-  );
-}
-
-function Notes({ onOpen }: { onOpen: (showId: string, episodeId: string) => void }) {
-  const { t } = useTranslation('history');
-  const notes = useQuery({ queryKey: qk.notes, queryFn: api.notes });
-  const [query, setQuery] = useState('');
-  const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (notes.data ?? []).filter(
-      (n) =>
-        !q ||
-        n.text.toLowerCase().includes(q) ||
-        (n.episodeName ?? '').toLowerCase().includes(q) ||
-        (n.showName ?? '').toLowerCase().includes(q),
-    );
-  }, [notes.data, query]);
-
-  return (
-    <>
-      {notes.isLoading && <Spinner />}
-      {notes.error && <ErrorBox error={notes.error} />}
-      {notes.data?.length === 0 && (
-        <Empty title={t('notesEmptyTitle')}>
-          <Trans t={t} i18nKey="notesEmptyText" components={{ icon: <Icon name="note" size={14} /> }} />
-        </Empty>
-      )}
-      {!!notes.data?.length && (
-        <label className="search">
-          <Icon name="search" size={18} />
-          <input type="search" placeholder={t('notesSearch')} value={query} onChange={(e) => setQuery(e.target.value)} />
-        </label>
-      )}
-      <div className="card-list">
-        {list.map((n) => (
-          <article key={`${n.showId}-${n.episodeId}`} className={cx('card', styles.noteCard)}>
-            <div className="row-between">
-              <div className="grow">
-                <Link to={`/podcasts/${encodeURIComponent(n.showId)}`} className="show-name">
-                  {n.showName}
-                </Link>
-                <button type="button" className="episode-title linklike" onClick={() => onOpen(n.showId, n.episodeId)}>
-                  {n.episodeName ?? n.episodeId}
-                </button>
-              </div>
-              <span className="muted tiny">{formatRelative(n.updatedAt)}</span>
-            </div>
-            <NoteText
-              note={n}
-              item={{
-                show: { id: n.showId, name: n.showName ?? '' },
-                episode: {
-                  id: n.episodeId,
-                  name: n.episodeName ?? '',
-                  durationMs: 0,
-                  spotifyUrl: `https://open.spotify.com/episode/${n.episodeId}`,
-                  status: 'UNSEEN',
-                  statusSource: 'default',
-                },
-              }}
-            />
-          </article>
-        ))}
-      </div>
-    </>
   );
 }
 

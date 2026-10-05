@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import type { PlannedItem } from '@podcast/shared';
 import { Link } from 'react-router-dom';
 import { useEpisodeActions } from '../lib/actions';
 import { DAY_PART_LABEL, formatDuration } from '../lib/format';
 import { PlayButton } from './EpisodeCard';
+import { EpisodePickerSheet } from './EpisodePicker';
 import { Icon } from './Icon';
 import { Cover, IconButton } from './ui';
 
@@ -25,7 +27,10 @@ export function PlanItemRow({
   onRemove?: () => void;
 }) {
   const actions = useEpisodeActions();
+  const [picking, setPicking] = useState(false);
   const ep = item.episode;
+  // A manual podcast without a chosen episode: offer the choice right here.
+  const canPick = !ep && item.show.mode === 'MANUAL';
   const done = item.state === 'done';
   const open = ep && (item.state === 'next' || item.state === 'upcoming');
   const started = ep && ep.remainingMs < ep.durationMs && !done;
@@ -69,9 +74,15 @@ export function PlanItemRow({
         {open && isToday && item.state === 'next' && (
           <IconButton icon="check" label="Als gehört markieren" onClick={() => actions.setStatus(ep, 'COMPLETED')} />
         )}
+        {canPick && (
+          <button type="button" className="btn btn-small" onClick={() => setPicking(true)}>
+            Folge wählen
+          </button>
+        )}
         {onEdit && <IconButton icon="note" label="Termin bearbeiten" onClick={onEdit} />}
         {onRemove && <IconButton icon="close" label="Aus dem Wochenplan entfernen" onClick={onRemove} />}
       </div>
+      {picking && <EpisodePickerSheet show={item.show} onClose={() => setPicking(false)} />}
     </li>
   );
 }

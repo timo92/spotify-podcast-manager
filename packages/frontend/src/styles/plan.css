@@ -151,6 +151,15 @@
 .pick-list li:last-child .pick {
   border-bottom: none;
 }
+.pick .grow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pick-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
 .pick:hover {
   background: var(--surface-2);
 }

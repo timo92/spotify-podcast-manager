@@ -34,7 +34,7 @@ Each podcast has exactly one mode.
 | --- | --- | --- |
 | M1 | **Latest** (news-like): the newest episode is suggested, as long as it has not been heard or skipped. Once it has been, nothing older is suggested until a new episode appears. | ✅ |
 | M2 | **Sequential** (series): an episode already started is suggested first. Otherwise the app continues with the first unheard episode after the last finished one; unheard episodes before that point only come back once the end is reached. | ✅ |
-| M3 | **Manual:** only the episode the user picked is suggested. | ✅ |
+| M3 | **Manual:** only the episode the user picked is suggested. Where a planned slot has no episode chosen yet (Today, Week), the user can pick one right there. | ✅ |
 | M4 | In every mode the user can pin a specific episode as "next"; the pin wins until that episode is heard or skipped. | ✅ |
 | M5 | Sequential podcasts can optionally re-offer skipped episodes once everything else has been heard. | ✅ |
 | M6 | Newly imported podcasts get a guessed mode (frequent publishers → Latest) and guessed categories, which the user confirms in a review step. | ✅ |

@@ -1,0 +1,31 @@
+{
+  "name": "@podcast/infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cdk": "node --env-file-if-exists=../../.env node_modules/aws-cdk/bin/cdk",
+    "bootstrap": "node --env-file-if-exists=../../.env node_modules/aws-cdk/bin/cdk bootstrap",
+    "synth": "node --env-file-if-exists=../../.env node_modules/aws-cdk/bin/cdk synth",
+    "deploy": "node --env-file-if-exists=../../.env node_modules/aws-cdk/bin/cdk deploy --all",
+    "diff": "node --env-file-if-exists=../../.env node_modules/aws-cdk/bin/cdk diff --all",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "secret:put": "tsx --env-file-if-exists=../../.env scripts/put-spotify-secret.ts"
+  },
+  "dependencies": {
+    "@podcast/shared": "workspace:*",
+    "aws-cdk-lib": "^2.272.0",
+    "constructs": "^10.8.1"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1146.0",
+    "@aws-sdk/client-ssm": "^3.1146.0",
+    "@types/node": "^22.20.5",
+    "aws-cdk": "^2.1144.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

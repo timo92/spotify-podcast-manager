@@ -1,0 +1,12 @@
+node_modules/
+dist/
+cdk.out/
+*.tsbuildinfo
+.local-data/
+.env
+.env.*
+!.env.example
+coverage/
+test-results/
+.DS_Store
+packages/infra/cdk.context.json

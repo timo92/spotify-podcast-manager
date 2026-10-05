@@ -1,0 +1,53 @@
+/*
+ * Design tokens. Colours use light-dark(), so each token is defined once for
+ * both schemes; color-scheme follows the OS unless the user picked a theme
+ * (data-theme on <html>, see Settings).
+ *
+ * The accent is deliberately not Spotify Green: the app must not look like a
+ * Spotify product (Spotify Design & Branding Guidelines). Card surfaces stay
+ * pure white in the light theme, because that's where the green Spotify logo
+ * may be shown.
+ */
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#f5f6f8, #111318);
+  --surface: light-dark(#ffffff, #1a1d24);
+  --surface-2: light-dark(#eceef3, #242833);
+  --border: light-dark(#dcdfe6, #2e3340);
+  --text: light-dark(#15171c, #e8eaf0);
+  --text-muted: light-dark(#5b6170, #9aa1b2);
+  --accent: light-dark(#4f46e5, #a5b4fc);
+  --accent-strong: light-dark(#4338ca, #c7d2fe);
+  --accent-contrast: light-dark(#ffffff, #1e1b4b);
+  --accent-soft: light-dark(#e0e7ff, #262a52);
+  --new: light-dark(#c2410c, #fb923c);
+  --new-soft: light-dark(#ffedd5, #3a2314);
+  --continue: light-dark(#0369a1, #7dd3fc);
+  --continue-soft: light-dark(#e0f2fe, #0c2a3d);
+  --pinned: light-dark(#be185d, #f9a8d4);
+  --pinned-soft: light-dark(#fce7f3, #3b1226);
+  --warn: light-dark(#a16207, #fbbf24);
+  --warn-soft: light-dark(#fef3c7, #3a2e10);
+  --error: light-dark(#b91c1c, #f87171);
+  --error-soft: light-dark(#fee2e2, #3d1717);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 4px 16px rgb(0 0 0 / 0.04);
+  --radius: 14px;
+  --radius-sm: 9px;
+  --nav-h: 64px;
+  --player-h: 0px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  }
+}

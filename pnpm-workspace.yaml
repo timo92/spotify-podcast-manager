@@ -1,0 +1,7 @@
+packages:
+  - packages/*
+
+# Dependencies allowed to run install scripts (pnpm blocks them by default).
+allowBuilds:
+  esbuild: true # platform binary check for Lambda bundling
+  classic-level: true # native LevelDB used by dynalite in tests

@@ -1,0 +1,55 @@
+/**
+ * Spotify attribution, required next to Spotify content (metadata, artwork,
+ * playback) by Spotify's Design & Branding Guidelines:
+ * - the official full logo (public/spotify/*.svg, unmodified), at least 70px wide,
+ *   with clear space of half the icon height around it,
+ * - the green logo only on white (or black) backgrounds, a monochrome logo on
+ *   anything else,
+ * - linked back to Spotify.
+ */
+
+/** What the logo sits on: a white card surface or the grey page background. */
+type Background = 'surface' | 'page';
+
+const LOGO_WIDTH = 78;
+
+export function SpotifyLogo({ on = 'surface' }: { on?: Background }) {
+  // Light theme: green on white surfaces, black on the grey page background.
+  // Dark theme: white everywhere (no surface is pure black). CSS picks one.
+  const light = on === 'surface' ? 'logo-green' : 'logo-black';
+  return (
+    <span className="spotify-logo" role="img" aria-label="Spotify">
+      <img className="spotify-logo-light" src={`/spotify/${light}.svg`} alt="" width={LOGO_WIDTH} />
+      <img className="spotify-logo-dark" src="/spotify/logo-white.svg" alt="" width={LOGO_WIDTH} />
+    </span>
+  );
+}
+
+/** "Inhalte von <Spotify logo>", linking to the content on Spotify. */
+export function SpotifyAttribution({ href, on = 'surface' }: { href?: string; on?: Background }) {
+  return (
+    <a
+      className="spotify-attribution"
+      href={href ?? 'https://open.spotify.com'}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Auf Spotify öffnen"
+    >
+      <span className="muted tiny">Inhalte von</span>
+      <SpotifyLogo on={on} />
+    </a>
+  );
+}
+
+/**
+ * Link button back to Spotify, with one of the labels the guidelines allow
+ * ("OPEN SPOTIFY", "PLAY ON SPOTIFY", "LISTEN ON SPOTIFY"); kept in English
+ * as given there.
+ */
+export function ListenOnSpotify({ href, small }: { href: string; small?: boolean }) {
+  return (
+    <a className={`btn${small ? ' btn-small' : ''}`} href={href} target="_blank" rel="noopener noreferrer">
+      LISTEN ON SPOTIFY
+    </a>
+  );
+}

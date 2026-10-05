@@ -1,0 +1,133 @@
+import { describe, expect, it, vi } from 'vitest';
+import { MemoryStore } from '../src/store/memory.js';
+import { HttpSpotifyApi } from '../src/spotify/client.js';
+import { staticCredentials } from '../src/spotify/credentials.js';
+
+const credentials = staticCredentials('id', 'secret');
+
+function response(status: number, body?: unknown, headers: Record<string, string> = {}) {
+  return new Response(body === undefined ? null : JSON.stringify(body), { status, headers });
+}
+
+async function storeWithTokens(expiresAt = Date.now() + 3600_000) {
+  const store = new MemoryStore();
+  await store.putTokens({ accessToken: 'old', refreshToken: 'refresh', expiresAt, scope: '' });
+  return store;
+}
+
+describe('HttpSpotifyApi', () => {
+  it('pages through saved shows', async () => {
+    const store = await storeWithTokens();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, { items: [{ show: { id: '1', name: 'A' } }], next: 'https://api.spotify.com/v1/me/shows?offset=1' }))
+      .mockResolvedValueOnce(response(200, { items: [{ show: { id: '2', name: 'B' } }, null], next: null }));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    // entries without show data (taken down) are skipped
+    expect((await api.getSavedShows()).map((s) => s.id)).toEqual(['1', '2']);
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer old');
+  });
+
+  it('refreshes an expired token and keeps a rotated refresh token', async () => {
+    const store = await storeWithTokens(Date.now() - 1000);
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      response(200, { access_token: 'new', expires_in: 3600, refresh_token: 'rotated', scope: 's', token_type: 'Bearer' }),
+    ) as typeof fetch;
+    try {
+      const apiFetch = vi.fn().mockResolvedValue(response(200, { id: 'me' }));
+      const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
+      await api.getMe();
+      expect(apiFetch.mock.calls[0][1].headers.Authorization).toBe('Bearer new');
+      expect((await store.getTokens())!.refreshToken).toBe('rotated');
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  it('drops the tokens and marks the app disconnected when access was revoked', async () => {
+    const store = await storeWithTokens(Date.now() - 1000);
+    await store.putConfig({ ownerId: 'owner', createdAt: '', updatedAt: '' });
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(response(400, { error: 'invalid_grant', error_description: 'Refresh token revoked' })) as typeof fetch;
+    try {
+      const apiFetch = vi.fn();
+      const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
+      await expect(api.getMe()).rejects.toMatchObject({ code: 'spotify_reauth' });
+      expect(apiFetch).not.toHaveBeenCalled();
+      expect(await store.getTokens()).toBeUndefined();
+      expect((await store.getConfig())!.disconnectedAt).toBeDefined();
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  it('keeps tokens another process stored meanwhile when its own refresh token is rejected', async () => {
+    const store = await storeWithTokens(Date.now() - 1000);
+    await store.putConfig({ ownerId: 'owner', createdAt: '', updatedAt: '' });
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      // While this client refreshes with its cached (now outdated) token, a login
+      // or another Lambda stores new tokens.
+      await store.putTokens({ accessToken: 'new', refreshToken: 'rotated', expiresAt: Date.now() + 3600_000, scope: '' });
+      return response(400, { error: 'invalid_grant' });
+    }) as typeof fetch;
+    try {
+      const api = new HttpSpotifyApi(store, credentials, vi.fn() as typeof fetch);
+      await expect(api.getMe()).rejects.toMatchObject({ code: 'spotify_reauth' });
+      expect((await store.getTokens())?.refreshToken).toBe('rotated');
+      expect((await store.getConfig())!.disconnectedAt).toBeUndefined();
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  it('checks the library with show URIs, 40 per call', async () => {
+    const store = await storeWithTokens();
+    const ids = Array.from({ length: 41 }, (_, i) => `s${i}`);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, ids.slice(0, 40).map((_, i) => i % 2 === 0)))
+      .mockResolvedValueOnce(response(200, [true]));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    const saved = await api.libraryContains(ids);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const first = new URL(fetchMock.mock.calls[0][0]);
+    expect(first.pathname).toBe('/v1/me/library/contains');
+    expect(first.searchParams.get('uris')!.split(',')).toEqual(ids.slice(0, 40).map((id) => `spotify:show:${id}`));
+    expect([saved.get('s0'), saved.get('s1'), saved.get('s40')]).toEqual([true, false, true]);
+  });
+
+  it('retries after 429 using Retry-After', async () => {
+    const store = await storeWithTokens();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(429, undefined, { 'retry-after': '0' }))
+      .mockResolvedValueOnce(response(200, { id: 'me' }));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    expect((await api.getMe()).id).toBe('me');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops paging episodes once a known episode shows up', async () => {
+    const store = await storeWithTokens();
+    const page = (ids: string[], next: string | null) => response(200, { items: ids.map((id) => ({ id })), next });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(page(['n1', 'k1'], 'https://api.spotify.com/v1/next'))
+      .mockResolvedValueOnce(page(['k2'], null));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    const eps = await api.getShowEpisodes('s', (p) => p.some((e) => e.id === 'k1'));
+    expect(eps.map((e) => e.id)).toEqual(['n1', 'k1']);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('explains 403 errors', async () => {
+    const store = await storeWithTokens();
+    const fetchMock = vi.fn().mockResolvedValue(response(403, { error: { status: 403, message: 'Forbidden' } }));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    await expect(api.getMe()).rejects.toMatchObject({ status: 403, code: 'spotify_forbidden' });
+  });
+});

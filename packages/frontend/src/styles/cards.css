@@ -47,47 +47,6 @@
   overflow-wrap: anywhere;
 }
 
-.pill-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px 4px 4px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.86rem;
-}
-.pill .cover {
-  border-radius: 4px;
-}
-.pill:hover {
-  text-decoration: none;
-  color: var(--text);
-}
-
-.budget {
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text-muted);
-}
-.budget-perfect {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-}
-.budget-over {
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-
 .banner {
   display: flex;
   align-items: center;

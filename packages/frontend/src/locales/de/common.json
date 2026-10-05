@@ -121,7 +121,8 @@
     "markPlayed": "Als gehört markieren",
     "autoCompleted": "„{{name}}“ als gehört markiert",
     "number": "Folge {{index}}",
-    "remaining": "noch {{time}}"
+    "remaining": "noch {{time}}",
+    "ofTotal": "Folge {{index}} / {{total}}"
   },
   "attribution": {
     "contentFrom": "Inhalte von",

@@ -1,0 +1,43 @@
+{
+  "play": {
+    "play": "Play",
+    "playing": "Playing",
+    "fromStart": "From the start"
+  },
+  "card": {
+    "details": "Details of {{name}}",
+    "progress": "Progress"
+  },
+  "action": {
+    "skip": "Skip",
+    "details": "Details",
+    "completeBeforeMenu": "Mark all earlier as played",
+    "markUnplayed": "Mark as unplayed",
+    "unpin": "Remove choice",
+    "pin": "Set as next episode",
+    "resetStatus": "Reset status (Spotify)"
+  },
+  "row": {
+    "next": "Up next",
+    "chosen": "Chosen",
+    "fromSpotify": "Status comes from Spotify",
+    "noteExists": "Has a note",
+    "note": "Note"
+  },
+  "sheet": {
+    "label": "Episode",
+    "pinned": "Chosen as next",
+    "statusFromSpotify": "Status from Spotify",
+    "progress": "Progress in Spotify",
+    "progressText": "{{percent}} % played · {{remaining}} left",
+    "playedOn": "Played on {{date}}",
+    "skippedOn": "Skipped on {{date}}",
+    "played": "Played",
+    "unplayed": "Unplayed",
+    "skip": "Skip",
+    "unpin": "Remove choice",
+    "pin": "As next",
+    "completeBefore": "All earlier played",
+    "notes": "Notes"
+  }
+}

@@ -121,7 +121,8 @@
     "markPlayed": "Mark as played",
     "autoCompleted": "“{{name}}” marked as played",
     "number": "Episode {{index}}",
-    "remaining": "{{time}} left"
+    "remaining": "{{time}} left",
+    "ofTotal": "Episode {{index}} / {{total}}"
   },
   "attribution": {
     "contentFrom": "Content from",

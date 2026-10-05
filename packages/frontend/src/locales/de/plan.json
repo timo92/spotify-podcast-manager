@@ -12,8 +12,9 @@
   },
   "week": {
     "title": "Wochenplan",
-    "summary_one": "{{count}} fester Termin pro Woche · {{open}} offen in den nächsten 7 Tagen",
-    "summary_other": "{{count}} feste Termine pro Woche · {{open}} offen in den nächsten 7 Tagen",
+    "slots_one": "{{count}} fester Termin pro Woche",
+    "slots_other": "{{count}} feste Termine pro Woche",
+    "open": "{{open}} offen in den nächsten 7 Tagen",
     "intro": "Lege fest, an welchen Tagen du welchen Podcast hörst.",
     "emptyTitle": "Noch kein Plan",
     "emptyText": "Zum Beispiel: werktags morgens die Nachrichten, dienstags und donnerstags abends eine Folge deiner Geschichtsreihe. Die passende Folge sucht die App jeweils automatisch aus.",

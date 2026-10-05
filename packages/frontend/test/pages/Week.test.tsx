@@ -9,21 +9,21 @@ import { mockSchedule } from '../support/schedule';
 
 const RULE: ScheduleRule = { id: 'r1', showId: 'wissen', weekdays: [1, 3, 5], part: 'EVENING' };
 
-/** Mon 2026-10-05 … Sun 2026-10-11, with a slot on each weekday of `rules`. */
-function week(rules: ScheduleRule[]): PlanDay[] {
+/** Mon 2026-10-05 … Sun 2026-10-11, with a slot on each weekday of `rules` and `openMs` open per day. */
+function week(rules: ScheduleRule[], openMs = 0): PlanDay[] {
   return [1, 2, 3, 4, 5, 6, 7].map((d) => ({
     date: `2026-10-${String(4 + d).padStart(2, '0')}`,
     weekday: d as Weekday,
     isToday: d === 1,
     items: rules.filter((r) => r.weekdays.includes(d as Weekday)).map((r) => plannedItem({ ruleId: r.id, part: r.part })),
-    openMs: 0,
+    openMs: rules.some((r) => r.weekdays.includes(d as Weekday)) ? openMs : 0,
   }));
 }
 
-function renderWeek(rules: ScheduleRule[]) {
+function renderWeek(rules: ScheduleRule[], openMs = 0) {
   vi.spyOn(api, 'settings').mockResolvedValue(settings);
   vi.spyOn(api, 'shows').mockResolvedValue([show()]);
-  vi.spyOn(api, 'week').mockResolvedValue({ days: week(rules) });
+  vi.spyOn(api, 'week').mockResolvedValue({ days: week(rules, openMs) });
   vi.spyOn(api, 'today').mockRejectedValue(new Error('not needed'));
   const { saveSchedule } = mockSchedule(rules);
   return { ...renderWithProviders(<WeekPage />), saveSchedule };
@@ -36,6 +36,17 @@ function slotOn(weekdayName: string) {
 }
 
 describe('WeekPage', () => {
+  it('sums the open time of the week in the header', async () => {
+    renderWeek([RULE], 20 * 60_000);
+    expect(await screen.findByText('3 feste Termine pro Woche · 1 h offen in den nächsten 7 Tagen')).toBeInTheDocument();
+  });
+
+  it('claims no open time when nothing is open', async () => {
+    renderWeek([RULE]);
+    expect(await screen.findByText('3 feste Termine pro Woche')).toBeInTheDocument();
+    expect(screen.queryByText(/offen/)).not.toBeInTheDocument();
+  });
+
   it('adds a podcast as one rule', async () => {
     const { user, saveSchedule } = renderWeek([]);
     await user.click(await screen.findByRole('button', { name: /Ersten Termin anlegen/ }));

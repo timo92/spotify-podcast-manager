@@ -9,6 +9,8 @@ export interface AppConfig {
   /** Spotify user id of the owner. */
   ownerId: string;
   ownerName?: string;
+  /** Set when Spotify rejected our refresh token (access revoked); cleared on the next login. */
+  disconnectedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +41,7 @@ export interface Store {
 
   getTokens(): Promise<SpotifyTokens | undefined>;
   putTokens(tokens: SpotifyTokens): Promise<void>;
+  deleteTokens(): Promise<void>;
 
   getSettings(): Promise<Settings>;
   putSettings(settings: Settings): Promise<void>;
@@ -76,6 +79,9 @@ export interface Store {
   listShowNotes(showId: string): Promise<EpisodeNote[]>;
   /** All notes, most recently edited first. */
   listNotes(limit: number): Promise<EpisodeNote[]>;
+
+  /** Removes a show with its episodes, progress and notes. */
+  deleteShow(showId: string): Promise<void>;
 
   /** Removes every item, including configuration and tokens. */
   deleteAll(): Promise<void>;

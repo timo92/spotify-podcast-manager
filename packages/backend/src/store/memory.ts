@@ -63,6 +63,10 @@ export class MemoryStore implements Store {
     this.data.tokens = clone(tokens);
     this.save();
   }
+  async deleteTokens() {
+    delete this.data.tokens;
+    this.save();
+  }
   async getSettings() {
     return { ...DEFAULT_SETTINGS, ...clone(this.data.settings) };
   }
@@ -166,6 +170,13 @@ export class MemoryStore implements Store {
       .sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1))
       .slice(0, limit)
       .map(clone);
+  }
+  async deleteShow(showId: string) {
+    delete this.data.shows[showId];
+    delete this.data.episodes[showId];
+    delete this.data.progress[showId];
+    delete this.data.notes[showId];
+    this.save();
   }
   async deleteAll() {
     this.data = empty();

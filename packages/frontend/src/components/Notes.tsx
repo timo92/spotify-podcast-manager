@@ -8,6 +8,7 @@ import { usePlayer, type PlayableItem } from '../lib/player';
 import { qk } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
+import { SpotifyLogo } from './SpotifyAttribution';
 import { Cover, IconButton } from './ui';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
@@ -167,9 +168,12 @@ export function PlayerNoteSheet({ onClose }: { onClose: () => void }) {
           <Cover src={np.imageUrl} alt={np.showName} size={44} />
           <div className="grow">
             <div className="player-title">{np.name}</div>
-            <div className="muted small">
-              {np.showName}
-              {local && ` · ${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}`}
+            <div className="player-meta">
+              <SpotifyLogo />
+              <span className="muted small ellipsis">
+                {np.showName}
+                {local && ` · ${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}`}
+              </span>
             </div>
           </div>
           <IconButton icon="close" label="Schließen" onClick={onClose} />

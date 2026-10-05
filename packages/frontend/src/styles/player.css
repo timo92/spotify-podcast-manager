@@ -59,3 +59,12 @@
     width: 36px;
   }
 }
+.player-meta {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+/* The logo's own padding is its clear space; start flush with the title. */
+.player-meta .spotify-logo {
+  margin-left: -10px;
+}

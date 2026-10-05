@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { EpisodeCard } from '../components/EpisodeCard';
+import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { PlanItemRow } from '../components/PlanItem';
 import { Cover, Empty, ErrorBox, Spinner } from '../components/ui';
@@ -32,6 +33,7 @@ export function TodayPage() {
           {new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}
           {t && t.newCount > 0 && ` · ${t.newCount} neue ${t.newCount === 1 ? 'Folge' : 'Folgen'}`}
         </p>
+        <SpotifyAttribution on="page" />
       </header>
 
       {syncing && (welcome || !t?.recommended.length) && (

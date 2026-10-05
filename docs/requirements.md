@@ -93,6 +93,8 @@ Each podcast has exactly one mode.
 | D2 | All personal data (settings, progress, plan, notes) can be exported as JSON. | ✅ |
 | D3 | All data, including credentials and tokens, can be deleted from within the app. | ✅ |
 | D4 | Personal data is backed up continuously (point-in-time recovery) and survives the removal of the stack. | ✅ |
+| D5 | Spotify content is kept only while needed: podcasts removed from the Spotify library are deleted (with progress, notes and plan slots) 30 days later unless followed again. | ✅ |
+| D6 | When Spotify access is revoked, the app stops using Spotify immediately (tokens deleted), shows the deletion date, and deletes all data 30 days later unless the user logs in again. | ✅ |
 
 ## 10. Non-functional
 
@@ -103,6 +105,8 @@ Each podcast has exactly one mode.
 | N3 | Running costs in the range of cents per month for one user (plus an optional Route 53 hosted zone). | ✅ |
 | N4 | The Spotify integration can be replaced, e.g. by a fake for development and tests or by further sources. | ✅ |
 | N5 | The UI can be translated (German and English). | ⏳ |
+| N6 | The app follows Spotify's Design & Branding Guidelines: official Spotify logo next to Spotify content, approved link wording, uncropped artwork with 4/8 px corners, and an own visual identity (no Spotify Green, no Spotify-like name or icon). | ✅ |
+| N7 | The app is non-commercial: no ads, no paid access, no in-app monetisation (Spotify forbids commercial streaming apps). | ✅ |
 
 ## 11. Out of scope for now
 

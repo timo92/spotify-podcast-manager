@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DAY_PARTS, type DayPart, type ScheduleEntry, type Show, type Weekday } from '@podcast/shared';
 import { EpisodeSheet } from '../components/EpisodeSheet';
+import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Icon } from '../components/Icon';
 import { PlanItemRow } from '../components/PlanItem';
 import { Chip, Cover, Empty, ErrorBox, IconButton, Segmented, Spinner } from '../components/ui';
@@ -47,6 +48,7 @@ export function WeekPage() {
               ? `${entries.length} feste ${entries.length === 1 ? 'Termin' : 'Termine'} pro Woche · ${formatDuration(weekMinutes)} offen in den nächsten 7 Tagen`
               : 'Lege fest, an welchen Tagen du welchen Podcast hörst.'}
           </p>
+          <SpotifyAttribution on="page" />
         </div>
         {entries.length > 0 && (
           <button type="button" className={`btn btn-small${editing ? ' btn-primary' : ''}`} onClick={() => setEditing((e) => !e)}>

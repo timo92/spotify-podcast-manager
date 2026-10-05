@@ -115,6 +115,8 @@ export interface Show {
   needsReview: boolean;
   /** Still saved in the Spotify library. */
   followed: boolean;
+  /** When the show was removed from the Spotify library; it is deleted RETENTION_DAYS later. */
+  unfollowedAt?: string;
 
   // ---- bookkeeping ----
   createdAt: string;
@@ -232,6 +234,8 @@ export interface AppStatus {
   /** An owner account has logged in at least once; other accounts are rejected. */
   claimed: boolean;
   spotifyConnected?: boolean;
+  /** Spotify access was revoked at this time; data is deleted RETENTION_DAYS later without a new login. */
+  disconnectedAt?: string;
   user?: { id: string; displayName?: string };
   sync?: SyncState;
   /** Scopes granted by the user, used to explain missing permissions. */

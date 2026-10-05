@@ -13,11 +13,20 @@
   gap: 10px;
 }
 
+/*
+ * Spotify artwork rules: never crop or overlay it; round the corners by 4px
+ * (8px on large screens). `contain` keeps non-square artwork uncropped.
+ */
 .cover {
   flex: none;
-  border-radius: 10px;
-  object-fit: cover;
+  border-radius: 4px;
+  object-fit: contain;
   background: var(--surface-2);
+}
+@media (min-width: 1024px) {
+  .cover {
+    border-radius: 8px;
+  }
 }
 .cover-empty {
   display: grid;
@@ -130,7 +139,7 @@
   font-size: 0.86rem;
 }
 .pill .cover {
-  border-radius: 999px;
+  border-radius: 4px;
 }
 .pill:hover {
   text-decoration: none;

@@ -8,6 +8,7 @@ import { usePlayer, type PlayableItem } from '../lib/player';
 import { qk } from '../lib/queries';
 import { PlayButton } from './EpisodeCard';
 import { Icon } from './Icon';
+import { ListenOnSpotify, SpotifyAttribution } from './SpotifyAttribution';
 import { NoteEditor } from './Notes';
 import { Badge, Cover, ErrorBox, IconButton, ProgressBar, Spinner, StatusBadge } from './ui';
 
@@ -77,10 +78,9 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
             <div className="sheet-actions">
               {s && <PlayButton item={{ show: s, episode: ep }} />}
               {ep.remainingMs < ep.durationMs && s && <PlayFromStart item={{ show: s, episode: ep }} />}
-              <a className="btn" href={ep.spotifyUrl} target="_blank" rel="noopener noreferrer">
-                <Icon name="external" size={18} /> Spotify
-              </a>
+              <ListenOnSpotify href={ep.spotifyUrl} />
             </div>
+            <SpotifyAttribution href={ep.spotifyUrl} />
             <div className="sheet-actions">
               {ep.status !== 'COMPLETED' ? (
                 <button className="btn" onClick={() => actions.setStatus(ep, 'COMPLETED')}>

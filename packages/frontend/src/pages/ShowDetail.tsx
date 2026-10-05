@@ -6,9 +6,10 @@ import { PlayButton } from '../components/EpisodeCard';
 import { EpisodeRow } from '../components/EpisodeRow';
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { Icon } from '../components/Icon';
+import { ListenOnSpotify, SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, ProgressBar, Segmented, Spinner, Toggle } from '../components/ui';
 import { api } from '../lib/api';
-import { formatDuration, formatRelative, formatReleaseDate, MODE_HINT } from '../lib/format';
+import { expiresAfterRetention, formatDate, formatDuration, formatRelative, formatReleaseDate, MODE_HINT } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { MODE_OPTIONS, progressText } from './Shows';
@@ -84,14 +85,17 @@ export function ShowDetailPage() {
           <h1>{show.name}</h1>
           {show.publisher && <div className="muted">{show.publisher}</div>}
           <div className="badges">
-            {!show.followed && <Badge tone="warn">Nicht mehr in deiner Spotify-Bibliothek</Badge>}
+            {!show.followed && (
+              <Badge tone="warn">
+                Nicht mehr in deiner Spotify-Bibliothek
+                {show.unfollowedAt && ` – wird am ${formatDate(expiresAfterRetention(show.unfollowedAt))} entfernt`}
+              </Badge>
+            )}
             {show.paused && <Badge tone="muted">Pausiert</Badge>}
             {s && s.newCount > 0 && <Badge tone="new">{s.newCount} neu</Badge>}
           </div>
           <div className="row gap wrap">
-            <a className="btn btn-small" href={show.spotifyUrl} target="_blank" rel="noopener noreferrer">
-              <Icon name="external" size={16} /> In Spotify
-            </a>
+            <ListenOnSpotify href={show.spotifyUrl} small />
             <button
               className="btn btn-small"
               onClick={() =>
@@ -107,6 +111,7 @@ export function ShowDetailPage() {
               <Icon name="refresh" size={16} /> Neu laden
             </button>
           </div>
+          <SpotifyAttribution href={show.spotifyUrl} on="page" />
         </div>
       </header>
 

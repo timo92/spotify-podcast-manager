@@ -116,6 +116,25 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.listShowNotes('s1')).toHaveLength(1);
     });
 
+    it('deletes tokens and a show with everything that belongs to it', async () => {
+      await store.putTokens({ accessToken: 'a', refreshToken: 'r', expiresAt: 0, scope: '' });
+      await store.deleteTokens();
+      expect(await store.getTokens()).toBeUndefined();
+
+      await store.putShow({ ...show, id: 'gone' });
+      await store.putEpisodes([{ ...episodes[0], showId: 'gone', id: 'g1' }]);
+      await store.putProgress([{ showId: 'gone', episodeId: 'g1', status: 'COMPLETED', listenedAt: 'x', updatedAt: 'u' }]);
+      await store.putNote({ showId: 'gone', episodeId: 'g1', text: 'n', createdAt: 'c', updatedAt: 'u' });
+      await store.deleteShow('gone');
+      expect(await store.getShow('gone')).toBeUndefined();
+      expect(await store.listEpisodes('gone')).toHaveLength(0);
+      expect((await store.listProgress('gone')).size).toBe(0);
+      expect(await store.listShowNotes('gone')).toHaveLength(0);
+      expect((await store.listHistory(50)).some((h) => h.showId === 'gone')).toBe(false);
+      // other shows are untouched
+      expect(await store.getShow('s1')).toBeDefined();
+    });
+
     it('deletes everything', async () => {
       await store.deleteAll();
       expect(await store.getConfig()).toBeUndefined();

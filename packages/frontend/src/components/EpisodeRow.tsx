@@ -59,7 +59,7 @@ export function EpisodeRow({
             },
             { label: 'Alle früheren als gehört', icon: 'check', onClick: () => actions.completeBefore(episode), hidden: episode.index <= 1 },
             { label: 'Status zurücksetzen (Spotify)', icon: 'refresh', onClick: () => actions.resetStatus(episode), hidden: episode.statusSource !== 'local' },
-            { label: 'In Spotify öffnen', icon: 'external', href: episode.spotifyUrl },
+            { label: 'LISTEN ON SPOTIFY', icon: 'external', href: episode.spotifyUrl },
           ]}
         />
       </div>

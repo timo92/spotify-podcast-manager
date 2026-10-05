@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, Outlet } from 'react-router-dom';
 import { api } from '../lib/api';
-import { formatRelative } from '../lib/format';
+import { expiresAfterRetention, formatDate, formatRelative } from '../lib/format';
 import { qk, useInvalidateLibrary, useStatus } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { Icon, type IconName } from './Icon';
@@ -81,6 +81,18 @@ export function Layout() {
           <SyncButton />
         </div>
       </header>
+      {status?.spotifyConnected === false && (
+        <div className="banner banner-error container">
+          <span>
+            Die Verbindung zu Spotify wurde getrennt.
+            {status.disconnectedAt &&
+              ` Ohne neue Anmeldung werden deine Daten am ${formatDate(expiresAfterRetention(status.disconnectedAt))} gelöscht.`}
+          </span>
+          <a className="btn btn-small" href="/api/auth/login">
+            Neu verbinden
+          </a>
+        </div>
+      )}
       {status?.missingScopes && status.missingScopes.length > 0 && (
         <div className="banner banner-warn container">
           <span>

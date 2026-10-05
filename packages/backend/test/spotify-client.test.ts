@@ -44,6 +44,25 @@ describe('HttpSpotifyApi', () => {
     }
   });
 
+  it('drops the tokens and marks the app disconnected when access was revoked', async () => {
+    const store = await storeWithTokens(Date.now() - 1000);
+    await store.putConfig({ ownerId: 'owner', createdAt: '', updatedAt: '' });
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(response(400, { error: 'invalid_grant', error_description: 'Refresh token revoked' })) as typeof fetch;
+    try {
+      const apiFetch = vi.fn();
+      const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
+      await expect(api.getMe()).rejects.toMatchObject({ code: 'spotify_reauth' });
+      expect(apiFetch).not.toHaveBeenCalled();
+      expect(await store.getTokens()).toBeUndefined();
+      expect((await store.getConfig())!.disconnectedAt).toBeDefined();
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
   it('retries after 429 using Retry-After', async () => {
     const store = await storeWithTokens();
     const fetchMock = vi

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { EpisodeProgress } from '@podcast/shared';
 import { EpisodeSheet } from '../components/EpisodeSheet';
+import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Icon } from '../components/Icon';
 import { NoteText } from '../components/Notes';
 import { Empty, ErrorBox, Segmented, Spinner } from '../components/ui';
@@ -32,6 +33,7 @@ export function HistoryPage() {
     <div className="page">
       <header className="page-head">
         <h1>Verlauf</h1>
+        <SpotifyAttribution on="page" />
       </header>
       <Segmented
         label="Ansicht"

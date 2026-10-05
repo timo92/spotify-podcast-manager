@@ -108,10 +108,16 @@ export class HttpSpotifyApi implements SpotifyApi {
     this.tokens ??= await this.store.getTokens();
     if (!this.tokens) throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_not_connected', 'Spotify ist nicht verbunden.');
     if (forceRefresh || this.tokens.expiresAt - 60_000 < Date.now()) {
-      const json = await tokenRequest(
-        await this.credentials.get(),
-        new URLSearchParams({ grant_type: 'refresh_token', refresh_token: this.tokens.refreshToken }),
-      );
+      let json: TokenResponse;
+      try {
+        json = await tokenRequest(
+          await this.credentials.get(),
+          new URLSearchParams({ grant_type: 'refresh_token', refresh_token: this.tokens.refreshToken }),
+        );
+      } catch (e) {
+        if (e instanceof ApiError && e.code === 'spotify_reauth') await this.disconnect();
+        throw e;
+      }
       this.tokens = {
         accessToken: json.access_token,
         // Spotify may rotate refresh tokens – keep the new one if present.
@@ -122,6 +128,22 @@ export class HttpSpotifyApi implements SpotifyApi {
       await this.store.putTokens(this.tokens);
     }
     return this.tokens.accessToken;
+  }
+
+  /**
+   * Spotify rejected the refresh token (`invalid_grant`), i.e. the user revoked
+   * access. Spotify's Developer Policy then requires that we stop requesting
+   * their data: drop the tokens now; the rest is deleted by the retention rules
+   * unless the user logs in again (services/retention.ts).
+   */
+  private async disconnect() {
+    this.tokens = undefined;
+    await this.store.deleteTokens();
+    const config = await this.store.getConfig();
+    if (config && !config.disconnectedAt) {
+      const now = new Date().toISOString();
+      await this.store.putConfig({ ...config, disconnectedAt: now, updatedAt: now });
+    }
   }
 
   private async request<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T | undefined> {

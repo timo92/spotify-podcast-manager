@@ -14,7 +14,7 @@
 }
 .app:has(.player) ~ .toasts,
 body:has(.player) .toasts {
-  --player-h: 72px;
+  --player-h: 84px;
 }
 .toast {
   pointer-events: auto;

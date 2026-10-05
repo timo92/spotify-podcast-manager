@@ -152,6 +152,7 @@ export function createApp(deps: AppDeps) {
       const [tokens, sync] = await Promise.all([store.getTokens(), store.getSyncState()]);
       const granted = (tokens?.scope ?? '').split(' ').filter(Boolean);
       status.spotifyConnected = !!tokens;
+      status.disconnectedAt = config?.disconnectedAt;
       status.user = config?.ownerId ? { id: config.ownerId, displayName: config.ownerName } : undefined;
       status.sync = sync;
       status.grantedScopes = granted;
@@ -190,7 +191,9 @@ export function createApp(deps: AppDeps) {
     // "User Management" of the Spotify app can log in at all (development mode).
     const config = await store.getConfig();
     if (config && config.ownerId !== user.id) return fail('wrong_account');
-    if (!config || config.ownerName !== (user.display_name ?? undefined)) {
+    // Writing the config without `disconnectedAt` also ends a revoked state, so
+    // the retention rules no longer delete the data.
+    if (!config || config.disconnectedAt || config.ownerName !== (user.display_name ?? undefined)) {
       const now = new Date().toISOString();
       await store.putConfig({
         ownerId: user.id,

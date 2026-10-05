@@ -23,7 +23,7 @@ export function PlayButton({
 }) {
   const player = usePlayer();
   const playing = player.nowPlaying?.episodeId === item.episode.id;
-  const label = player.target.kind === 'app' ? 'In Spotify öffnen' : playing ? 'Läuft' : 'Abspielen';
+  const label = player.target.kind === 'app' ? 'PLAY ON SPOTIFY' : playing ? 'Läuft' : 'Abspielen';
   if (compact) {
     return (
       <IconButton
@@ -88,7 +88,7 @@ export function EpisodeCard({ item, onOpen }: { item: TodayItem; onOpen: (showId
           <IconButton icon="skip" label="Überspringen" variant="soft" onClick={() => actions.setStatus(episode, 'SKIPPED')} />
           <Menu
             items={[
-              { label: 'In Spotify öffnen', icon: 'external', href: episode.spotifyUrl },
+              { label: 'LISTEN ON SPOTIFY', icon: 'external', href: episode.spotifyUrl },
               { label: 'Details', icon: 'list', onClick: () => onOpen(show.id, episode.id) },
               {
                 label: 'Alle früheren als gehört',

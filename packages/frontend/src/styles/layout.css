@@ -5,7 +5,7 @@
   padding-bottom: calc(var(--nav-h) + var(--player-h) + env(safe-area-inset-bottom) + 16px);
 }
 .app:has(.player) {
-  --player-h: 72px;
+  --player-h: 84px;
 }
 
 .container {

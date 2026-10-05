@@ -95,6 +95,9 @@ export class DynamoStore implements Store {
   putTokens(tokens: SpotifyTokens) {
     return this.put('META', 'TOKENS', tokens);
   }
+  async deleteTokens() {
+    await this.db.send(new DeleteCommand({ TableName: this.table, Key: { PK: 'META', SK: 'TOKENS' } }));
+  }
   async getSettings(): Promise<Settings> {
     return { ...DEFAULT_SETTINGS, ...(await this.get<Settings>('META', 'SETTINGS')) };
   }
@@ -258,6 +261,18 @@ export class DynamoStore implements Store {
       ExclusiveStartKey = res.LastEvaluatedKey;
     } while (ExclusiveStartKey && items.length < limit);
     return items.map((i) => strip(i) as EpisodeNote);
+  }
+
+  async deleteShow(showId: string) {
+    for (const prefix of ['EP', 'PROG', 'NOTE']) {
+      const items = await this.queryAll({
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': `${prefix}#${showId}` },
+        ProjectionExpression: 'PK, SK',
+      });
+      await this.batchWrite(items.map((i) => ({ DeleteRequest: { Key: { PK: i.PK, SK: i.SK } } })));
+    }
+    await this.db.send(new DeleteCommand({ TableName: this.table, Key: { PK: 'SHOW', SK: showId } }));
   }
 
   async deleteAll() {

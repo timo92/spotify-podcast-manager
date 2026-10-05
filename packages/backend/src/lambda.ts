@@ -1,6 +1,7 @@
 import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
 import { handle } from '@hono/aws-lambda';
 import { createApp } from './app.js';
+import { applyRetention } from './services/retention.js';
 import { isSyncRunning, SyncService, type SyncOptions } from './services/sync.js';
 import { HttpSpotifyApi } from './spotify/client.js';
 import { credentialsFromEnv } from './spotify/credentials.js';
@@ -39,7 +40,10 @@ export async function syncHandler(event: SyncOptions & { source?: string }) {
   const config = await store.getConfig();
   const tokens = await store.getTokens();
   if (!config || !tokens) {
-    console.log('Not configured yet – skipping sync');
+    // Not connected (yet, or access was revoked): there is nothing to sync, but
+    // data of a revoked connection still has to expire.
+    const retention = await applyRetention(store);
+    console.log('Not connected – skipping sync', JSON.stringify(retention));
     return;
   }
   const scheduled = event.source === 'aws.events' || event.source === 'schedule';

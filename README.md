@@ -205,6 +205,24 @@ For one user, this stays in or near the AWS free tier: Lambda, DynamoDB on-deman
 - **Data model:** one DynamoDB table. Episodes (`EP#<show>`) and progress (`PROG#<show>`) are separate items, so a sync can never overwrite your progress. Each show item carries a summary (next episode, counts) that is recomputed after every change. That way, "Heute" and the overview only need to read the list of shows. Details are in [`packages/backend/src/store/dynamo.ts`](packages/backend/src/store/dynamo.ts).
 - **Spotify layer:** [`packages/backend/src/spotify`](packages/backend/src/spotify). It refreshes tokens (including rotated refresh tokens), retries on 429 using `Retry-After` and on 5xx errors, and turns 401/403 into readable messages. The `SpotifyApi` interface can be replaced, for example by the offline fake or a future YouTube source. See [docs/spotify-api.md](docs/spotify-api.md) for the endpoints used and the 2026 restrictions for apps in development mode.
 
+## Spotify's terms
+
+The app uses the Spotify Platform under Spotify's
+[Developer Terms](https://developer.spotify.com/terms),
+[Developer Policy](https://developer.spotify.com/policy) and
+[Design & Branding Guidelines](https://developer.spotify.com/documentation/design).
+In short (details in [docs/decisions.md](docs/decisions.md), D16):
+
+- **Non-commercial.** It plays episodes in the browser, which makes it a
+  *streaming* app, and those may not be commercial: no ads, no paid access.
+- **Attribution.** Spotify content is shown with the official Spotify logo
+  (unmodified files in `packages/frontend/public/spotify/`) and links back
+  to Spotify.
+- **Retention.** Podcasts you unfollow in Spotify are deleted after 30 days.
+  If you revoke the app's access in your Spotify account, it stops using
+  Spotify immediately and deletes your data after 30 days, unless you log in
+  again.
+
 ## Resetting
 
 - **Wrong Spotify account, or locked out:** delete the item `PK=META, SK=CONFIG` from the DynamoDB table and log in again with the right account. This keeps your progress.

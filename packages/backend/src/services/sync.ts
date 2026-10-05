@@ -4,6 +4,7 @@ import { ApiError, notFound } from '../errors.js';
 import type { SpotifyApi, SpotifyEpisode, SpotifyImage, SpotifyShow } from '../spotify/types.js';
 import type { Store } from '../store/types.js';
 import { LibraryService, mapLimit } from './library.js';
+import { applyRetention } from './retention.js';
 
 export interface SyncOptions {
   /** Re-import all episodes of every show (otherwise only new ones). */
@@ -121,11 +122,15 @@ export class SyncService {
     const savedIds = new Set(saved.map((s) => s.id));
 
     // Shows removed from the Spotify library are kept (with their progress)
-    // but no longer suggested.
+    // but no longer suggested, and deleted after RETENTION_DAYS (retention.ts).
+    const now = new Date().toISOString();
     for (const show of existingList) {
-      if (!savedIds.has(show.id) && show.followed) {
-        await this.store.updateShow(show.id, { followed: false });
+      if (savedIds.has(show.id)) continue;
+      if (show.followed) {
+        await this.store.updateShow(show.id, { followed: false, unfollowedAt: now });
         await this.library.recompute(show.id, settings);
+      } else if (!show.unfollowedAt) {
+        await this.store.updateShow(show.id, { unfollowedAt: now });
       }
     }
 
@@ -153,6 +158,8 @@ export class SyncService {
     const created = (await this.store.listShows()).filter((s) => !existing.has(s.id));
     created.sort((a, b) => Number(b.mode === 'LATEST') - Number(a.mode === 'LATEST') || a.name.localeCompare(b.name));
     await mapLimit(created, 5, (s, i) => this.store.updateShow(s.id, { priority: basePriority + i + 1 }));
+
+    await applyRetention(this.store);
     return { shows: saved.length, newEpisodes, failed };
   }
 
@@ -213,6 +220,7 @@ export class SyncService {
           totalEpisodes: raw.total_episodes,
           mediaType: raw.media_type,
           followed: true,
+          unfollowedAt: undefined,
         }
       : {};
 

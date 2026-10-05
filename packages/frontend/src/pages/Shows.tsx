@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ConsumptionMode, Show } from '@podcast/shared';
 import { Icon } from '../components/Icon';
+import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, IconButton, ProgressBar, Segmented, Spinner } from '../components/ui';
 import { api } from '../lib/api';
 import { formatRelative, MODE_HINT, MODE_LABEL } from '../lib/format';
@@ -98,6 +99,7 @@ export function ShowsPage() {
               ? 'Wähle pro Podcast, ob du immer die neueste Folge hörst oder ihn der Reihe nach durcharbeitest.'
               : `${(shows.data ?? []).filter((s) => s.followed).length} Podcasts aus deiner Spotify-Bibliothek`}
           </p>
+          <SpotifyAttribution on="page" />
         </div>
         {!reviewMode && (
           <button type="button" className={`btn btn-small${reorder ? ' btn-primary' : ''}`} onClick={() => setReorder((r) => !r)}>

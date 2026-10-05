@@ -7,6 +7,7 @@ import { qk, useInvalidateLibrary } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
 import { PlayerNoteSheet } from './Notes';
+import { SpotifyLogo } from './SpotifyAttribution';
 import { Cover, IconButton } from './ui';
 
 export function PlayerBar() {
@@ -45,13 +46,16 @@ export function PlayerBar() {
         <Cover src={np.imageUrl} alt={np.showName} size={44} />
         <div className="player-text">
           <div className="player-title">{np.name}</div>
-          <div className="muted small">
-            {np.showName}
-            {local
-              ? ` · ${formatClock(dragging ?? np.positionMs)} / ${formatClock(np.durationMs)}`
-              : np.target.kind === 'device'
-                ? ` · auf ${np.target.name}`
-                : ''}
+          <div className="player-meta">
+            <SpotifyLogo />
+            <span className="muted small ellipsis">
+              {np.showName}
+              {local
+                ? ` · ${formatClock(dragging ?? np.positionMs)} / ${formatClock(np.durationMs)}`
+                : np.target.kind === 'device'
+                  ? ` · auf ${np.target.name}`
+                  : ''}
+            </span>
           </div>
         </div>
         <div className="player-controls">

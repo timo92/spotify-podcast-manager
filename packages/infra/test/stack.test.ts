@@ -18,7 +18,8 @@ function synth(props: Partial<ConstructorParameters<typeof PodcastStack>[2]> = {
   const app = new App();
   const stack = new PodcastStack(app, 'Test', {
     env: { account: '123456789012', region: 'eu-central-1' },
-    setupCode: 'setup',
+    spotifyClientId: 'client-id',
+    spotifyClientSecretParameter: '/podcast-cockpit/spotify-client-secret',
     frontendDir: fakeFrontend(),
     ...props,
   });
@@ -44,7 +45,13 @@ describe('PodcastStack', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Handler: 'index.handler',
       Runtime: 'nodejs22.x',
-      Environment: { Variables: Match.objectLike({ SETUP_CODE: 'setup', SYNC_FUNCTION_NAME: Match.anyValue() }) },
+      Environment: {
+        Variables: Match.objectLike({
+          SPOTIFY_CLIENT_ID: 'client-id',
+          SPOTIFY_CLIENT_SECRET_PARAMETER: '/podcast-cockpit/spotify-client-secret',
+          SYNC_FUNCTION_NAME: Match.anyValue(),
+        }),
+      },
     });
     template.hasResourceProperties('AWS::Lambda::Function', {
       Handler: 'index.syncHandler',
@@ -52,6 +59,16 @@ describe('PodcastStack', () => {
       Timeout: 900,
     });
     template.resourceCountIs('AWS::Events::Rule', 2);
+  });
+
+  it('lets both functions read the client secret parameter, without its value in the template', () => {
+    const policies = template.findResources('AWS::IAM::Policy');
+    const reads = Object.values(policies).filter((p) =>
+      JSON.stringify(p).includes(':parameter/podcast-cockpit/spotify-client-secret'),
+    );
+    expect(reads).toHaveLength(2);
+    // The parameter is created outside of CloudFormation, so no secret value is ever in a template.
+    template.resourceCountIs('AWS::SSM::Parameter', 0);
   });
 
   it('routes /api/* through CloudFront without caching', () => {

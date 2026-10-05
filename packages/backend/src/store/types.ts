@@ -1,10 +1,13 @@
 import type { Episode, EpisodeNote, EpisodeProgress, Schedule, Settings, Show, SyncState } from '@podcast/shared';
 
+/**
+ * The app's owner, bound on the first successful login. The Spotify app
+ * credentials are not stored here – they come from the deployment
+ * (see spotify/credentials.ts).
+ */
 export interface AppConfig {
-  clientId: string;
-  clientSecret: string;
-  /** Spotify user id of the owner. Set on the first successful login. */
-  ownerId?: string;
+  /** Spotify user id of the owner. */
+  ownerId: string;
   ownerName?: string;
   createdAt: string;
   updatedAt: string;

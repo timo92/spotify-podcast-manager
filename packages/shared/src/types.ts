@@ -224,12 +224,12 @@ export interface SyncState {
 }
 
 export interface AppStatus {
+  /** The deployment provides a Spotify client ID. */
   configured: boolean;
   authenticated: boolean;
   /** Redirect URI that must be registered in the Spotify developer dashboard. */
   redirectUri: string;
-  setupCodeRequired: boolean;
-  /** An owner account has logged in at least once (setup is locked). */
+  /** An owner account has logged in at least once; other accounts are rejected. */
   claimed: boolean;
   spotifyConnected?: boolean;
   user?: { id: string; displayName?: string };

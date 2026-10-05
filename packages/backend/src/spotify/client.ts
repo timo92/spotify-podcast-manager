@@ -1,6 +1,7 @@
 import { StatusCodes } from 'http-status-codes';
 import { ApiError } from '../errors.js';
-import type { AppConfig, SpotifyTokens, Store } from '../store/types.js';
+import type { SpotifyTokens, Store } from '../store/types.js';
+import type { SpotifyCredentials, SpotifyCredentialsProvider } from './credentials.js';
 import type {
   SpotifyApi,
   SpotifyDevice,
@@ -43,12 +44,12 @@ export function authorizeUrl(clientId: string, redirectUri: string, state: strin
   return `${ACCOUNTS}/authorize?${params}`;
 }
 
-async function tokenRequest(config: Pick<AppConfig, 'clientId' | 'clientSecret'>, body: URLSearchParams) {
+async function tokenRequest(credentials: SpotifyCredentials, body: URLSearchParams) {
   const res = await fetch(`${ACCOUNTS}/api/token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`,
+      Authorization: `Basic ${Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString('base64')}`,
     },
     body,
   });
@@ -67,12 +68,12 @@ async function tokenRequest(config: Pick<AppConfig, 'clientId' | 'clientSecret'>
 }
 
 export async function exchangeCode(
-  config: Pick<AppConfig, 'clientId' | 'clientSecret'>,
+  credentials: SpotifyCredentials,
   code: string,
   redirectUri: string,
 ): Promise<SpotifyTokens> {
   const json = await tokenRequest(
-    config,
+    credentials,
     new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
   );
   return {
@@ -99,6 +100,7 @@ export class HttpSpotifyApi implements SpotifyApi {
 
   constructor(
     private readonly store: Store,
+    private readonly credentials: SpotifyCredentialsProvider,
     private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
@@ -106,10 +108,8 @@ export class HttpSpotifyApi implements SpotifyApi {
     this.tokens ??= await this.store.getTokens();
     if (!this.tokens) throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_not_connected', 'Spotify ist nicht verbunden.');
     if (forceRefresh || this.tokens.expiresAt - 60_000 < Date.now()) {
-      const config = await this.store.getConfig();
-      if (!config) throw new ApiError(StatusCodes.CONFLICT, 'not_configured', 'App ist nicht eingerichtet.');
       const json = await tokenRequest(
-        config,
+        await this.credentials.get(),
         new URLSearchParams({ grant_type: 'refresh_token', refresh_token: this.tokens.refreshToken }),
       );
       this.tokens = {

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryStore } from '../src/store/memory.js';
 import { HttpSpotifyApi } from '../src/spotify/client.js';
+import { staticCredentials } from '../src/spotify/credentials.js';
+
+const credentials = staticCredentials('id', 'secret');
 
 function response(status: number, body?: unknown, headers: Record<string, string> = {}) {
   return new Response(body === undefined ? null : JSON.stringify(body), { status, headers });
@@ -8,7 +11,6 @@ function response(status: number, body?: unknown, headers: Record<string, string
 
 async function storeWithTokens(expiresAt = Date.now() + 3600_000) {
   const store = new MemoryStore();
-  await store.putConfig({ clientId: 'id', clientSecret: 'secret', createdAt: '', updatedAt: '' });
   await store.putTokens({ accessToken: 'old', refreshToken: 'refresh', expiresAt, scope: '' });
   return store;
 }
@@ -20,7 +22,7 @@ describe('HttpSpotifyApi', () => {
       .fn()
       .mockResolvedValueOnce(response(200, { items: [{ show: { id: '1', name: 'A' } }], next: 'https://api.spotify.com/v1/me/shows?offset=1' }))
       .mockResolvedValueOnce(response(200, { items: [{ show: { id: '2', name: 'B' } }, null], next: null }));
-    const api = new HttpSpotifyApi(store, fetchMock as typeof fetch);
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     expect((await api.getSavedShows()).map((s) => s.id)).toEqual(['1', '2']);
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer old');
   });
@@ -33,7 +35,7 @@ describe('HttpSpotifyApi', () => {
     ) as typeof fetch;
     try {
       const apiFetch = vi.fn().mockResolvedValue(response(200, { id: 'me' }));
-      const api = new HttpSpotifyApi(store, apiFetch as typeof fetch);
+      const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
       await api.getMe();
       expect(apiFetch.mock.calls[0][1].headers.Authorization).toBe('Bearer new');
       expect((await store.getTokens())!.refreshToken).toBe('rotated');
@@ -48,7 +50,7 @@ describe('HttpSpotifyApi', () => {
       .fn()
       .mockResolvedValueOnce(response(429, undefined, { 'retry-after': '0' }))
       .mockResolvedValueOnce(response(200, { id: 'me' }));
-    const api = new HttpSpotifyApi(store, fetchMock as typeof fetch);
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     expect((await api.getMe()).id).toBe('me');
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -60,7 +62,7 @@ describe('HttpSpotifyApi', () => {
       .fn()
       .mockResolvedValueOnce(page(['n1', 'k1'], 'https://api.spotify.com/v1/next'))
       .mockResolvedValueOnce(page(['k2'], null));
-    const api = new HttpSpotifyApi(store, fetchMock as typeof fetch);
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     const eps = await api.getShowEpisodes('s', (p) => p.some((e) => e.id === 'k1'));
     expect(eps.map((e) => e.id)).toEqual(['n1', 'k1']);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -69,7 +71,7 @@ describe('HttpSpotifyApi', () => {
   it('explains 403 errors', async () => {
     const store = await storeWithTokens();
     const fetchMock = vi.fn().mockResolvedValue(response(403, { error: { status: 403, message: 'Forbidden' } }));
-    const api = new HttpSpotifyApi(store, fetchMock as typeof fetch);
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     await expect(api.getMe()).rejects.toMatchObject({ status: 403, code: 'spotify_forbidden' });
   });
 });

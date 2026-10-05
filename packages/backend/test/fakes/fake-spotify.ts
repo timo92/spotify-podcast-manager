@@ -219,5 +219,4 @@ export const fakeSpotifyAuth: SpotifyAuth = {
       user: { id: 'demo-user', display_name: 'Demo' },
     };
   },
-  async verifyCredentials() {},
 };

@@ -3,10 +3,12 @@ import { handle } from '@hono/aws-lambda';
 import { createApp } from './app.js';
 import { isSyncRunning, SyncService, type SyncOptions } from './services/sync.js';
 import { HttpSpotifyApi } from './spotify/client.js';
+import { credentialsFromEnv } from './spotify/credentials.js';
 import { DynamoStore } from './store/dynamo.js';
 
 const store = new DynamoStore(process.env.TABLE_NAME!);
 const lambda = new LambdaClient({});
+const credentials = credentialsFromEnv();
 
 async function triggerSync(opts: SyncOptions) {
   await lambda.send(
@@ -20,9 +22,9 @@ async function triggerSync(opts: SyncOptions) {
 
 const app = createApp({
   store,
-  spotify: () => new HttpSpotifyApi(store),
+  spotify: () => new HttpSpotifyApi(store, credentials),
+  credentials,
   triggerSync,
-  setupCode: process.env.SETUP_CODE || undefined,
   publicUrl: process.env.PUBLIC_URL || undefined,
 });
 
@@ -45,7 +47,7 @@ export async function syncHandler(event: SyncOptions & { source?: string }) {
     console.log('A sync is already running – skipping scheduled run');
     return;
   }
-  const result = await new SyncService(store, new HttpSpotifyApi(store)).run({ full: !!event.full, showId: event.showId });
+  const result = await new SyncService(store, new HttpSpotifyApi(store, credentials)).run({ full: !!event.full, showId: event.showId });
   console.log('Sync finished', JSON.stringify(result));
   return result;
 }

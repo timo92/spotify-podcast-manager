@@ -7,10 +7,11 @@
     ]
   },
   "context": {
+    "spotifyClientId": "",
+    "spotifyClientSecretParameter": "",
     "domainName": "",
     "hostedZoneName": "",
     "certificateArn": "",
-    "setupCode": "",
     "stackName": "PodcastCockpit",
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,

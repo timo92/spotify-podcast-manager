@@ -26,7 +26,7 @@ import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
  * Single-table layout:
  *
  *   PK            SK          item
- *   META          CONFIG      AppConfig (Spotify client credentials, owner)
+ *   META          CONFIG      AppConfig (the owner; credentials come from the deployment)
  *   META          TOKENS      SpotifyTokens
  *   META          SETTINGS    Settings
  *   META          SYNC        SyncState

@@ -20,7 +20,7 @@ Status column: ✅ implemented · ⏳ planned.
 | --- | --- | --- |
 | S1 | The user logs in with Spotify (OAuth). The app never sees or stores the Spotify password. | ✅ |
 | S2 | The first Spotify account that logs in becomes the owner; all other accounts are rejected. | ✅ |
-| S3 | The Spotify developer app's client ID and secret are entered in the web UI, not in the deployment configuration. Until the owner has logged in once, entering them requires a setup code produced by the deployment. | ✅ |
+| S3 | The Spotify developer app's client ID and secret are part of the deployment configuration (environment/CI variables). The secret is stored encrypted outside of the infrastructure templates and is never shown in the UI. | ✅ |
 | S4 | The app imports the shows saved in the user's Spotify library and their episodes: ID, title, description, cover, release date, duration, Spotify link and Spotify's resume point. | ✅ |
 | S5 | Spotify access is encapsulated in one service layer. Only documented Web API endpoints are used. | ✅ |
 | S6 | Spotify tokens stay on the server. The browser receives only a short-lived access token, and only for the in-browser player. | ✅ |

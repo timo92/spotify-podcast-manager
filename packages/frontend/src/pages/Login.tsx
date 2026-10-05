@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import type { Status } from '../lib/api';
 
 const ERRORS: Record<string, string> = {
@@ -10,6 +10,7 @@ const ERRORS: Record<string, string> = {
     'Dein Spotify-Account ist nicht in der User-Liste der Spotify-App eingetragen (Dashboard → User Management).',
   token_exchange_failed: 'Spotify-Anmeldung fehlgeschlagen. Stimmt die Redirect-URI?',
   invalid_client: 'Spotify kennt diese Client-ID nicht.',
+  not_configured: 'Die Spotify-App ist in dieser Installation nicht konfiguriert.',
 };
 
 export function LoginPage({ status }: { status: Status }) {
@@ -29,11 +30,6 @@ export function LoginPage({ status }: { status: Status }) {
         <a className="btn btn-primary btn-block" href="/api/auth/login">
           Mit Spotify anmelden
         </a>
-        {!status.claimed && (
-          <p className="small">
-            <Link to="/setup">Zugangsdaten der Spotify-App ändern</Link>
-          </p>
-        )}
         <p className="muted small">Redirect-URI: {status.redirectUri}</p>
       </div>
     </div>

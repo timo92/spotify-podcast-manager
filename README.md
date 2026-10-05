@@ -28,7 +28,7 @@ The UI is in German. The code and docs are in English.
 ## Features
 
 - **Spotify login (OAuth).** The first Spotify account that logs in becomes the owner, and every other account is rejected. The Spotify password never touches the app.
-- **Setup in the browser.** You type the Spotify Client ID and Secret on the setup page, so no secrets go into the deployment. A one-time [setup code](#the-setup-code) protects the setup page until you have claimed the app.
+- **Configuration as part of the deployment.** The Spotify client ID comes from `.env` or CI variables; the client secret lives in SSM Parameter Store and never appears in code or templates. There is no setup page.
 - **Import of your saved shows**, with a guessed mode and categories (daily shows → `LATEST`, plus keyword-based categories). A review screen lets you confirm the guesses quickly.
 - **Idempotent sync**: new episodes every 2 hours, a full refresh every night, and manual sync at any time. A sync only writes metadata. Your personal progress is stored in separate records and is never overwritten.
 - **Spotify's listening state is used as a hint.** Episodes that are partly played in Spotify show up as *Weiter* (continue), with the remaining time. Episodes that Spotify reports as fully played count as heard. You can turn that off in the settings, and your own marks always win.
@@ -74,7 +74,7 @@ AWS:
 3. Under **Redirect URIs**, add every address the app runs at. One app can have several:
    - `http://127.0.0.1:5173/api/auth/callback` for local development. Spotify only allows plain `http` for loopback IPs, not for `localhost`.
    - `https://<your domain>/api/auth/callback` for AWS (shown as the `SpotifyRedirectUri` output after deploying).
-4. Copy the Client ID and Client Secret from the app's settings. You type them into the app's setup page; they are never part of the code or the deployment.
+4. Copy the Client ID and Client Secret from the app's settings into your `.env` (see [Configuration](#1-configuration)).
 
 In Spotify's development mode, the app works for its owner (you; Spotify
 Premium required) and up to five users you add under *User Management*.
@@ -102,12 +102,12 @@ has no demo mode.
 **Against real Spotify.**
 
 ```bash
+cp .env.example .env   # fill in SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET
 pnpm dev
 ```
 
 1. Open **http://127.0.0.1:5173**. Use exactly this address, not `localhost`, so it matches the redirect URI.
-2. Enter the Client ID and Client Secret of [your Spotify app](#the-spotify-app). Locally no setup code is needed unless you start the backend with `SETUP_CODE=…`.
-3. Log in with Spotify. The first import starts automatically.
+2. Log in with Spotify. The first account that logs in becomes the owner; the first import starts automatically.
 
 Local data is stored in `packages/backend/.local-data/` (separate from AWS).
 
@@ -118,20 +118,43 @@ pnpm typecheck
 
 ## Deploy to AWS
 
-### 1. Configure
+### 1. Configuration
 
-Edit `packages/infra/cdk.json` (or pass `-c key=value` to `cdk`):
+Every setting can come from an environment variable – your `.env` (copy
+[`.env.example`](.env.example)) or, in CI, the pipeline's variables and
+secrets – or from CDK context (`packages/infra/cdk.json` or `-c key=value`).
+The environment wins.
 
-| Context key | Example | Notes |
-| --- | --- | --- |
-| `domainName` | `podcasts.example.com` | Optional. Without it, the app runs on the CloudFront domain. |
-| `hostedZoneName` | `example.com` | Defaults to the parent domain of `domainName`. Must be a Route 53 hosted zone in the same account. |
-| `certificateArn` | `arn:aws:acm:us-east-1:…` | Only if your DNS is **not** in Route 53. The certificate must be in us-east-1. You then point a CNAME at the `DistributionDomain` output yourself. |
-| `setupCode` | | Optional. If empty, a code is generated once and kept in `packages/infra/.setup-code` (git-ignored). |
+| Environment variable | CDK context | Example | Notes |
+| --- | --- | --- | --- |
+| `SPOTIFY_CLIENT_ID` | `spotifyClientId` | `3f1c…` | Client ID of [your Spotify app](#the-spotify-app). Not a secret. |
+| `SPOTIFY_CLIENT_SECRET` | – | | Only read locally and by `pnpm run secret:put`; never passed to CDK. |
+| `SPOTIFY_CLIENT_SECRET_PARAMETER` | `spotifyClientSecretParameter` | `/podcast-cockpit/spotify-client-secret` | SSM parameter holding the secret (this is the default). |
+| `DOMAIN_NAME` | `domainName` | `podcasts.example.com` | Optional. Without it, the app runs on the CloudFront domain. |
+| `HOSTED_ZONE_NAME` | `hostedZoneName` | `example.com` | Defaults to the parent domain of `domainName`. Must be a Route 53 hosted zone in the same account. |
+| `CERTIFICATE_ARN` | `certificateArn` | `arn:aws:acm:us-east-1:…` | Only if your DNS is **not** in Route 53. The certificate must be in us-east-1. You then point a CNAME at the `DistributionDomain` output yourself. |
 
 The main stack goes to `CDK_DEFAULT_REGION` (your AWS profile's region). If
 none is set, it goes to `eu-central-1`. With a Route 53 domain, a small extra
 stack creates the TLS certificate in `us-east-1`, which CloudFront requires.
+
+**Why the secret is in Parameter Store.** A plain Lambda environment variable
+would put the secret into the CloudFormation template, where anyone with read
+access to the stack can see it. A *SecureString* parameter in SSM Parameter
+Store is encrypted with KMS and read by the Lambdas at runtime (cached for a
+few minutes). Standard parameters cost nothing, unlike Secrets Manager
+($0.40 per secret per month). We don't need what Secrets Manager adds
+(automatic rotation), because a Spotify secret is rotated by hand in the
+Spotify dashboard anyway. CloudFormation cannot create SecureString
+parameters, so the value is stored once with a script instead of by CDK:
+
+```bash
+pnpm run secret:put     # reads SPOTIFY_CLIENT_SECRET from .env or the environment
+```
+
+Run it with the same AWS profile and region you deploy to, and again whenever
+you rotate the secret. In CI this is one step before the deploy:
+`aws ssm put-parameter --name /podcast-cockpit/spotify-client-secret --type SecureString --overwrite --value "$SPOTIFY_CLIENT_SECRET"`.
 
 ### 2. Bootstrap (once per account/region)
 
@@ -143,34 +166,21 @@ pnpm exec cdk bootstrap aws://<ACCOUNT>/eu-central-1 aws://<ACCOUNT>/us-east-1
 ### 3. Deploy
 
 ```bash
+pnpm run secret:put  # once, see above
 pnpm run deploy      # from the repo root: builds the frontend, then `cdk deploy --all`
 ```
 
-The outputs show `Url`, `SpotifyRedirectUri` and `SetupCode`.
+The outputs show `Url` and `SpotifyRedirectUri`.
 
-### 4. Finish the setup
+### 4. Log in
 
 1. Add the `SpotifyRedirectUri` output to the redirect URIs of [your Spotify app](#the-spotify-app), e.g. `https://podcasts.example.com/api/auth/callback`.
-2. Open the `Url`. Enter the setup code, Client ID and Client Secret, then log in with Spotify.
+2. Open the `Url` and log in with Spotify. The first account that logs in becomes the owner; every other account is rejected. Only accounts listed under *User Management* of your Spotify app can log in at all, so nobody else can claim the installation first.
 3. The first import runs automatically. Then confirm the guessed mode and categories under **Podcasts → Prüfen**.
-
-### The setup code
-
-Right after `cdk deploy`, the app is on the internet but has no owner yet. The
-first Spotify account that completes the setup and logs in becomes the owner
-for good. Without protection, anyone who found the URL first could enter their
-own Spotify app and claim your installation. The setup code prevents that:
-
-- On the first deploy, CDK generates a random code and saves it in `packages/infra/.setup-code` (git-ignored), so it stays the same on later deploys. To choose your own, set `setupCode` in `cdk.json` or pass `-c setupCode=…`.
-- It reaches the API as the Lambda environment variable `SETUP_CODE` and is printed as the `SetupCode` stack output.
-- The setup page only accepts Client ID and Secret together with this code.
-- After your first login, setup is locked and the code no longer matters. You change the Spotify credentials later under *Einstellungen* while logged in.
-
-Only people with access to your AWS account can see the code.
 
 ### Costs
 
-For one user, this stays in or near the AWS free tier: Lambda, DynamoDB on-demand, API Gateway and CloudFront each cost a few cents at most. A Route 53 hosted zone costs $0.50 per month. Point-in-time recovery for DynamoDB is enabled, and on such a tiny table it costs fractions of a cent.
+For one user, this stays in or near the AWS free tier: Lambda, DynamoDB on-demand, API Gateway and CloudFront each cost a few cents at most; the SSM parameter is free. A Route 53 hosted zone costs $0.50 per month. Point-in-time recovery for DynamoDB is enabled, and on such a tiny table it costs fractions of a cent.
 
 ## How it works
 
@@ -183,7 +193,7 @@ For one user, this stays in or near the AWS free tier: Lambda, DynamoDB on-deman
 
 ## Resetting
 
-- **Wrong Spotify account, or locked out:** delete the item `PK=META, SK=CONFIG` from the DynamoDB table, then run the setup again. This keeps your progress.
+- **Wrong Spotify account, or locked out:** delete the item `PK=META, SK=CONFIG` from the DynamoDB table and log in again with the right account. This keeps your progress.
 - **Delete everything:** go to Settings → *Alle Daten löschen*. The table itself has a `Retain` policy, so it survives `cdk destroy`.
 
 ## Not in this MVP (ideas for later)

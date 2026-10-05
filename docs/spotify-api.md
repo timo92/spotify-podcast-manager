@@ -18,7 +18,6 @@ SDK in the browser.
 | Start playback | `PUT /v1/me/player/play?device_id=…` with `uris` and `position_ms` | `user-modify-playback-state` |
 | In-browser player | Web Playback SDK (`https://sdk.scdn.co/spotify-player.js`) | `streaming`, `user-read-email`, `user-read-private` |
 
-The setup page also calls `POST /api/token` with `grant_type=client_credentials` once, only to check that the Client ID and Secret are valid.
 
 ## Restrictions to know about (as of 2026)
 

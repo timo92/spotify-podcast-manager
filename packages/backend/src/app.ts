@@ -19,6 +19,7 @@ import { PlanService, validTimeZone } from './services/plan.js';
 import { isSyncRunning, toEpisode, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
 import { SCOPES } from './spotify/client.js';
+import type { SpotifyCredentialsProvider } from './spotify/credentials.js';
 import type { SpotifyApi } from './spotify/types.js';
 import type { SpotifyTokens, Store } from './store/types.js';
 
@@ -26,12 +27,12 @@ export interface AppDeps {
   store: Store;
   /** Creates a Spotify client; called once per request so token state never leaks between requests. */
   spotify: () => SpotifyApi;
-  /** OAuth and credential check; defaults to the real Spotify accounts service. */
+  /** Client ID/secret of the Spotify developer app, from the deployment. */
+  credentials: SpotifyCredentialsProvider;
+  /** OAuth login; defaults to the real Spotify accounts service. */
   auth?: SpotifyAuth;
   /** Starts a sync in the background (async Lambda invocation / in-process locally). */
   triggerSync: (opts: SyncOptions) => Promise<void>;
-  /** Required to claim the app the first time. */
-  setupCode?: string;
   /** Public base URL, e.g. https://podcasts.example.com. Derived from headers if unset. */
   publicUrl?: string;
 }
@@ -42,7 +43,7 @@ const SESSION_DAYS = 90;
 const SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60;
 
 /** Endpoints reachable without a session. */
-const PUBLIC_PATHS = new Set(['/api/status', '/api/setup', '/api/auth/login', '/api/auth/callback', '/api/auth/logout']);
+const PUBLIC_PATHS = new Set(['/api/status', '/api/auth/login', '/api/auth/callback', '/api/auth/logout']);
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 function safeEqual(a: string, b: string): boolean {
@@ -138,11 +139,10 @@ export function createApp(deps: AppDeps) {
   app.get('/api/status', async (c) => {
     const [config, authenticated] = await Promise.all([store.getConfig(), isAuthenticated(c)]);
     const status: AppStatus = {
-      configured: !!config,
+      configured: deps.credentials.configured,
       authenticated,
       redirectUri: redirectUri(c),
-      setupCodeRequired: !!deps.setupCode && !config?.ownerId,
-      claimed: !!config?.ownerId,
+      claimed: !!config,
     };
     if (authenticated) {
       const [tokens, sync] = await Promise.all([store.getTokens(), store.getSyncState()]);
@@ -156,47 +156,13 @@ export function createApp(deps: AppDeps) {
     return c.json(status);
   });
 
-  // ----------------------------------------------------------------- setup
-
-  app.post('/api/setup', async (c) => {
-    const input = await readBody<{ setupCode: string; clientId: string; clientSecret: string }>(c);
-    const [config, authenticated] = await Promise.all([store.getConfig(), isAuthenticated(c)]);
-    if (config?.ownerId && !authenticated) {
-      throw new ApiError(StatusCodes.FORBIDDEN, 'already_configured', 'Die App ist bereits eingerichtet. Bitte anmelden.');
-    }
-    if (!authenticated && deps.setupCode && !safeEqual(String(input.setupCode ?? '').trim(), deps.setupCode)) {
-      throw new ApiError(
-        StatusCodes.FORBIDDEN,
-        'invalid_setup_code',
-        'Der Setup-Code ist falsch (siehe Ausgabe von "cdk deploy").',
-      );
-    }
-    const clientId = String(input.clientId ?? '').trim();
-    const clientSecret = String(input.clientSecret ?? '').trim() || (authenticated ? config?.clientSecret : '') || '';
-    if (!/^[A-Za-z0-9]{16,64}$/.test(clientId)) throw badRequest('Ungültige Client-ID.');
-    if (!/^[A-Za-z0-9]{16,64}$/.test(clientSecret)) throw badRequest('Ungültiges Client-Secret.');
-    await auth.verifyCredentials(clientId, clientSecret);
-
-    const now = new Date().toISOString();
-    await store.putConfig({
-      clientId,
-      clientSecret,
-      ownerId: config?.ownerId,
-      ownerName: config?.ownerName,
-      createdAt: config?.createdAt ?? now,
-      updatedAt: now,
-    });
-    return c.json({ ok: true, loginUrl: '/api/auth/login' });
-  });
-
   // ------------------------------------------------------------------ auth
 
   app.get('/api/auth/login', async (c) => {
-    const config = await store.getConfig();
-    if (!config) return c.redirect('/setup');
+    if (!deps.credentials.clientId) return c.redirect('/login?error=not_configured');
     const state = randomBytes(16).toString('base64url');
     setCookie(c, STATE_COOKIE, state, { ...stateCookieOptions(c), maxAge: 600 });
-    return c.redirect(auth.authorizeUrl(config.clientId, redirectUri(c), state));
+    return c.redirect(auth.authorizeUrl(deps.credentials.clientId, redirectUri(c), state));
   });
 
   app.get('/api/auth/callback', async (c) => {
@@ -206,25 +172,27 @@ export function createApp(deps: AppDeps) {
     const { error, state, code } = c.req.query();
     if (error) return fail(error);
     if (!expected || !state || !safeEqual(expected, state)) return fail('state_mismatch');
-    const config = await store.getConfig();
-    if (!config) return c.redirect('/setup');
 
     let login: { tokens: SpotifyTokens; user: { id: string; display_name?: string | null } };
     try {
-      login = await auth.login(config, code ?? '', redirectUri(c));
+      login = await auth.login(await deps.credentials.get(), code ?? '', redirectUri(c));
     } catch (e) {
       console.error('OAuth callback failed', e);
       return fail(e instanceof ApiError ? e.code : 'token_exchange_failed');
     }
     const { tokens, user } = login;
 
-    if (config.ownerId && config.ownerId !== user.id) return fail('wrong_account');
-    if (!config.ownerId || config.ownerName !== (user.display_name ?? undefined)) {
+    // The first account that logs in becomes the owner. Only accounts listed under
+    // "User Management" of the Spotify app can log in at all (development mode).
+    const config = await store.getConfig();
+    if (config && config.ownerId !== user.id) return fail('wrong_account');
+    if (!config || config.ownerName !== (user.display_name ?? undefined)) {
+      const now = new Date().toISOString();
       await store.putConfig({
-        ...config,
         ownerId: user.id,
         ownerName: user.display_name ?? undefined,
-        updatedAt: new Date().toISOString(),
+        createdAt: config?.createdAt ?? now,
+        updatedAt: now,
       });
     }
     const previous = await store.getTokens();

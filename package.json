@@ -12,7 +12,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "synth": "pnpm build && pnpm --filter @podcast/infra run synth",
-    "deploy": "pnpm build && pnpm --filter @podcast/infra run deploy"
+    "deploy": "pnpm build && pnpm --filter @podcast/infra run deploy",
+    "secret:put": "pnpm --filter @podcast/infra run secret:put"
   },
   "engines": {
     "node": ">=22",

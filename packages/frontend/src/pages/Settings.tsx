@@ -28,7 +28,6 @@ export function SettingsPage() {
   const [draft, setDraft] = useState<Settings | null>(null);
   const [newCat, setNewCat] = useState('');
   const [theme, setTheme] = useState<Theme>(readTheme);
-  const [creds, setCreds] = useState({ clientId: '', clientSecret: '' });
   const [confirmDelete, setConfirmDelete] = useState('');
 
   useEffect(() => {
@@ -218,32 +217,7 @@ export function SettingsPage() {
             Abmelden
           </button>
         </div>
-        <details>
-          <summary>Client-ID / Secret ändern</summary>
-          <form
-            className="stack"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(() => api.setup(creds), 'Zugangsdaten gespeichert');
-            }}
-          >
-            <label className="field">
-              <span>Client-ID</span>
-              <input value={creds.clientId} onChange={(e) => setCreds({ ...creds, clientId: e.target.value })} required spellCheck={false} />
-            </label>
-            <label className="field">
-              <span>Client-Secret (leer lassen, um es zu behalten)</span>
-              <input
-                type="password"
-                value={creds.clientSecret}
-                onChange={(e) => setCreds({ ...creds, clientSecret: e.target.value })}
-                spellCheck={false}
-              />
-            </label>
-            <button className="btn">Speichern</button>
-          </form>
-          <p className="muted small">Redirect-URI: {status?.redirectUri}</p>
-        </details>
+        <p className="muted small">Redirect-URI für die Spotify-App: {status?.redirectUri}</p>
       </section>
 
       <section className="card stack">

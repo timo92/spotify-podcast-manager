@@ -107,26 +107,48 @@ One certificate, one domain, HTTPS everywhere.
   redirect back to `/api/auth/callback` is a cross-site navigation and browsers
   drop `Strict` cookies on those.
 - Requests that change data must be JSON (a CSRF guard on top of `SameSite`).
-- A setup code (generated at deploy time, printed as a stack output) protects
-  the setup page until the owner has logged in once.
+- The first account that logs in becomes the owner. Nobody else can win that
+  race: in Spotify's development mode, only accounts listed under *User
+  Management* of the Spotify app can log in at all.
+- An earlier version protected a browser setup page with a one-time setup
+  code; it became unnecessary once the credentials moved into the deployment
+  (D7).
 
 **Why.** The user needs a Spotify login anyway. A second identity system
 (Cognito) would mean a second password for a single person. Server-side
 sessions can be revoked (logout, "delete all data"), unlike stateless tokens.
 
-## D7 — Spotify credentials entered in the UI, stored in DynamoDB
+## D7 — Spotify credentials come from the deployment; the secret from SSM Parameter Store
 
-**Decision.** Client ID/secret are entered on the setup page and stored in
-the app's DynamoDB table (encrypted at rest). Spotify access/refresh tokens
-live there too and never reach the browser, except a short-lived access token
-for the Web Playback SDK.
+**Decision.**
+- The client ID is a plain environment variable (`SPOTIFY_CLIENT_ID`), set from
+  `.env` locally or from CI variables, and passed to the Lambdas by CDK.
+- The client secret is an SSM Parameter Store *SecureString*. It is written
+  once with `pnpm run secret:put` (or `aws ssm put-parameter` in CI), and the
+  Lambdas read it at runtime with `ssm:GetParameter`, cached for five minutes.
+- Spotify access/refresh tokens are stored in DynamoDB and never reach the
+  browser, except a short-lived access token for the Web Playback SDK.
 
-**Why.** Requirement: no secrets in the deployment configuration. DynamoDB
-encryption at rest is on by default.
+**Why.**
+- Configuration belongs to the deployment, not to the app's data. It is
+  reproducible, works the same in CI, and leaves no setup page or setup code
+  to protect.
+- The secret must not be a plain Lambda environment variable, because that
+  would write it into the CloudFormation template and the Lambda console.
+- Standard SecureString parameters are free and encrypted with the AWS-managed
+  KMS key.
 
-**Alternatives.** Secrets Manager or SSM SecureString (better audit trail and
-rotation support, but $0.40/secret/month for Secrets Manager and extra IAM
-plumbing). A customer-managed KMS key is a cheap later hardening step.
+**Alternatives.**
+- *Secrets Manager:* $0.40 per secret per month. Its main extra, managed
+  rotation, doesn't apply, because a Spotify secret can only be rotated by
+  hand in the Spotify dashboard.
+- *CloudFormation-created parameter:* not possible for SecureString, and it
+  would put the value into the template anyway.
+- *Entering the credentials in the UI* (the earlier approach): needed a setup
+  page and a setup code, and stored the secret in the app's own table.
+- *PKCE without a client secret:* Spotify then issues single-use refresh
+  tokens. The API and sync Lambdas would need a lock so they never refresh at
+  the same moment.
 
 ## D8 — DynamoDB single table, on-demand
 

@@ -53,8 +53,6 @@ export const TIME_ZONE = (() => {
 
 export const api = {
   status: () => request<Status>('GET', '/api/status'),
-  setup: (input: { setupCode?: string; clientId: string; clientSecret: string }) =>
-    request<{ ok: true; loginUrl: string }>('POST', '/api/setup', input),
   logout: () => request('POST', '/api/auth/logout'),
 
   today: () => request<TodayResponse>('GET', `/api/today?tz=${encodeURIComponent(TIME_ZONE)}`),

@@ -47,8 +47,8 @@ function contract(name: string, create: () => Promise<Store>) {
 
     it('stores config, settings and sync state', async () => {
       expect(await store.getConfig()).toBeUndefined();
-      await store.putConfig({ clientId: 'id', clientSecret: 's', createdAt: 'c', updatedAt: 'u' });
-      expect((await store.getConfig())?.clientId).toBe('id');
+      await store.putConfig({ ownerId: 'owner', createdAt: 'c', updatedAt: 'u' });
+      expect((await store.getConfig())?.ownerId).toBe('owner');
       expect((await store.getSettings()).audioBudgetMinutes).toBe(30);
       await store.putSettings({ ...(await store.getSettings()), audioBudgetMinutes: 45 });
       expect((await store.getSettings()).audioBudgetMinutes).toBe(45);

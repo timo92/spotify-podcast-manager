@@ -9,13 +9,15 @@
     "deploy": "cdk deploy --all",
     "diff": "cdk diff --all",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "secret:put": "tsx scripts/put-spotify-secret.ts"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.272.0",
     "constructs": "^10.8.1"
   },
   "devDependencies": {
+    "@aws-sdk/client-ssm": "^3.1146.0",
     "@types/node": "^22.20.5",
     "aws-cdk": "^2.1144.0",
     "esbuild": "^0.28.2",

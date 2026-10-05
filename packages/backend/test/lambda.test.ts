@@ -18,7 +18,8 @@ beforeAll(async () => {
     AWS_ACCESS_KEY_ID: 'x',
     AWS_SECRET_ACCESS_KEY: 'x',
     TABLE_NAME: 'lambda-test',
-    SETUP_CODE: 'code',
+    SPOTIFY_CLIENT_ID: 'client-id',
+    SPOTIFY_CLIENT_SECRET_PARAMETER: '/podcast-cockpit/spotify-client-secret',
   });
   const client = new DynamoDBClient({});
   await client.send(
@@ -79,17 +80,16 @@ describe('lambda handler', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body!);
     expect(body).toMatchObject({
-      configured: false,
-      setupCodeRequired: true,
+      configured: true,
+      claimed: false,
       redirectUri: 'https://podcasts.example.com/api/auth/callback',
     });
     expect(header(res, 'cache-control')).toBe('no-store');
   });
 
-  it('rejects unauthenticated API calls and wrong setup codes', async () => {
+  it('rejects unauthenticated API calls', async () => {
     expect((await handler(event('GET', '/api/today'))).statusCode).toBe(401);
-    const res = await handler(event('POST', '/api/setup', { body: JSON.stringify({ setupCode: 'nope' }) }));
-    expect(res.statusCode).toBe(403);
+    expect((await handler(event('POST', '/api/sync', { body: '{}' }))).statusCode).toBe(401);
   });
 
   it('reads the session cookie and gzips large responses', async () => {
@@ -131,6 +131,8 @@ describe('lambda handler', () => {
   });
 
   it('returns 400 for invalid JSON', async () => {
-    expect((await handler(event('POST', '/api/setup', { body: '{nope' }))).statusCode).toBe(400);
+    await store.putSession({ id: 'json', createdAt: 'c', expiresAt: Math.floor(Date.now() / 1000) + 600 });
+    const res = await handler(event('POST', '/api/sync', { cookies: ['pm_session=json'], body: '{nope' }));
+    expect(res.statusCode).toBe(400);
   });
 });

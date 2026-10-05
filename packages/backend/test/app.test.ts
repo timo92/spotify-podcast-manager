@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { localDate, weekdayOf, type Show, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
+import { localDate, weekdayOf, type AppStatus, type Show, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
 import { createApp } from '../src/app.js';
 import { SyncService } from '../src/services/sync.js';
 import { authorizeUrl } from '../src/spotify/client.js';
+import { staticCredentials, type SpotifyCredentialsProvider } from '../src/spotify/credentials.js';
 import { MemoryStore } from '../src/store/memory.js';
+import { credentialsFromEnv } from '../src/spotify/credentials.js';
 import { FakeSpotifyApi } from './fakes/fake-spotify.js';
+
+const CLIENT_ID = 'a'.repeat(32);
 
 interface TestResponse {
   status: number;
@@ -12,7 +16,7 @@ interface TestResponse {
   body: unknown;
 }
 
-function setup(opts: { setupCode?: string; userId?: string } = {}) {
+function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider } = {}) {
   const store = new MemoryStore();
   const spotify = new FakeSpotifyApi(new Date('2026-10-05T08:00:00Z'));
   const syncs: unknown[] = [];
@@ -20,7 +24,7 @@ function setup(opts: { setupCode?: string; userId?: string } = {}) {
   const app = createApp({
     store,
     spotify: () => spotify,
-    setupCode: opts.setupCode,
+    credentials: opts.credentials ?? staticCredentials(CLIENT_ID, 'b'.repeat(32)),
     triggerSync: async (o) => {
       syncs.push(o);
     },
@@ -30,7 +34,6 @@ function setup(opts: { setupCode?: string; userId?: string } = {}) {
         tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: Date.now() + 3600_000, scope: 'user-library-read' },
         user: { id: userId, display_name: 'Owner' },
       }),
-      verifyCredentials: async () => {},
     },
   });
   let cookies: Record<string, string> = {};
@@ -77,25 +80,27 @@ async function login(t: ReturnType<typeof setup>) {
   return t.call('GET', `/api/auth/callback?code=x&state=${state}`);
 }
 
-const creds = { clientId: 'a'.repeat(32), clientSecret: 'b'.repeat(32) };
+describe('configuration and auth', () => {
+  it('reports the redirect URI and whether the deployment provides credentials', async () => {
+    const t = setup();
+    const status = (await t.call('GET', '/api/status')).body as AppStatus;
+    expect(status).toMatchObject({
+      configured: true,
+      claimed: false,
+      redirectUri: 'https://podcasts.example.com/api/auth/callback',
+    });
+    const login = await t.call('GET', '/api/auth/login');
+    expect(new URL(login.headers.Location).searchParams.get('client_id')).toBe(CLIENT_ID);
+  });
 
-describe('setup and auth', () => {
-  it('reports the redirect URI and requires a setup code', async () => {
-    const t = setup({ setupCode: 'secret-code' });
-    const status = (await t.call('GET', '/api/status')).body as { redirectUri: string; configured: boolean };
-    expect(status.redirectUri).toBe('https://podcasts.example.com/api/auth/callback');
-    expect(status.configured).toBe(false);
-
-    const wrong = await t.call('POST', '/api/setup', { ...creds, setupCode: 'nope' });
-    expect(wrong.status).toBe(403);
-    const ok = await t.call('POST', '/api/setup', { ...creds, setupCode: 'secret-code' });
-    expect(ok.status).toBe(200);
-    expect((await t.store.getConfig())?.clientId).toBe(creds.clientId);
+  it('explains a missing client ID instead of starting the login', async () => {
+    const t = setup({ credentials: credentialsFromEnv({}) });
+    expect(((await t.call('GET', '/api/status')).body as AppStatus).configured).toBe(false);
+    expect((await t.call('GET', '/api/auth/login')).headers.Location).toBe('/login?error=not_configured');
   });
 
   it('sets the session cookie HttpOnly, Secure and SameSite=Strict, the OAuth state cookie Lax', async () => {
     const t = setup();
-    await t.store.putConfig({ ...creds, createdAt: '', updatedAt: '' });
     const start = await t.call('GET', '/api/auth/login');
     expect(start.headers['set-cookie']).toMatch(/pm_oauth_state=[^;]+;.*SameSite=Lax/i);
     const res = await login(t);
@@ -107,7 +112,6 @@ describe('setup and auth', () => {
 
   it('binds the owner on first login and rejects other accounts', async () => {
     const t = setup();
-    await t.store.putConfig({ ...creds, createdAt: '', updatedAt: '' });
     const res = await login(t);
     expect(res.status).toBe(302);
     expect(res.headers!.Location).toBe('/?welcome=1');
@@ -124,16 +128,9 @@ describe('setup and auth', () => {
 
   it('rejects a callback with a wrong state', async () => {
     const t = setup();
-    await t.store.putConfig({ ...creds, createdAt: '', updatedAt: '' });
     await t.call('GET', '/api/auth/login');
     const res = await t.call('GET', '/api/auth/callback?code=x&state=forged');
     expect(res.headers!.Location).toBe('/login?error=state_mismatch');
-  });
-
-  it('refuses re-setup once an owner exists', async () => {
-    const t = setup();
-    await t.store.putConfig({ ...creds, ownerId: 'owner', createdAt: '', updatedAt: '' });
-    expect((await t.call('POST', '/api/setup', creds)).status).toBe(403);
   });
 
   it('requires JSON for mutating requests', async () => {
@@ -146,7 +143,6 @@ describe('setup and auth', () => {
 describe('library flow', () => {
   async function ready() {
     const t = setup();
-    await t.store.putConfig({ ...creds, createdAt: '', updatedAt: '' });
     await login(t);
     const state = await t.sync();
     expect(state.status).toBe('idle');

@@ -15,6 +15,7 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
 const ROOT = join(import.meta.dirname, '../../..');
@@ -28,8 +29,10 @@ export interface PodcastStackProps extends StackProps {
   certificate?: acm.ICertificate;
   /** Alternative to `certificate`: ARN of an existing us-east-1 certificate. */
   certificateArn?: string;
-  /** Required to claim the app on first setup. */
-  setupCode: string;
+  /** Client ID of the Spotify developer app. Without it the app shows a configuration hint. */
+  spotifyClientId?: string;
+  /** Name of the SSM SecureString parameter holding the Spotify client secret. */
+  spotifyClientSecretParameter: string;
   /** Built frontend (packages/frontend/dist). */
   frontendDir?: string;
   /** Hours between incremental syncs. */
@@ -96,6 +99,8 @@ export class PodcastStack extends Stack {
       },
       environment: {
         TABLE_NAME: table.tableName,
+        SPOTIFY_CLIENT_ID: props.spotifyClientId ?? '',
+        SPOTIFY_CLIENT_SECRET_PARAMETER: props.spotifyClientSecretParameter,
         NODE_OPTIONS: '--enable-source-maps',
       },
     } satisfies Partial<NodejsFunctionProps>;
@@ -123,7 +128,6 @@ export class PodcastStack extends Stack {
       environment: {
         ...common.environment,
         SYNC_FUNCTION_NAME: syncFn.functionName,
-        SETUP_CODE: props.setupCode,
         PUBLIC_URL: props.domainName ? `https://${props.domainName}` : '',
       },
       logGroup: new logs.LogGroup(this, 'ApiLogs', {
@@ -134,6 +138,14 @@ export class PodcastStack extends Stack {
     });
     table.grantReadWriteData(apiFn);
     syncFn.grantInvoke(apiFn);
+
+    // The secret is created outside of CloudFormation (`pnpm run secret:put`), so
+    // its value never appears in a template; both functions may read it.
+    const clientSecret = ssm.StringParameter.fromSecureStringParameterAttributes(this, 'SpotifyClientSecret', {
+      parameterName: props.spotifyClientSecretParameter,
+    });
+    clientSecret.grantRead(apiFn);
+    clientSecret.grantRead(syncFn);
 
     const every = props.syncEveryHours ?? 2;
     new events.Rule(this, 'IncrementalSync', {
@@ -261,7 +273,10 @@ function handler(event) {
       value: `${url}/api/auth/callback`,
       description: 'Register this redirect URI in your Spotify app',
     });
-    new CfnOutput(this, 'SetupCode', { value: props.setupCode, description: 'Needed once on the setup page' });
+    new CfnOutput(this, 'SpotifyClientSecretParameter', {
+      value: props.spotifyClientSecretParameter,
+      description: 'SSM SecureString the app reads the Spotify client secret from',
+    });
     new CfnOutput(this, 'DistributionDomain', {
       value: distribution.distributionDomainName,
       description: 'CNAME target if your DNS is not in Route 53',

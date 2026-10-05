@@ -195,6 +195,18 @@ function labelFor(show: Show, ep: EpisodeView): TodayLabel {
 }
 
 /**
+ * Remaining listening time of the open planned items. An episode planned in
+ * several slots is listened to once, so it counts once.
+ */
+export function plannedOpenMs(items: PlannedItem[]): number {
+  const open = new Map<string, number>();
+  for (const { episode, state } of items) {
+    if (episode && (state === 'next' || state === 'upcoming')) open.set(episode.id, episode.remainingMs);
+  }
+  return [...open.values()].reduce((sum, ms) => sum + ms, 0);
+}
+
+/**
  * Builds the "Heute" view from the shows' denormalised summaries.
  *
  * Budget logic is intentionally simple: walk the candidates in the user's
@@ -229,10 +241,7 @@ export function buildToday(
   const recommended: TodayItem[] = [];
   const more: TodayItem[] = [];
   // Planned episodes use up the budget first.
-  let usedMs = plan.reduce(
-    (sum, p) => sum + (p.episode && (p.state === 'next' || p.state === 'upcoming') ? p.episode.remainingMs : 0),
-    0,
-  );
+  let usedMs = plannedOpenMs(plan);
 
   if (budgetMs <= 0) {
     recommended.push(...ordered);

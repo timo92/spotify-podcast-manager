@@ -1,12 +1,11 @@
 import { gunzipSync } from 'node:zlib';
 import { CreateTableCommand, DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import dynalite from 'dynalite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DynamoStore } from './store/dynamo.js';
+import { DynamoStore } from '../src/store/dynamo.js';
 
 let server: ReturnType<typeof dynalite>;
-let handler: typeof import('./lambda.js').handler;
+let handler: typeof import('../src/lambda.js').handler;
 let store: DynamoStore;
 
 beforeAll(async () => {
@@ -37,22 +36,41 @@ beforeAll(async () => {
     }),
   );
   store = new DynamoStore('lambda-test', client);
-  ({ handler } = await import('./lambda.js'));
+  ({ handler } = await import('../src/lambda.js'));
 });
 
 afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
-function event(method: string, path: string, extra: Partial<APIGatewayProxyEventV2> = {}): APIGatewayProxyEventV2 {
+type LambdaEvent = Parameters<typeof handler>[0];
+
+interface EventInput {
+  headers?: Record<string, string>;
+  cookies?: string[];
+  body?: string;
+}
+
+/** Minimal API Gateway HTTP API (payload v2) event, as forwarded by CloudFront. */
+function event(method: string, path: string, extra: EventInput = {}): LambdaEvent {
   return {
     version: '2.0',
     routeKey: '$default',
     rawPath: path,
     rawQueryString: '',
     headers: { 'x-public-host': 'podcasts.example.com', 'content-type': 'application/json', ...extra.headers },
-    requestContext: { http: { method } } as APIGatewayProxyEventV2['requestContext'],
+    cookies: extra.cookies,
+    body: extra.body ?? null,
     isBase64Encoded: false,
-    ...extra,
-  } as APIGatewayProxyEventV2;
+    requestContext: {
+      domainName: 'abc.execute-api.eu-central-1.amazonaws.com',
+      http: { method, path, protocol: 'HTTP/1.1', sourceIp: '127.0.0.1', userAgent: 'test' },
+    },
+  } as unknown as LambdaEvent;
+}
+
+/** Response header lookup, independent of casing. */
+function header(res: { headers?: Record<string, unknown> }, name: string): string | undefined {
+  const entry = Object.entries(res.headers ?? {}).find(([k]) => k.toLowerCase() === name.toLowerCase());
+  return entry ? String(entry[1]) : undefined;
 }
 
 describe('lambda handler', () => {
@@ -65,7 +83,7 @@ describe('lambda handler', () => {
       setupCodeRequired: true,
       redirectUri: 'https://podcasts.example.com/api/auth/callback',
     });
-    expect(res.headers?.['Cache-Control']).toBe('no-store');
+    expect(header(res, 'cache-control')).toBe('no-store');
   });
 
   it('rejects unauthenticated API calls and wrong setup codes', async () => {
@@ -100,18 +118,19 @@ describe('lambda handler', () => {
     );
     expect(res.statusCode).toBe(200);
     expect(res.isBase64Encoded).toBe(true);
-    expect(res.headers?.['Content-Encoding']).toBe('gzip');
+    expect(header(res, 'content-encoding')).toBe('gzip');
     const shows = JSON.parse(gunzipSync(Buffer.from(res.body!, 'base64')).toString('utf8'));
     expect(shows).toHaveLength(20);
   });
 
   it('sets cookies through the v2 cookies field', async () => {
     const res = await handler(event('POST', '/api/auth/logout', { cookies: ['pm_session=sess'], body: '{}' }));
-    expect(res.cookies?.[0]).toMatch(/^pm_session=; .*Max-Age=0; Secure/);
+    expect(res.cookies?.[0]).toMatch(/^pm_session=;.*Max-Age=0/);
+    expect(res.cookies?.[0]).toMatch(/Secure/);
     expect(await store.getSession('sess')).toBeUndefined();
   });
 
   it('returns 400 for invalid JSON', async () => {
-    expect((await handler(event('POST', '/api/sync', { body: '{nope' }))).statusCode).toBe(400);
+    expect((await handler(event('POST', '/api/setup', { body: '{nope' }))).statusCode).toBe(400);
   });
 });

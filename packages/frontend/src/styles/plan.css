@@ -1,0 +1,128 @@
+/* Weekly plan. */
+
+.ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.week {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.day-card {
+  padding: 10px 12px;
+}
+.day-card.is-today {
+  border-color: var(--accent);
+}
+.day-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+.day-head h2 {
+  flex: 1;
+}
+.day-empty {
+  margin: 2px 0 6px;
+}
+
+.plan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.plan-list.card {
+  padding: 4px 12px;
+}
+.plan-item {
+  display: grid;
+  grid-template-columns: 64px 44px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+.plan-item:first-child {
+  border-top: none;
+}
+.plan-part {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.plan-item-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.plan-item-body .episode-title {
+  font-size: 0.93rem;
+}
+.plan-item-actions {
+  display: flex;
+  align-items: center;
+}
+.plan-item.is-done .episode-title,
+.plan-item.is-done .cover {
+  opacity: 0.55;
+}
+.plan-item.is-done .episode-title {
+  text-decoration: line-through;
+  text-decoration-color: var(--text-muted);
+}
+.done-check {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+@media (max-width: 480px) {
+  .plan-item {
+    grid-template-columns: 40px 1fr auto;
+    row-gap: 2px;
+  }
+  .plan-part {
+    grid-column: 1 / -1;
+  }
+}
+
+.pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.pick-list li:last-child .pick {
+  border-bottom: none;
+}
+.pick:hover {
+  background: var(--surface-2);
+}

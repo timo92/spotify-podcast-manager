@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { EpisodeView } from '@podcast/shared';
 import { api, ApiError } from './api';
-import { useInvalidateLibrary, useSettings, useStatus } from './queries';
+import { useInvalidateLibrary, useSettings } from './queries';
 import { useToast } from './toast';
 
 /** Where "Abspielen" sends an episode. */
@@ -50,7 +50,8 @@ export interface PlayOptions {
 
 const PlayerContext = createContext<PlayerApi | null>(null);
 const TARGET_KEY = 'pm.playTarget';
-const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
+// Overridable so local development can load a fake SDK (see packages/frontend/dev).
+const SDK_URL = import.meta.env.VITE_SPOTIFY_SDK_URL || 'https://sdk.scdn.co/spotify-player.js';
 
 /** The Web Playback SDK does not support mobile browsers. */
 function detectBrowserSupport(): boolean {
@@ -87,12 +88,10 @@ function loadSdk(): Promise<void> {
 }
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
-  const { data: status } = useStatus();
   const { data: settings } = useSettings();
   const toast = useToast();
   const invalidate = useInvalidateLibrary();
-  const demo = !!status?.demo;
-  const browserSupported = useMemo(() => demo || detectBrowserSupport(), [demo]);
+  const browserSupported = useMemo(detectBrowserSupport, []);
 
   const [target, setTargetState] = useState<PlayTarget>(() =>
     loadTarget(detectBrowserSupport() ? { kind: 'browser' } : { kind: 'app' }),
@@ -177,7 +176,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       try {
         let deviceId: string | undefined;
         if (t.kind === 'device') deviceId = t.id;
-        else if (!demo) deviceId = await ensureBrowserDevice();
+        else deviceId = await ensureBrowserDevice();
         const request = {
           showId: item.show.id,
           episodeId: item.episode.id,
@@ -213,17 +212,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setBusy(false);
       }
     },
-    [target, browserSupported, demo, ensureBrowserDevice, toast],
+    [target, browserSupported, ensureBrowserDevice, toast],
   );
 
-  // Poll the browser player (or simulate progress in demo mode) while playing.
+  // Poll the browser player while playing.
   useEffect(() => {
     if (!nowPlaying || nowPlaying.paused || nowPlaying.target.kind !== 'browser') return;
     const timer = setInterval(async () => {
-      if (demo) {
-        setNowPlaying((cur) => (cur ? { ...cur, positionMs: Math.min(cur.durationMs, cur.positionMs + 1000 * 30) } : cur));
-        return;
-      }
       const state = await playerRef.current?.getCurrentState();
       if (state) {
         setNowPlaying((cur) =>
@@ -232,7 +227,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [nowPlaying?.episodeId, nowPlaying?.paused, nowPlaying?.target.kind, demo]);
+  }, [nowPlaying?.episodeId, nowPlaying?.paused, nowPlaying?.target.kind]);
 
   // Auto-complete near the end of the episode.
   useEffect(() => {
@@ -261,19 +256,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const togglePause = useCallback(() => {
     const cur = nowRef.current;
     if (!cur) return;
-    if (!demo) void playerRef.current?.togglePlay();
+    void playerRef.current?.togglePlay();
     setNowPlaying({ ...cur, paused: !cur.paused });
-  }, [demo]);
+  }, []);
 
   const seekTo = useCallback(
     (ms: number) => {
       const cur = nowRef.current;
       if (!cur) return;
       const pos = Math.max(0, Math.min(cur.durationMs - 1000, ms));
-      if (!demo) void playerRef.current?.seek(pos);
+      void playerRef.current?.seek(pos);
       setNowPlaying({ ...cur, positionMs: pos });
     },
-    [demo],
+    [],
   );
 
   const seekBy = useCallback((delta: number) => seekTo((nowRef.current?.positionMs ?? 0) + delta), [seekTo]);

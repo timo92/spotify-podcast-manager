@@ -199,7 +199,6 @@ export function SettingsPage() {
         <h2 className="h3">Spotify</h2>
         <p className="small">
           Verbunden als <strong>{status?.user?.displayName ?? status?.user?.id ?? '–'}</strong>
-          {status?.demo && ' (Demo-Modus)'}
         </p>
         {status?.missingScopes && status.missingScopes.length > 0 && (
           <div className="banner banner-warn">Fehlende Berechtigungen: {status.missingScopes.join(', ')}</div>

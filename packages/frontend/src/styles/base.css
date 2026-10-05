@@ -1,0 +1,131 @@
+/* Reset, typography and small utility classes. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.no-scroll {
+  overflow: hidden;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+h1 {
+  font-size: 1.6rem;
+}
+h2 {
+  font-size: 1.15rem;
+}
+.h3 {
+  font-size: 1rem;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+input[type='text'],
+input[type='password'],
+input[type='search'],
+input:not([type]) {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  min-width: 0;
+}
+input:focus-visible,
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.icon {
+  flex: none;
+  display: block;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+.small {
+  font-size: 0.86rem;
+}
+.tiny {
+  font-size: 0.76rem;
+}
+.text-new {
+  color: var(--new);
+  font-weight: 600;
+}
+.text-error {
+  color: var(--error);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gap {
+  gap: 8px;
+}
+.wrap {
+  flex-wrap: wrap;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

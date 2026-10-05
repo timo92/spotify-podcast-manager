@@ -1,4 +1,6 @@
-import type { SpotifyApi, SpotifyDevice, SpotifyEpisode, SpotifyShow } from './types.js';
+import type { SpotifyAuth } from '../../src/spotify/auth.js';
+import { SCOPES } from '../../src/spotify/client.js';
+import type { SpotifyApi, SpotifyDevice, SpotifyEpisode, SpotifyShow } from '../../src/spotify/types.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -83,10 +85,21 @@ function rand(seed: number): number {
   return x - Math.floor(x);
 }
 
+/** Speed-up of the fake playback clock, so episodes "finish" within a minute or two. */
+const FAKE_PLAYBACK_SPEED = 30;
+
+export interface FakePlaybackState {
+  episodeId: string | null;
+  durationMs: number;
+  positionMs: number;
+  paused: boolean;
+}
+
 /**
- * Offline stand-in for Spotify (SPOTIFY_FAKE=1). Generates a handful of shows
- * whose newest episode is always "today", so the UI can be explored without
- * a Spotify developer app.
+ * Offline stand-in for Spotify, used by tests and by the dev server's demo
+ * mode (SPOTIFY_FAKE=1). Generates a handful of shows whose newest episode is
+ * always "today" and keeps a fake playback state that the fake Web Playback
+ * SDK (packages/frontend/dev) reads, just like the real SDK follows Spotify.
  */
 export class FakeSpotifyApi implements SpotifyApi {
   private readonly shows: SpotifyShow[];
@@ -162,11 +175,49 @@ export class FakeSpotifyApi implements SpotifyApi {
     return [{ id: 'demo-phone', name: 'Handy (Demo)', type: 'Smartphone', is_active: false }];
   }
 
-  async play() {
-    // nothing to do offline
+  private playback = { episodeId: null as string | null, durationMs: 0, positionMs: 0, paused: true, since: Date.now() };
+
+  async play(episodeId: string, _deviceId: string | undefined, positionMs: number) {
+    const ep = await this.getEpisode(episodeId);
+    this.playback = { episodeId, durationMs: ep?.duration_ms ?? 0, positionMs, paused: false, since: Date.now() };
+  }
+
+  /** Current fake playback state (position advances while not paused). */
+  playbackState(): FakePlaybackState {
+    const p = this.playback;
+    const elapsed = p.paused ? 0 : (Date.now() - p.since) * FAKE_PLAYBACK_SPEED;
+    return {
+      episodeId: p.episodeId,
+      durationMs: p.durationMs,
+      positionMs: Math.min(p.durationMs, p.positionMs + elapsed),
+      paused: p.paused,
+    };
+  }
+
+  controlPlayback(action: 'toggle' | 'pause' | 'seek', positionMs?: number) {
+    const now = this.playbackState();
+    this.playback = {
+      ...this.playback,
+      positionMs: action === 'seek' && typeof positionMs === 'number' ? positionMs : now.positionMs,
+      paused: action === 'toggle' ? !now.paused : action === 'pause' ? true : now.paused,
+      since: Date.now(),
+    };
+    return this.playbackState();
   }
 
   async getAccessToken() {
     return { accessToken: 'demo', expiresAt: Date.now() + 3600_000 };
   }
 }
+
+/** Fake login: "Spotify" immediately redirects back with a code for the demo user. */
+export const fakeSpotifyAuth: SpotifyAuth = {
+  authorizeUrl: (_clientId, redirectUri, state) => `${redirectUri}?code=demo&state=${encodeURIComponent(state)}`,
+  async login() {
+    return {
+      tokens: { accessToken: 'demo', refreshToken: 'demo', expiresAt: Date.now() + 3600_000, scope: SCOPES.join(' ') },
+      user: { id: 'demo-user', display_name: 'Demo' },
+    };
+  },
+  async verifyCredentials() {},
+};

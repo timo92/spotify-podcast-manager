@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { localDate, weekdayOf, type Show, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
-import { createApp } from './app.js';
-import type { HttpRequest, HttpResponse } from './http/types.js';
-import { SyncService } from './services/sync.js';
-import { FakeSpotifyApi } from './spotify/fake.js';
-import { MemoryStore } from './store/memory.js';
+import { createApp } from '../src/app.js';
+import { SyncService } from '../src/services/sync.js';
+import { authorizeUrl } from '../src/spotify/client.js';
+import { MemoryStore } from '../src/store/memory.js';
+import { FakeSpotifyApi } from './fakes/fake-spotify.js';
+
+interface TestResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: unknown;
+}
 
 function setup(opts: { setupCode?: string; userId?: string } = {}) {
   const store = new MemoryStore();
@@ -13,35 +19,46 @@ function setup(opts: { setupCode?: string; userId?: string } = {}) {
   let userId = opts.userId ?? 'owner';
   const app = createApp({
     store,
-    spotify,
+    spotify: () => spotify,
     setupCode: opts.setupCode,
     triggerSync: async (o) => {
       syncs.push(o);
     },
-    oauth: async () => ({
-      tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: Date.now() + 3600_000, scope: 'user-library-read' },
-      user: { id: userId, display_name: 'Owner' },
-    }),
+    auth: {
+      authorizeUrl,
+      login: async () => ({
+        tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: Date.now() + 3600_000, scope: 'user-library-read' },
+        user: { id: userId, display_name: 'Owner' },
+      }),
+      verifyCredentials: async () => {},
+    },
   });
   let cookies: Record<string, string> = {};
-  async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
-    const [p, qs] = path.split('?');
-    const req: HttpRequest = {
+  async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<TestResponse> {
+    const res = await app.request(path, {
       method,
-      path: p,
-      query: Object.fromEntries(new URLSearchParams(qs ?? '')),
-      headers: { host: 'podcasts.example.com', ...(body !== undefined || method !== 'GET' ? { 'content-type': 'application/json' } : {}), ...headers },
-      cookies,
-      body,
-    };
-    const res = await app(req);
-    for (const c of res.cookies ?? []) {
+      headers: {
+        host: 'podcasts.example.com',
+        ...(method !== 'GET' ? { 'content-type': 'application/json' } : {}),
+        cookie: Object.entries(cookies)
+          .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+          .join('; '),
+        ...headers,
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    for (const c of res.headers.getSetCookie()) {
       const [pair] = c.split(';');
       const [k, v] = pair.split('=');
-      if (/Max-Age=0/.test(c)) delete cookies[k];
+      if (/Max-Age=0/i.test(c)) delete cookies[k];
       else cookies[k] = decodeURIComponent(v);
     }
-    return res;
+    const text = await res.text();
+    return {
+      status: res.status,
+      headers: Object.fromEntries([...res.headers.entries()].map(([k, v]) => [k === 'location' ? 'Location' : k, v])),
+      body: text ? JSON.parse(text) : undefined,
+    };
   }
   return {
     store,
@@ -71,7 +88,21 @@ describe('setup and auth', () => {
 
     const wrong = await t.call('POST', '/api/setup', { ...creds, setupCode: 'nope' });
     expect(wrong.status).toBe(403);
-    // demo flag is off, so credentials would be verified against Spotify – stub by pre-seeding instead
+    const ok = await t.call('POST', '/api/setup', { ...creds, setupCode: 'secret-code' });
+    expect(ok.status).toBe(200);
+    expect((await t.store.getConfig())?.clientId).toBe(creds.clientId);
+  });
+
+  it('sets the session cookie HttpOnly, Secure and SameSite=Strict, the OAuth state cookie Lax', async () => {
+    const t = setup();
+    await t.store.putConfig({ ...creds, createdAt: '', updatedAt: '' });
+    const start = await t.call('GET', '/api/auth/login');
+    expect(start.headers['set-cookie']).toMatch(/pm_oauth_state=[^;]+;.*SameSite=Lax/i);
+    const res = await login(t);
+    const session = res.headers['set-cookie'].split(/,\s*(?=pm_)/).find((c) => c.startsWith('pm_session='))!;
+    expect(session).toMatch(/HttpOnly/i);
+    expect(session).toMatch(/Secure/i);
+    expect(session).toMatch(/SameSite=Strict/i);
   });
 
   it('binds the owner on first login and rejects other accounts', async () => {

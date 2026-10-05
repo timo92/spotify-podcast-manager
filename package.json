@@ -3,24 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "description": "Personal podcast cockpit in front of Spotify",
-  "workspaces": [
-    "packages/shared",
-    "packages/backend",
-    "packages/frontend",
-    "packages/infra"
-  ],
   "scripts": {
-    "dev": "npm run dev --workspace=@podcast/backend & npm run dev --workspace=@podcast/frontend",
-    "dev:backend": "npm run dev --workspace=@podcast/backend",
-    "dev:frontend": "npm run dev --workspace=@podcast/frontend",
-    "build": "npm run build --workspace=@podcast/frontend",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "synth": "npm run build && npm run synth --workspace=@podcast/infra",
-    "deploy": "npm run build && npm run deploy --workspace=@podcast/infra",
-    "dev:demo": "npm run dev:demo --workspace=@podcast/backend & npm run dev --workspace=@podcast/frontend"
+    "dev": "pnpm --parallel --filter @podcast/backend --filter @podcast/frontend dev",
+    "dev:demo": "pnpm --parallel --filter @podcast/backend --filter @podcast/frontend dev:demo",
+    "dev:backend": "pnpm --filter @podcast/backend dev",
+    "dev:frontend": "pnpm --filter @podcast/frontend dev",
+    "build": "pnpm --filter @podcast/frontend build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "synth": "pnpm build && pnpm --filter @podcast/infra run synth",
+    "deploy": "pnpm build && pnpm --filter @podcast/infra run deploy"
   },
   "engines": {
-    "node": ">=22"
-  }
+    "node": ">=22",
+    "pnpm": ">=12"
+  },
+  "packageManager": "pnpm@12.9.1"
 }

@@ -5,7 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { ApiError } from './lib/api';
 import { ToastProvider } from './lib/toast';
-import './styles.css';
+import './styles/index.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

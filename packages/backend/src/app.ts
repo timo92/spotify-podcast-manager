@@ -9,51 +9,41 @@ import {
   type Settings,
   type ShowSettingsPatch,
 } from '@podcast/shared';
+import { Hono, type Context } from 'hono';
+import { compress } from 'hono/compress';
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+import { StatusCodes } from 'http-status-codes';
 import { ApiError, badRequest, notFound, unauthorized } from './errors.js';
-import { json, redirect, serializeCookie, type HttpRequest, type HttpResponse } from './http/types.js';
 import { LibraryService } from './services/library.js';
 import { PlanService, validTimeZone } from './services/plan.js';
 import { isSyncRunning, toEpisode, type SyncOptions } from './services/sync.js';
-import { authorizeUrl, exchangeCode, SCOPES } from './spotify/client.js';
-import type { SpotifyApi, SpotifyUser } from './spotify/types.js';
+import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
+import { SCOPES } from './spotify/client.js';
+import type { SpotifyApi } from './spotify/types.js';
 import type { SpotifyTokens, Store } from './store/types.js';
 
 export interface AppDeps {
   store: Store;
-  spotify: SpotifyApi;
+  /** Creates a Spotify client; called once per request so token state never leaks between requests. */
+  spotify: () => SpotifyApi;
+  /** OAuth and credential check; defaults to the real Spotify accounts service. */
+  auth?: SpotifyAuth;
   /** Starts a sync in the background (async Lambda invocation / in-process locally). */
   triggerSync: (opts: SyncOptions) => Promise<void>;
   /** Required to claim the app the first time. */
   setupCode?: string;
   /** Public base URL, e.g. https://podcasts.example.com. Derived from headers if unset. */
   publicUrl?: string;
-  /** Offline demo mode with fake Spotify data. */
-  demo?: boolean;
-  /** Override for tests: exchanges an OAuth code and returns tokens + user. */
-  oauth?: (code: string, redirectUri: string) => Promise<{ tokens: SpotifyTokens; user: SpotifyUser }>;
 }
 
 const SESSION_COOKIE = 'pm_session';
 const STATE_COOKIE = 'pm_oauth_state';
 const SESSION_DAYS = 90;
+const SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60;
 
-type Handler = (req: HttpRequest, params: Record<string, string>) => Promise<HttpResponse>;
-interface Route {
-  method: string;
-  pattern: RegExp;
-  keys: string[];
-  handler: Handler;
-  public?: boolean;
-}
-
-function compile(path: string): { pattern: RegExp; keys: string[] } {
-  const keys: string[] = [];
-  const src = path.replace(/:(\w+)/g, (_, k: string) => {
-    keys.push(k);
-    return '([^/]+)';
-  });
-  return { pattern: new RegExp(`^${src}/?$`), keys };
-}
+/** Endpoints reachable without a session. */
+const PUBLIC_PATHS = new Set(['/api/status', '/api/setup', '/api/auth/login', '/api/auth/callback', '/api/auth/logout']);
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);
@@ -61,32 +51,47 @@ function safeEqual(a: string, b: string): boolean {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 }
 
-function body<T>(req: HttpRequest): Partial<T> {
-  return req.body && typeof req.body === 'object' ? (req.body as Partial<T>) : {};
+/** JSON body of the request; `{}` when empty. */
+async function readBody<T>(c: Context): Promise<Partial<T>> {
+  const text = await c.req.text();
+  if (!text) return {};
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return parsed && typeof parsed === 'object' ? (parsed as Partial<T>) : {};
+  } catch {
+    throw badRequest('Ungültiges JSON');
+  }
 }
 
 export function createApp(deps: AppDeps) {
-  const { store, spotify } = deps;
+  const { store } = deps;
+  const auth = deps.auth ?? spotifyAuth;
   const library = new LibraryService(store);
   const planner = new PlanService(store, library);
-  const routes: Route[] = [];
-  const route = (method: string, path: string, handler: Handler, opts: { public?: boolean } = {}) =>
-    routes.push({ method, ...compile(path), handler, public: opts.public });
+  const app = new Hono();
 
-  const baseUrl = (req: HttpRequest) => {
+  const baseUrl = (c: Context) => {
     if (deps.publicUrl) return deps.publicUrl.replace(/\/$/, '');
-    const host = req.headers['x-public-host'] ?? req.headers['x-forwarded-host'] ?? req.headers.host ?? 'localhost';
+    // CloudFront sets x-public-host to the viewer's host (see infra ForwardHost function).
+    const host = c.req.header('x-public-host') ?? c.req.header('x-forwarded-host') ?? c.req.header('host') ?? 'localhost';
     const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
-    const proto = local ? 'http' : 'https';
-    return `${proto}://${host}`;
+    return `${local ? 'http' : 'https'}://${host}`;
   };
-  const redirectUri = (req: HttpRequest) => `${baseUrl(req)}/api/auth/callback`;
-  const secure = (req: HttpRequest) => baseUrl(req).startsWith('https://');
+  const redirectUri = (c: Context) => `${baseUrl(c)}/api/auth/callback`;
+  const cookieOptions = (c: Context, opts: { path?: string; sameSite?: 'Strict' | 'Lax' } = {}) =>
+    ({
+      path: opts.path ?? '/',
+      httpOnly: true,
+      sameSite: opts.sameSite ?? 'Strict',
+      secure: baseUrl(c).startsWith('https://'),
+    }) as const;
+  // The OAuth state cookie must be Lax: Spotify's redirect back to the callback is a
+  // cross-site navigation, and browsers drop Strict cookies on those.
+  const stateCookieOptions = (c: Context) => cookieOptions(c, { path: '/api/auth', sameSite: 'Lax' });
 
-  async function isAuthenticated(req: HttpRequest): Promise<boolean> {
-    const id = req.cookies[SESSION_COOKIE];
-    if (!id) return false;
-    return !!(await store.getSession(id));
+  async function isAuthenticated(c: Context): Promise<boolean> {
+    const id = getCookie(c, SESSION_COOKIE);
+    return !!id && !!(await store.getSession(id));
   }
 
   async function startSync(opts: SyncOptions) {
@@ -98,162 +103,158 @@ export function createApp(deps: AppDeps) {
     return next;
   }
 
+  // ------------------------------------------------------------ middleware
+
+  app.use('/api/*', compress());
+
+  app.use('/api/*', async (c, next) => {
+    c.header('Cache-Control', 'no-store');
+    // Simple CSRF guard: cross-site forms cannot send JSON without a CORS preflight.
+    if (MUTATING_METHODS.has(c.req.method) && !(c.req.header('content-type') ?? '').includes('application/json')) {
+      throw new ApiError(
+        StatusCodes.UNSUPPORTED_MEDIA_TYPE,
+        'unsupported_media_type',
+        'Content-Type application/json erforderlich',
+      );
+    }
+    if (!PUBLIC_PATHS.has(c.req.path) && !(await isAuthenticated(c))) throw unauthorized();
+    await next();
+  });
+
+  app.onError((err, c) => {
+    c.header('Cache-Control', 'no-store');
+    if (err instanceof ApiError) return c.json({ error: err.code, message: err.message }, err.status as never);
+    console.error('Unhandled error', err);
+    return c.json(
+      { error: 'internal', message: 'Interner Fehler – Details im CloudWatch-Log.' },
+      StatusCodes.INTERNAL_SERVER_ERROR,
+    );
+  });
+
+  app.notFound((c) => c.json({ error: 'not_found', message: 'Unbekannter Endpunkt' }, StatusCodes.NOT_FOUND));
+
   // ---------------------------------------------------------------- status
 
-  route(
-    'GET',
-    '/api/status',
-    async (req) => {
-      const [config, authenticated] = await Promise.all([store.getConfig(), isAuthenticated(req)]);
-      const status: AppStatus & { demo?: boolean } = {
-        configured: !!config,
-        authenticated,
-        redirectUri: redirectUri(req),
-        setupCodeRequired: !!deps.setupCode && !config?.ownerId,
-        claimed: !!config?.ownerId,
-        demo: deps.demo,
-      };
-      if (authenticated) {
-        const [tokens, sync] = await Promise.all([store.getTokens(), store.getSyncState()]);
-        const granted = (tokens?.scope ?? '').split(' ').filter(Boolean);
-        status.spotifyConnected = !!tokens;
-        status.user = config?.ownerId ? { id: config.ownerId, displayName: config.ownerName } : undefined;
-        status.sync = sync;
-        status.grantedScopes = granted;
-        status.missingScopes = tokens && !deps.demo ? SCOPES.filter((s) => !granted.includes(s)) : [];
-      }
-      return json(status);
-    },
-    { public: true },
-  );
+  app.get('/api/status', async (c) => {
+    const [config, authenticated] = await Promise.all([store.getConfig(), isAuthenticated(c)]);
+    const status: AppStatus = {
+      configured: !!config,
+      authenticated,
+      redirectUri: redirectUri(c),
+      setupCodeRequired: !!deps.setupCode && !config?.ownerId,
+      claimed: !!config?.ownerId,
+    };
+    if (authenticated) {
+      const [tokens, sync] = await Promise.all([store.getTokens(), store.getSyncState()]);
+      const granted = (tokens?.scope ?? '').split(' ').filter(Boolean);
+      status.spotifyConnected = !!tokens;
+      status.user = config?.ownerId ? { id: config.ownerId, displayName: config.ownerName } : undefined;
+      status.sync = sync;
+      status.grantedScopes = granted;
+      status.missingScopes = tokens ? SCOPES.filter((s) => !granted.includes(s)) : [];
+    }
+    return c.json(status);
+  });
 
   // ----------------------------------------------------------------- setup
 
-  route(
-    'POST',
-    '/api/setup',
-    async (req) => {
-      const input = body<{ setupCode: string; clientId: string; clientSecret: string }>(req);
-      const [config, authenticated] = await Promise.all([store.getConfig(), isAuthenticated(req)]);
-      if (config?.ownerId && !authenticated) {
-        throw new ApiError(403, 'already_configured', 'Die App ist bereits eingerichtet. Bitte anmelden.');
-      }
-      if (!authenticated && deps.setupCode && !safeEqual(String(input.setupCode ?? '').trim(), deps.setupCode)) {
-        throw new ApiError(403, 'invalid_setup_code', 'Der Setup-Code ist falsch (siehe Ausgabe von "cdk deploy").');
-      }
-      const clientId = String(input.clientId ?? '').trim();
-      const clientSecret = String(input.clientSecret ?? '').trim() || (authenticated ? config?.clientSecret : '') || '';
-      if (!/^[A-Za-z0-9]{16,64}$/.test(clientId)) throw badRequest('Ungültige Client-ID.');
-      if (!/^[A-Za-z0-9]{16,64}$/.test(clientSecret)) throw badRequest('Ungültiges Client-Secret.');
+  app.post('/api/setup', async (c) => {
+    const input = await readBody<{ setupCode: string; clientId: string; clientSecret: string }>(c);
+    const [config, authenticated] = await Promise.all([store.getConfig(), isAuthenticated(c)]);
+    if (config?.ownerId && !authenticated) {
+      throw new ApiError(StatusCodes.FORBIDDEN, 'already_configured', 'Die App ist bereits eingerichtet. Bitte anmelden.');
+    }
+    if (!authenticated && deps.setupCode && !safeEqual(String(input.setupCode ?? '').trim(), deps.setupCode)) {
+      throw new ApiError(
+        StatusCodes.FORBIDDEN,
+        'invalid_setup_code',
+        'Der Setup-Code ist falsch (siehe Ausgabe von "cdk deploy").',
+      );
+    }
+    const clientId = String(input.clientId ?? '').trim();
+    const clientSecret = String(input.clientSecret ?? '').trim() || (authenticated ? config?.clientSecret : '') || '';
+    if (!/^[A-Za-z0-9]{16,64}$/.test(clientId)) throw badRequest('Ungültige Client-ID.');
+    if (!/^[A-Za-z0-9]{16,64}$/.test(clientSecret)) throw badRequest('Ungültiges Client-Secret.');
+    await auth.verifyCredentials(clientId, clientSecret);
 
-      if (!deps.demo) await verifyClientCredentials(clientId, clientSecret);
-
-      const now = new Date().toISOString();
-      await store.putConfig({
-        clientId,
-        clientSecret,
-        ownerId: config?.ownerId,
-        ownerName: config?.ownerName,
-        createdAt: config?.createdAt ?? now,
-        updatedAt: now,
-      });
-      return json({ ok: true, loginUrl: '/api/auth/login' });
-    },
-    { public: true },
-  );
+    const now = new Date().toISOString();
+    await store.putConfig({
+      clientId,
+      clientSecret,
+      ownerId: config?.ownerId,
+      ownerName: config?.ownerName,
+      createdAt: config?.createdAt ?? now,
+      updatedAt: now,
+    });
+    return c.json({ ok: true, loginUrl: '/api/auth/login' });
+  });
 
   // ------------------------------------------------------------------ auth
 
-  route(
-    'GET',
-    '/api/auth/login',
-    async (req) => {
-      const config = await store.getConfig();
-      if (!config) return redirect('/setup');
-      const state = randomBytes(16).toString('base64url');
-      const cookie = serializeCookie(STATE_COOKIE, state, { maxAge: 600, secure: secure(req), path: '/api/auth' });
-      const target = deps.demo
-        ? `/api/auth/callback?code=demo&state=${state}`
-        : authorizeUrl(config.clientId, redirectUri(req), state);
-      return redirect(target, [cookie]);
-    },
-    { public: true },
-  );
+  app.get('/api/auth/login', async (c) => {
+    const config = await store.getConfig();
+    if (!config) return c.redirect('/setup');
+    const state = randomBytes(16).toString('base64url');
+    setCookie(c, STATE_COOKIE, state, { ...stateCookieOptions(c), maxAge: 600 });
+    return c.redirect(auth.authorizeUrl(config.clientId, redirectUri(c), state));
+  });
 
-  route(
-    'GET',
-    '/api/auth/callback',
-    async (req) => {
-      const clearState = serializeCookie(STATE_COOKIE, '', { maxAge: 0, secure: secure(req), path: '/api/auth' });
-      const fail = (code: string) => redirect(`/login?error=${encodeURIComponent(code)}`, [clearState]);
-      if (req.query.error) return fail(req.query.error);
-      const expected = req.cookies[STATE_COOKIE];
-      if (!expected || !req.query.state || !safeEqual(expected, req.query.state)) return fail('state_mismatch');
-      const config = await store.getConfig();
-      if (!config) return redirect('/setup', [clearState]);
+  app.get('/api/auth/callback', async (c) => {
+    const expected = getCookie(c, STATE_COOKIE);
+    deleteCookie(c, STATE_COOKIE, stateCookieOptions(c));
+    const fail = (code: string) => c.redirect(`/login?error=${encodeURIComponent(code)}`);
+    const { error, state, code } = c.req.query();
+    if (error) return fail(error);
+    if (!expected || !state || !safeEqual(expected, state)) return fail('state_mismatch');
+    const config = await store.getConfig();
+    if (!config) return c.redirect('/setup');
 
-      let tokens: SpotifyTokens;
-      let user: SpotifyUser;
-      try {
-        if (deps.oauth) {
-          ({ tokens, user } = await deps.oauth(req.query.code ?? '', redirectUri(req)));
-        } else if (deps.demo) {
-          tokens = { accessToken: 'demo', refreshToken: 'demo', expiresAt: Date.now() + 3600_000, scope: SCOPES.join(' ') };
-          user = await spotify.getMe();
-        } else {
-          tokens = await exchangeCode(config, req.query.code ?? '', redirectUri(req));
-          user = await fetchMe(tokens.accessToken);
-        }
-      } catch (e) {
-        console.error('OAuth callback failed', e);
-        return fail(e instanceof ApiError ? e.code : 'token_exchange_failed');
-      }
+    let login: { tokens: SpotifyTokens; user: { id: string; display_name?: string | null } };
+    try {
+      login = await auth.login(config, code ?? '', redirectUri(c));
+    } catch (e) {
+      console.error('OAuth callback failed', e);
+      return fail(e instanceof ApiError ? e.code : 'token_exchange_failed');
+    }
+    const { tokens, user } = login;
 
-      if (config.ownerId && config.ownerId !== user.id) return fail('wrong_account');
-      if (!config.ownerId || config.ownerName !== (user.display_name ?? undefined)) {
-        await store.putConfig({
-          ...config,
-          ownerId: user.id,
-          ownerName: user.display_name ?? undefined,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-      const previous = await store.getTokens();
-      await store.putTokens({ ...tokens, refreshToken: tokens.refreshToken || previous?.refreshToken || '' });
-
-      const sessionId = randomBytes(32).toString('base64url');
-      await store.putSession({
-        id: sessionId,
-        createdAt: new Date().toISOString(),
-        expiresAt: Math.floor(Date.now() / 1000) + SESSION_DAYS * 86400,
+    if (config.ownerId && config.ownerId !== user.id) return fail('wrong_account');
+    if (!config.ownerId || config.ownerName !== (user.display_name ?? undefined)) {
+      await store.putConfig({
+        ...config,
+        ownerId: user.id,
+        ownerName: user.display_name ?? undefined,
+        updatedAt: new Date().toISOString(),
       });
-      const sessionCookie = serializeCookie(SESSION_COOKIE, sessionId, {
-        maxAge: SESSION_DAYS * 86400,
-        secure: secure(req),
-      });
+    }
+    const previous = await store.getTokens();
+    await store.putTokens({ ...tokens, refreshToken: tokens.refreshToken || previous?.refreshToken || '' });
 
-      const firstRun = (await store.listShows()).length === 0;
-      if (firstRun) await startSync({});
-      return redirect(firstRun ? '/?welcome=1' : '/', [clearState, sessionCookie]);
-    },
-    { public: true },
-  );
+    const sessionId = randomBytes(32).toString('base64url');
+    await store.putSession({
+      id: sessionId,
+      createdAt: new Date().toISOString(),
+      expiresAt: Math.floor(Date.now() / 1000) + SESSION_SECONDS,
+    });
+    // Strict: the session is only ever needed by the SPA's same-origin fetches.
+    setCookie(c, SESSION_COOKIE, sessionId, { ...cookieOptions(c), maxAge: SESSION_SECONDS });
 
-  route(
-    'POST',
-    '/api/auth/logout',
-    async (req) => {
-      const id = req.cookies[SESSION_COOKIE];
-      if (id) await store.deleteSession(id);
-      return { status: 200, body: { ok: true }, cookies: [serializeCookie(SESSION_COOKIE, '', { maxAge: 0, secure: secure(req) })] };
-    },
-    { public: true },
-  );
+    const firstRun = (await store.listShows()).length === 0;
+    if (firstRun) await startSync({});
+    return c.redirect(firstRun ? '/?welcome=1' : '/');
+  });
+
+  app.post('/api/auth/logout', async (c) => {
+    const id = getCookie(c, SESSION_COOKIE);
+    if (id) await store.deleteSession(id);
+    deleteCookie(c, SESSION_COOKIE, cookieOptions(c));
+    return c.json({ ok: true });
+  });
 
   // ----------------------------------------------------------------- today
 
-  route('GET', '/api/today', async (req) => {
-    const tz = validTimeZone(req.query.tz);
+  app.get('/api/today', async (c) => {
+    const tz = validTimeZone(c.req.query('tz'));
     const [shows, settings, history, [today]] = await Promise.all([
       store.listShows(),
       store.getSettings(),
@@ -268,87 +269,96 @@ export function createApp(deps: AppDeps) {
       status: p.status,
       at: p.listenedAt ?? p.updatedAt,
     }));
-    return json(buildToday(shows, settings, recent, today.items));
+    return c.json(buildToday(shows, settings, recent, today.items));
   });
 
-  route('GET', '/api/history', async (req) => {
-    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
-    return json(await store.listHistory(limit));
+  app.get('/api/history', async (c) => {
+    const limit = Math.min(200, Math.max(1, Number(c.req.query('limit')) || 50));
+    return c.json(await store.listHistory(limit));
   });
 
   // ----------------------------------------------------------------- shows
 
-  route('GET', '/api/shows', async () => {
+  app.get('/api/shows', async (c) => {
     const shows = await store.listShows();
     shows.sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
-    return json(shows);
+    return c.json(shows);
   });
 
-  route('POST', '/api/shows/reorder', async (req) => {
-    await library.reorder(body<{ ids: string[] }>(req).ids ?? []);
-    return json({ ok: true });
+  app.post('/api/shows/reorder', async (c) => {
+    await library.reorder((await readBody<{ ids: string[] }>(c)).ids ?? []);
+    return c.json({ ok: true });
   });
 
-  route('GET', '/api/shows/:id', async (_req, p) => json(await library.detail(p.id)));
+  app.get('/api/shows/:id', async (c) => c.json(await library.detail(c.req.param('id'))));
 
-  route('PATCH', '/api/shows/:id', async (req, p) => json(await library.updateSettings(p.id, body<ShowSettingsPatch>(req))));
+  app.patch('/api/shows/:id', async (c) =>
+    c.json(await library.updateSettings(c.req.param('id'), await readBody<ShowSettingsPatch>(c))),
+  );
 
-  route('POST', '/api/shows/:id/sync', async (_req, p) => {
-    await library.requireShow(p.id);
-    return json(await startSync({ showId: p.id }), 202);
+  app.post('/api/shows/:id/sync', async (c) => {
+    const id = c.req.param('id');
+    await library.requireShow(id);
+    return c.json(await startSync({ showId: id }), StatusCodes.ACCEPTED);
   });
 
-  route('GET', '/api/shows/:id/episodes/:episodeId', async (_req, p) => json(await library.episode(p.id, p.episodeId)));
+  app.get('/api/shows/:id/episodes/:episodeId', async (c) =>
+    c.json(await library.episode(c.req.param('id'), c.req.param('episodeId'))),
+  );
 
-  route('PUT', '/api/shows/:id/episodes/:episodeId/status', async (req, p) => {
-    const { status } = body<{ status: EpisodeStatus | null }>(req);
-    return json(await library.setStatus(p.id, [p.episodeId], status ?? null));
+  app.put('/api/shows/:id/episodes/:episodeId/status', async (c) => {
+    const { status } = await readBody<{ status: EpisodeStatus | null }>(c);
+    return c.json(await library.setStatus(c.req.param('id'), [c.req.param('episodeId')], status ?? null));
   });
 
-  route('POST', '/api/shows/:id/episodes/:episodeId/complete-before', async (_req, p) =>
-    json(await library.completeBefore(p.id, p.episodeId)),
+  app.post('/api/shows/:id/episodes/:episodeId/complete-before', async (c) =>
+    c.json(await library.completeBefore(c.req.param('id'), c.req.param('episodeId'))),
   );
 
   // ------------------------------------------------------------ weekly plan
 
-  route('GET', '/api/schedule', async () => json(await store.getSchedule()));
+  app.get('/api/schedule', async (c) => c.json(await store.getSchedule()));
 
-  route('PUT', '/api/schedule', async (req) => json(await planner.saveSchedule(req.body)));
+  app.put('/api/schedule', async (c) => c.json(await planner.saveSchedule(await readBody(c))));
 
-  route('GET', '/api/week', async (req) => {
-    const days = await planner.week(validTimeZone(req.query.tz), Number(req.query.days) || 7, req.query.start);
-    return json({ days });
+  app.get('/api/week', async (c) => {
+    const days = await planner.week(
+      validTimeZone(c.req.query('tz')),
+      Number(c.req.query('days')) || 7,
+      c.req.query('start'),
+    );
+    return c.json({ days });
   });
 
   // ----------------------------------------------------------------- notes
 
-  route('GET', '/api/notes', async (req) => {
-    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 200));
-    return json(await store.listNotes(limit));
+  app.get('/api/notes', async (c) => {
+    const limit = Math.min(500, Math.max(1, Number(c.req.query('limit')) || 200));
+    return c.json(await store.listNotes(limit));
   });
 
-  route('GET', '/api/shows/:id/episodes/:episodeId/note', async (_req, p) => {
-    return json((await store.getNote(p.id, p.episodeId)) ?? null);
-  });
+  app.get('/api/shows/:id/episodes/:episodeId/note', async (c) =>
+    c.json((await store.getNote(c.req.param('id'), c.req.param('episodeId'))) ?? null),
+  );
 
-  route('PUT', '/api/shows/:id/episodes/:episodeId/note', async (req, p) => {
-    const { text } = body<{ text: string }>(req);
-    return json(await library.saveNote(p.id, p.episodeId, text ?? ''));
+  app.put('/api/shows/:id/episodes/:episodeId/note', async (c) => {
+    const { text } = await readBody<{ text: string }>(c);
+    return c.json(await library.saveNote(c.req.param('id'), c.req.param('episodeId'), text ?? ''));
   });
 
   // ------------------------------------------------------------------ sync
 
-  route('POST', '/api/sync', async (req) => {
-    const { full } = body<{ full: boolean }>(req);
-    return json(await startSync({ full: !!full }), 202);
+  app.post('/api/sync', async (c) => {
+    const { full } = await readBody<{ full: boolean }>(c);
+    return c.json(await startSync({ full: !!full }), StatusCodes.ACCEPTED);
   });
 
   // -------------------------------------------------------------- settings
 
-  route('GET', '/api/settings', async () => json(await store.getSettings()));
+  app.get('/api/settings', async (c) => c.json(await store.getSettings()));
 
-  route('PUT', '/api/settings', async (req) => {
-    const input = body<Settings>(req);
+  app.put('/api/settings', async (c) => {
+    const input = await readBody<Settings>(c);
     const current = await store.getSettings();
     const num = (v: unknown, min: number, max: number, fallback: number) => {
       const n = Number(v);
@@ -361,7 +371,7 @@ export function createApp(deps: AppDeps) {
       useSpotifyPlayedState: Boolean(input.useSpotifyPlayedState ?? current.useSpotifyPlayedState),
       autoCompleteInPlayer: Boolean(input.autoCompleteInPlayer ?? current.autoCompleteInPlayer),
       categories: Array.isArray(input.categories)
-        ? [...new Set(input.categories.map((c) => String(c).trim()).filter(Boolean))].slice(0, 50)
+        ? [...new Set(input.categories.map((cat) => String(cat).trim()).filter(Boolean))].slice(0, 50)
         : current.categories,
     };
     if (!next.categories.length) next.categories = DEFAULT_SETTINGS.categories;
@@ -369,34 +379,35 @@ export function createApp(deps: AppDeps) {
     if (next.newWindowDays !== current.newWindowDays || next.useSpotifyPlayedState !== current.useSpotifyPlayedState) {
       await library.recomputeAll();
     }
-    return json(next);
+    return c.json(next);
   });
 
   // ---------------------------------------------------------------- player
 
-  route('GET', '/api/player/token', async () => json(await spotify.getAccessToken()));
+  app.get('/api/player/token', async (c) => c.json(await deps.spotify().getAccessToken()));
 
-  route('GET', '/api/player/devices', async () => {
-    const devices: PlayerDevice[] = (await spotify.getDevices())
+  app.get('/api/player/devices', async (c) => {
+    const devices: PlayerDevice[] = (await deps.spotify().getDevices())
       .filter((d) => d.id && !d.is_restricted)
       .map((d) => ({ id: d.id!, name: d.name, type: d.type, isActive: d.is_active }));
-    return json(devices);
+    return c.json(devices);
   });
 
-  route('POST', '/api/player/play', async (req) => {
-    const { showId, episodeId, deviceId, fromStart, positionMs: requested } = body<{
+  app.post('/api/player/play', async (c) => {
+    const { showId, episodeId, deviceId, fromStart, positionMs: requested } = await readBody<{
       showId: string;
       episodeId: string;
       deviceId?: string;
       fromStart?: boolean;
       /** Explicit start position, e.g. from a timestamp in a note. */
       positionMs?: number;
-    }>(req);
+    }>(c);
     if (!showId || !episodeId) throw badRequest('showId und episodeId sind erforderlich');
     const cached = await store.getEpisode(showId, episodeId);
     if (!cached) throw notFound('Folge nicht gefunden');
 
     // Fetch the episode fresh so we resume where Spotify left off.
+    const spotify = deps.spotify();
     const fresh = await spotify.getEpisode(episodeId);
     let positionMs = 0;
     if (fresh) {
@@ -408,12 +419,12 @@ export function createApp(deps: AppDeps) {
       positionMs = Math.min(requested, Math.max(0, cached.durationMs - 1000));
     }
     await spotify.play(episodeId, deviceId || undefined, positionMs);
-    return json({ ok: true, positionMs, durationMs: cached.durationMs });
+    return c.json({ ok: true, positionMs, durationMs: cached.durationMs });
   });
 
   // ------------------------------------------------------------------ data
 
-  route('GET', '/api/export', async () => {
+  app.get('/api/export', async (c) => {
     const [shows, settings, schedule, notes] = await Promise.all([
       store.listShows(),
       store.getSettings(),
@@ -421,90 +432,24 @@ export function createApp(deps: AppDeps) {
       store.listNotes(10_000),
     ]);
     const progress = await Promise.all(shows.map(async (s) => [...(await store.listProgress(s.id)).values()]));
-    return {
-      status: 200,
-      headers: { 'Content-Disposition': 'attachment; filename="podcast-manager-export.json"' },
-      body: {
-        exportedAt: new Date().toISOString(),
-        settings,
-        shows: shows.map(({ summary: _summary, ...s }) => s),
-        progress: progress.flat(),
-        schedule,
-        notes,
-      },
-    };
-  });
-
-  route('DELETE', '/api/data', async (req) => {
-    await store.deleteAll();
-    return { status: 200, body: { ok: true }, cookies: [serializeCookie(SESSION_COOKIE, '', { maxAge: 0, secure: secure(req) })] };
-  });
-
-  // -------------------------------------------------------------- dispatch
-
-  return async function handle(req: HttpRequest): Promise<HttpResponse> {
-    try {
-      const method = req.method.toUpperCase();
-      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !String(req.headers['content-type'] ?? '').includes('application/json')) {
-        // Simple CSRF guard: cross-site forms cannot send JSON without a CORS preflight.
-        throw new ApiError(415, 'unsupported_media_type', 'Content-Type application/json erforderlich');
-      }
-      let pathMatched = false;
-      for (const r of routes) {
-        const m = r.pattern.exec(req.path);
-        if (!m) continue;
-        pathMatched = true;
-        if (r.method !== method) continue;
-        if (!r.public && !(await isAuthenticated(req))) throw unauthorized();
-        const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
-        const res = await r.handler(req, params);
-        return { ...res, headers: { 'Cache-Control': 'no-store', ...res.headers } };
-      }
-      if (pathMatched) throw new ApiError(405, 'method_not_allowed', 'Methode nicht erlaubt');
-      throw notFound('Unbekannter Endpunkt');
-    } catch (e) {
-      if (e instanceof ApiError) {
-        return { status: e.status, headers: { 'Cache-Control': 'no-store' }, body: { error: e.code, message: e.message } };
-      }
-      console.error('Unhandled error', e);
-      return {
-        status: 500,
-        headers: { 'Cache-Control': 'no-store' },
-        body: { error: 'internal', message: 'Interner Fehler – Details im CloudWatch-Log.' },
-      };
-    }
-  };
-}
-
-async function fetchMe(accessToken: string): Promise<SpotifyUser> {
-  const res = await fetch('https://api.spotify.com/v1/me', { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (res.status === 403) {
-    throw new ApiError(403, 'spotify_user_not_allowed', 'Dieser Spotify-Account ist nicht in der User-Liste der Spotify-App.');
-  }
-  if (!res.ok) throw new ApiError(502, 'spotify_error', `Spotify /me fehlgeschlagen (${res.status})`);
-  return (await res.json()) as SpotifyUser;
-}
-
-/** Uses the client-credentials grant purely to check that ID and secret are valid. */
-async function verifyClientCredentials(clientId: string, clientSecret: string) {
-  let res: Response;
-  try {
-    res = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-      },
-      body: new URLSearchParams({ grant_type: 'client_credentials' }),
+    c.header('Content-Disposition', 'attachment; filename="podcast-manager-export.json"');
+    return c.json({
+      exportedAt: new Date().toISOString(),
+      settings,
+      shows: shows.map(({ summary: _summary, ...s }) => s),
+      progress: progress.flat(),
+      schedule,
+      notes,
     });
-  } catch {
-    return; // network trouble – don't block setup, the OAuth flow will tell
-  }
-  if (res.status === 400 || res.status === 401) {
-    const j = (await res.json().catch(() => ({}))) as { error?: string };
-    if (j.error === 'invalid_client') {
-      throw new ApiError(400, 'spotify_invalid_client', 'Spotify kennt diese Client-ID/Secret-Kombination nicht.');
-    }
-  }
+  });
+
+  app.delete('/api/data', async (c) => {
+    await store.deleteAll();
+    deleteCookie(c, SESSION_COOKIE, cookieOptions(c));
+    return c.json({ ok: true });
+  });
+
+  return app;
 }
 
+export type App = ReturnType<typeof createApp>;

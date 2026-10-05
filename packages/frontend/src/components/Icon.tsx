@@ -1,56 +1,81 @@
-const PATHS = {
-  play: 'M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z',
-  pause: 'M7 5h3.5v14H7zM13.5 5H17v14h-3.5z',
-  check: 'M9.55 17.6 4.4 12.45l1.4-1.4 3.75 3.72 8.65-8.67 1.4 1.42z',
-  skip: 'M6 6.5v11l8.5-5.5L6 6.5Zm10 0h2v11h-2z',
-  external: 'M14 4h6v6h-2V7.41l-8.29 8.3-1.42-1.42L16.59 6H14V4ZM5 6h6v2H6v10h10v-5h2v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z',
-  more: 'M12 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z',
-  refresh:
-    'M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35Z',
-  pin: 'M16 3v2h-1v6l3 3v2h-5v5l-1 1-1-1v-5H6v-2l3-3V5H8V3h8Z',
-  back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2Z',
-  search:
-    'M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5Zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14Z',
-  home: 'M12 3 2 12h3v8h5v-6h4v6h5v-8h3L12 3Z',
-  list: 'M4 6h2v2H4V6Zm4 0h12v2H8V6Zm-4 5h2v2H4v-2Zm4 0h12v2H8v-2Zm-4 5h2v2H4v-2Zm4 0h12v2H8v-2Z',
-  history:
-    'M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3Zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12Z',
-  settings:
-    'M19.14 12.94a7.14 7.14 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.61.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.14 7.14 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.12.22.39.3.61.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.05.24.25.42.49.42h3.84c.25 0 .45-.18.49-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.08.49 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.01-1.58ZM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2Z',
-  rewind: 'M11 18V6l-8.5 6 8.5 6Zm.5-6 8.5 6V6l-8.5 6Z',
-  forward: 'M4 18l8.5-6L4 6v12Zm9-12v12l8.5-6L13 6Z',
-  device:
-    'M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6Zm19 2h-6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1Zm-1 9h-4v-7h4v7Z',
-  close:
-    'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z',
-  undo: 'M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62A7.95 7.95 0 0 1 20.36 16l2.37-.78C21.32 10.96 17.27 8 12.5 8Z',
-  up: 'M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41Z',
-  down: 'M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41Z',
-  sort: 'M3 18h6v-2H3v2ZM3 6v2h18V6H3Zm0 7h12v-2H3v2Z',
-  calendar:
-    'M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 16H5V10h14v10Zm0-12H5V6h14v2Zm-7 5h5v5h-5v-5Z',
-  note: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z',
-  plus: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2Z',
-  clock:
-    'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7Z',
-  trash: 'M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z',
-} as const;
+import {
+  ArrowDownUp,
+  ArrowLeft,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  EllipsisVertical,
+  ExternalLink,
+  History,
+  House,
+  List,
+  MonitorSpeaker,
+  Pause,
+  PenLine,
+  Pin,
+  Play,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  RotateCw,
+  Search,
+  Settings,
+  SkipForward,
+  Trash2,
+  Undo2,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 
-export type IconName = keyof typeof PATHS;
+/** App-level icon names, mapped to lucide icons in one place. */
+const ICONS = {
+  play: Play,
+  pause: Pause,
+  check: Check,
+  skip: SkipForward,
+  external: ExternalLink,
+  more: EllipsisVertical,
+  refresh: RefreshCw,
+  pin: Pin,
+  back: ArrowLeft,
+  search: Search,
+  home: House,
+  list: List,
+  history: History,
+  settings: Settings,
+  rewind: RotateCcw,
+  forward: RotateCw,
+  device: MonitorSpeaker,
+  close: X,
+  undo: Undo2,
+  up: ChevronUp,
+  down: ChevronDown,
+  sort: ArrowDownUp,
+  calendar: CalendarDays,
+  note: PenLine,
+  plus: Plus,
+  clock: Clock,
+  trash: Trash2,
+} satisfies Record<string, LucideIcon>;
+
+export type IconName = keyof typeof ICONS;
+
+/** Solid shapes read better for the transport controls. */
+const FILLED = new Set<IconName>(['play', 'pause']);
 
 export function Icon({ name, size = 20, title }: { name: IconName; size?: number; title?: string }) {
+  const Component = ICONS[name];
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden={title ? undefined : true}
-      role={title ? 'img' : undefined}
+    <Component
+      size={size}
       className="icon"
-    >
-      {title && <title>{title}</title>}
-      <path d={PATHS[name]} />
-    </svg>
+      strokeWidth={2}
+      fill={FILLED.has(name) ? 'currentColor' : 'none'}
+      aria-hidden={title ? undefined : true}
+      aria-label={title}
+      role={title ? 'img' : undefined}
+    />
   );
 }

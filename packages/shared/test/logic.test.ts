@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildEpisodeViews, buildToday, selectNextEpisode, summarizeShow } from './logic.js';
-import { guessCategories, guessMode } from './heuristics.js';
-import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Show } from './types.js';
+import { buildEpisodeViews, buildToday, selectNextEpisode, summarizeShow } from '../src/logic.js';
+import { guessCategories, guessMode } from '../src/heuristics.js';
+import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Show } from '../src/types.js';
 
 const now = new Date('2026-10-05T08:00:00Z');
 

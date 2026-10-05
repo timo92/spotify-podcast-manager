@@ -82,7 +82,7 @@ export class PodcastStack extends Stack {
     const common = {
       entry: join(ROOT, 'packages/backend/src/lambda.ts'),
       projectRoot: ROOT,
-      depsLockFilePath: join(ROOT, 'package-lock.json'),
+      depsLockFilePath: join(ROOT, 'pnpm-lock.yaml'),
       runtime: lambda.Runtime.NODEJS_22_X,
       architecture: lambda.Architecture.ARM_64,
       bundling: {

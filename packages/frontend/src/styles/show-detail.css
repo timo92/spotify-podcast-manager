@@ -1,0 +1,131 @@
+/* Podcast detail page: hero, search, episode list. */
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  align-self: flex-start;
+}
+.show-hero {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.show-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.show-hero h1 {
+  font-size: 1.4rem;
+}
+.description {
+  margin: 0;
+  color: var(--text-muted);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.description.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+}
+.next-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-color: var(--accent);
+}
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+.search input {
+  border: none;
+  background: transparent;
+  padding: 10px 0;
+}
+.search input:focus-visible {
+  outline: none;
+}
+.search:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.episode-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.episode-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.episode-row:last-child {
+  border-bottom: none;
+}
+.episode-row.is-done .episode-title {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.episode-row.is-next {
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+}
+.episode-index {
+  width: 30px;
+  flex: none;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.episode-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.episode-row .episode-title {
+  font-size: 0.95rem;
+}
+.episode-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.episode-row-actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+@media (max-width: 480px) {
+  .episode-index {
+    display: none;
+  }
+}

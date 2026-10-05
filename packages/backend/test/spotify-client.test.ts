@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MemoryStore } from '../store/memory.js';
-import { HttpSpotifyApi } from './client.js';
+import { MemoryStore } from '../src/store/memory.js';
+import { HttpSpotifyApi } from '../src/spotify/client.js';
 
 function response(status: number, body?: unknown, headers: Record<string, string> = {}) {
   return new Response(body === undefined ? null : JSON.stringify(body), { status, headers });

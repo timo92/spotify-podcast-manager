@@ -28,7 +28,7 @@ The UI is in German. The code and docs are in English.
 ## Features
 
 - **Spotify login (OAuth).** The first Spotify account that logs in becomes the owner, and every other account is rejected. The Spotify password never touches the app.
-- **Setup in the browser.** You type the Spotify Client ID and Secret on the setup page, so no secrets go into the deployment. A one-time setup code from `cdk deploy` protects the setup page until you have claimed the app.
+- **Setup in the browser.** You type the Spotify Client ID and Secret on the setup page, so no secrets go into the deployment. A one-time [setup code](#the-setup-code) protects the setup page until you have claimed the app.
 - **Import of your saved shows**, with a guessed mode and categories (daily shows → `LATEST`, plus keyword-based categories). A review screen lets you confirm the guesses quickly.
 - **Idempotent sync**: new episodes every 2 hours, a full refresh every night, and manual sync at any time. A sync only writes metadata. Your personal progress is stored in separate records and is never overwritten.
 - **Spotify's listening state is used as a hint.** Episodes that are partly played in Spotify show up as *Weiter* (continue), with the remaining time. Episodes that Spotify reports as fully played count as heard. You can turn that off in the settings, and your own marks always win.
@@ -40,39 +40,80 @@ The UI is in German. The code and docs are in English.
 - **Daily budget** with tolerance. Episodes are picked in your priority order, counting only the remaining time of episodes you have already started.
 - **Other pages:** a history page, a JSON export, and "delete all data".
 - **Mobile-first UI** with light/dark mode. It can be installed as a home-screen app.
-- **Offline demo mode** with generated podcasts (`npm run dev:demo`).
+- **Offline demo** with generated podcasts (`pnpm dev:demo`).
 
 ## Repository layout
 
 ```
 packages/
-  shared/    domain types + pure logic (next-episode selection, budget, heuristics)
-  backend/   Lambda handlers, Spotify service layer, DynamoDB/in-memory stores, local dev server
-  frontend/  React SPA (Vite, TanStack Query, React Router)
-  infra/     AWS CDK app
-docs/        architecture, Spotify API notes
+  shared/      domain types + pure logic (next-episode selection, budget, weekly plan)
+  backend/
+    src/       Hono API, Lambda handlers, Spotify service layer, DynamoDB/in-memory stores
+    dev/       local development server
+    test/      tests and fakes (fake Spotify)
+  frontend/
+    src/       React SPA (Vite, TanStack Query, React Router)
+    dev/       development-only helpers (fake Web Playback SDK)
+    test/      tests
+  infra/       AWS CDK app
+docs/          requirements, architecture decisions, Spotify API notes
 ```
+
+Why it is built this way: [docs/decisions.md](docs/decisions.md). What it
+does: [docs/requirements.md](docs/requirements.md).
+
+## The Spotify app
+
+The app talks to Spotify through **your own Spotify developer app**. That is
+nothing more than an entry in Spotify's developer dashboard that gives you a
+Client ID and Client Secret. You create it once and use it both locally and on
+AWS:
+
+1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app (name and description are up to you).
+2. Under **APIs used**, select *Web API* and *Web Playback SDK*.
+3. Under **Redirect URIs**, add every address the app runs at. One app can have several:
+   - `http://127.0.0.1:5173/api/auth/callback` for local development. Spotify only allows plain `http` for loopback IPs, not for `localhost`.
+   - `https://<your domain>/api/auth/callback` for AWS (shown as the `SpotifyRedirectUri` output after deploying).
+4. Copy the Client ID and Client Secret from the app's settings. You type them into the app's setup page; they are never part of the code or the deployment.
+
+In Spotify's development mode, the app works for its owner (you; Spotify
+Premium required) and up to five users you add under *User Management*.
 
 ## Run locally
 
-Requires Node.js 22+.
+Requires Node.js 22+ and pnpm (`corepack enable` picks the version from
+`package.json`).
 
 ```bash
-npm install
-
-# Offline demo with fake Spotify data – no Spotify app needed.
-# API on :8787, UI on http://127.0.0.1:5173 (any client ID/secret works):
-npm run dev:demo
+pnpm install
 ```
 
-To run against real Spotify, use `npm run dev` instead and
-register `http://127.0.0.1:5173/api/auth/callback` as a redirect URI in your
-Spotify app. Spotify only allows plain `http` for loopback IPs, not `localhost`.
-Local data is stored in `packages/backend/.local-data/`.
+**Demo without Spotify.** Fake podcasts, fake login and a fake browser player;
+no Spotify app needed:
 
 ```bash
-npm test         # all unit/integration tests (DynamoDB via dynalite, CDK assertions)
-npm run typecheck
+pnpm dev:demo        # API on :8787, UI on http://127.0.0.1:5173
+```
+
+Open http://127.0.0.1:5173 and click *Mit Spotify anmelden*. All demo wiring
+lives in `packages/backend/dev/` and `packages/frontend/dev/`; the app itself
+has no demo mode.
+
+**Against real Spotify.**
+
+```bash
+pnpm dev
+```
+
+1. Open **http://127.0.0.1:5173**. Use exactly this address, not `localhost`, so it matches the redirect URI.
+2. Enter the Client ID and Client Secret of [your Spotify app](#the-spotify-app). Locally no setup code is needed unless you start the backend with `SETUP_CODE=…`.
+3. Log in with Spotify. The first import starts automatically.
+
+Local data is stored in `packages/backend/.local-data/` (separate from AWS).
+
+```bash
+pnpm test            # all tests (DynamoDB via dynalite, CDK assertions)
+pnpm typecheck
 ```
 
 ## Deploy to AWS
@@ -96,24 +137,36 @@ stack creates the TLS certificate in `us-east-1`, which CloudFront requires.
 
 ```bash
 cd packages/infra
-npx cdk bootstrap aws://<ACCOUNT>/eu-central-1 aws://<ACCOUNT>/us-east-1
+pnpm exec cdk bootstrap aws://<ACCOUNT>/eu-central-1 aws://<ACCOUNT>/us-east-1
 ```
 
 ### 3. Deploy
 
 ```bash
-npm run deploy          # from the repo root: builds the frontend, then `cdk deploy --all`
+pnpm run deploy      # from the repo root: builds the frontend, then `cdk deploy --all`
 ```
 
 The outputs show `Url`, `SpotifyRedirectUri` and `SetupCode`.
 
-### 4. Create the Spotify app and finish the setup
+### 4. Finish the setup
 
-1. In the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), create an app.
-   - Under **APIs used**, select *Web API* and *Web Playback SDK*.
-   - Under **Redirect URIs**, add the `SpotifyRedirectUri` output, e.g. `https://podcasts.example.com/api/auth/callback`.
+1. Add the `SpotifyRedirectUri` output to the redirect URIs of [your Spotify app](#the-spotify-app), e.g. `https://podcasts.example.com/api/auth/callback`.
 2. Open the `Url`. Enter the setup code, Client ID and Client Secret, then log in with Spotify.
 3. The first import runs automatically. Then confirm the guessed mode and categories under **Podcasts → Prüfen**.
+
+### The setup code
+
+Right after `cdk deploy`, the app is on the internet but has no owner yet. The
+first Spotify account that completes the setup and logs in becomes the owner
+for good. Without protection, anyone who found the URL first could enter their
+own Spotify app and claim your installation. The setup code prevents that:
+
+- On the first deploy, CDK generates a random code and saves it in `packages/infra/.setup-code` (git-ignored), so it stays the same on later deploys. To choose your own, set `setupCode` in `cdk.json` or pass `-c setupCode=…`.
+- It reaches the API as the Lambda environment variable `SETUP_CODE` and is printed as the `SetupCode` stack output.
+- The setup page only accepts Client ID and Secret together with this code.
+- After your first login, setup is locked and the code no longer matters. You change the Spotify credentials later under *Einstellungen* while logged in.
+
+Only people with access to your AWS account can see the code.
 
 ### Costs
 
@@ -121,7 +174,8 @@ For one user, this stays in or near the AWS free tier: Lambda, DynamoDB on-deman
 
 ## How it works
 
-- **Single origin.** CloudFront serves the SPA from S3 and forwards `/api/*` to API Gateway (HTTP API) and a Lambda function. The session cookie is first-party (`HttpOnly`, `Secure`, `SameSite=Lax`), so there is no CORS. Requests that change data must be sent as JSON, which works as a simple CSRF guard.
+- **Single origin.** CloudFront serves the SPA from S3 and forwards `/api/*` to API Gateway (HTTP API) and a Lambda function running a [Hono](https://hono.dev) app. Because everything is on one origin, there is no CORS.
+- **Cookies.** The session cookie is `HttpOnly`, `Secure` and `SameSite=Strict`. The short-lived OAuth state cookie is `SameSite=Lax`, because Spotify's redirect back to the app is a cross-site navigation and browsers drop `Strict` cookies on those. Requests that change data must be sent as JSON, which works as an additional CSRF guard.
 - **Tokens stay on the server.** Spotify access and refresh tokens are kept in DynamoDB. The browser only gets a short-lived access token for the Web Playback SDK, which needs one.
 - **Sync** runs in a separate Lambda function: asynchronously from the API (because API Gateway times out after 29 s), every 2 hours, and once a day as a full refresh. It runs with a reserved concurrency of 1, so two syncs never run at once.
 - **Data model:** one DynamoDB table. Episodes (`EP#<show>`) and progress (`PROG#<show>`) are separate items, so a sync can never overwrite your progress. Each show item carries a summary (next episode, counts) that is recomputed after every change. That way, "Heute" and the overview only need to read the list of shows. Details are in [`packages/backend/src/store/dynamo.ts`](packages/backend/src/store/dynamo.ts).

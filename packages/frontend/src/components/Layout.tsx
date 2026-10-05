@@ -77,7 +77,6 @@ export function Layout() {
           ))}
         </nav>
         <div className="topbar-actions">
-          {status?.demo && <span className="badge badge-warn">Demo</span>}
           <PlayTargetPicker />
           <SyncButton />
         </div>

@@ -1,0 +1,48 @@
+/*
+ * Design tokens. Colours use light-dark(), so each token is defined once for
+ * both schemes; color-scheme follows the OS unless the user picked a theme
+ * (data-theme on <html>, see Settings).
+ */
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#f6f7f5, #0f1412);
+  --surface: light-dark(#ffffff, #171e1b);
+  --surface-2: light-dark(#eef1ed, #1f2824);
+  --border: light-dark(#dfe4de, #2a3530);
+  --text: light-dark(#141a17, #e9efeb);
+  --text-muted: light-dark(#5d6862, #94a39b);
+  --accent: light-dark(#128a3e, #1ed760);
+  --accent-strong: light-dark(#0d6d30, #3be477);
+  --accent-contrast: light-dark(#ffffff, #06210f);
+  --accent-soft: light-dark(#dcf3e3, #143322);
+  --new: light-dark(#c2410c, #fb923c);
+  --new-soft: light-dark(#ffedd5, #3a2314);
+  --continue: light-dark(#1d4ed8, #7aa7ff);
+  --continue-soft: light-dark(#dbeafe, #172846);
+  --pinned: light-dark(#7c3aed, #b794ff);
+  --pinned-soft: light-dark(#ede9fe, #2a1e48);
+  --warn: light-dark(#a16207, #fbbf24);
+  --warn-soft: light-dark(#fef3c7, #3a2e10);
+  --error: light-dark(#b91c1c, #f87171);
+  --error-soft: light-dark(#fee2e2, #3d1717);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 4px 16px rgb(0 0 0 / 0.04);
+  --radius: 14px;
+  --radius-sm: 9px;
+  --nav-h: 64px;
+  --player-h: 0px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  }
+}

@@ -1,0 +1,61 @@
+/* Player bar. */
+
+.player {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  z-index: 25;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 20px rgb(0 0 0 / 0.08);
+}
+@media (min-width: 760px) {
+  .player {
+    bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+.player-seek {
+  position: absolute;
+  top: -7px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  height: 14px;
+}
+.player-inner {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 10px;
+}
+.player-text {
+  flex: 1;
+  min-width: 0;
+}
+.player-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-text .small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.player-controls {
+  display: flex;
+  align-items: center;
+}
+@media (max-width: 480px) {
+  .hide-narrow {
+    display: none;
+  }
+  .player-controls .icon-btn {
+    width: 36px;
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatClock, formatDuration, formatReleaseDate } from './format';
+import { formatClock, formatDuration, formatReleaseDate } from '../src/lib/format';
 
 describe('format', () => {
   it('formats durations', () => {
@@ -19,7 +19,7 @@ describe('format', () => {
 
 describe('splitTimestamps', () => {
   it('finds mm:ss and h:mm:ss timestamps', async () => {
-    const { splitTimestamps } = await import('./format');
+    const { splitTimestamps } = await import('../src/lib/format');
     expect(splitTimestamps('a [2:05] b [1:00:01]')).toEqual([
       { text: 'a ' },
       { label: '[2:05]', ms: 125_000 },

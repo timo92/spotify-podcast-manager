@@ -8,11 +8,13 @@
     "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:demo": "vite --mode demo"
   },
   "dependencies": {
-    "@podcast/shared": "*",
+    "@podcast/shared": "workspace:*",
     "@tanstack/react-query": "^5.104.1",
+    "lucide-react": "^1.52.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4"

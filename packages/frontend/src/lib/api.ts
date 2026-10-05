@@ -40,7 +40,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
-export type Status = AppStatus & { demo?: boolean };
+export type Status = AppStatus;
 
 /** The browser's time zone – "today" and the weekly plan are computed in it. */
 export const TIME_ZONE = (() => {

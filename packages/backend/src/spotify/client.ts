@@ -1,3 +1,4 @@
+import { StatusCodes } from 'http-status-codes';
 import { ApiError } from '../errors.js';
 import type { AppConfig, SpotifyTokens, Store } from '../store/types.js';
 import type {
@@ -31,9 +32,6 @@ export const SCOPES = [
   'user-modify-playback-state',
 ];
 
-/** Scopes without which core features fail. */
-export const REQUIRED_SCOPES = ['user-library-read', 'user-read-playback-position'];
-
 export function authorizeUrl(clientId: string, redirectUri: string, state: string): string {
   const params = new URLSearchParams({
     response_type: 'code',
@@ -58,12 +56,12 @@ async function tokenRequest(config: Pick<AppConfig, 'clientId' | 'clientSecret'>
   if (!res.ok) {
     const detail = json.error_description ?? json.error ?? res.statusText;
     if (json.error === 'invalid_client') {
-      throw new ApiError(400, 'spotify_invalid_client', `Spotify lehnt Client-ID/Secret ab (${detail}).`);
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'spotify_invalid_client', `Spotify lehnt Client-ID/Secret ab (${detail}).`);
     }
     if (json.error === 'invalid_grant') {
-      throw new ApiError(401, 'spotify_reauth', `Spotify-Anmeldung abgelaufen, bitte neu anmelden (${detail}).`);
+      throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_reauth', `Spotify-Anmeldung abgelaufen, bitte neu anmelden (${detail}).`);
     }
-    throw new ApiError(502, 'spotify_token_error', `Spotify-Token-Fehler: ${detail}`);
+    throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_token_error', `Spotify-Token-Fehler: ${detail}`);
   }
   return json;
 }
@@ -106,10 +104,10 @@ export class HttpSpotifyApi implements SpotifyApi {
 
   private async validToken(forceRefresh = false): Promise<string> {
     this.tokens ??= await this.store.getTokens();
-    if (!this.tokens) throw new ApiError(401, 'spotify_not_connected', 'Spotify ist nicht verbunden.');
+    if (!this.tokens) throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_not_connected', 'Spotify ist nicht verbunden.');
     if (forceRefresh || this.tokens.expiresAt - 60_000 < Date.now()) {
       const config = await this.store.getConfig();
-      if (!config) throw new ApiError(409, 'not_configured', 'App ist nicht eingerichtet.');
+      if (!config) throw new ApiError(StatusCodes.CONFLICT, 'not_configured', 'App ist nicht eingerichtet.');
       const json = await tokenRequest(
         config,
         new URLSearchParams({ grant_type: 'refresh_token', refresh_token: this.tokens.refreshToken }),
@@ -140,22 +138,22 @@ export class HttpSpotifyApi implements SpotifyApi {
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
 
-      if (res.status === 204 || res.status === 202) return undefined;
+      if (res.status === StatusCodes.NO_CONTENT || res.status === StatusCodes.ACCEPTED) return undefined;
       if (res.ok) {
         const text = await res.text();
         return text ? (JSON.parse(text) as T) : undefined;
       }
 
-      if (res.status === 401 && !refreshed) {
+      if (res.status === StatusCodes.UNAUTHORIZED && !refreshed) {
         refreshed = true;
         await this.validToken(true);
         continue;
       }
-      if (res.status === 429) {
+      if (res.status === StatusCodes.TOO_MANY_REQUESTS) {
         const retryAfter = Number(res.headers.get('retry-after') ?? '1');
         if (retryAfter > 20) {
           throw new ApiError(
-            429,
+            StatusCodes.TOO_MANY_REQUESTS,
             'spotify_rate_limited',
             `Spotify-Rate-Limit erreicht, bitte in ${Math.ceil(retryAfter / 60)} Minuten erneut versuchen.`,
           );
@@ -163,30 +161,34 @@ export class HttpSpotifyApi implements SpotifyApi {
         await sleep((retryAfter + 0.5) * 1000);
         continue;
       }
-      if (res.status >= 500 && attempt < 2) {
+      if (res.status >= StatusCodes.INTERNAL_SERVER_ERROR && attempt < 2) {
         await sleep(500 * (attempt + 1));
         continue;
       }
 
       const err = (await res.json().catch(() => ({}))) as { error?: { message?: string; reason?: string } };
       const message = err.error?.message ?? res.statusText;
-      if (res.status === 401) {
-        throw new ApiError(401, 'spotify_reauth', `Spotify-Zugriff abgelaufen, bitte neu anmelden. (${message})`);
+      if (res.status === StatusCodes.UNAUTHORIZED) {
+        throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_reauth', `Spotify-Zugriff abgelaufen, bitte neu anmelden. (${message})`);
       }
-      if (res.status === 403) {
+      if (res.status === StatusCodes.FORBIDDEN) {
         throw new ApiError(
-          403,
+          StatusCodes.FORBIDDEN,
           'spotify_forbidden',
           `Spotify verweigert den Zugriff (${message}). Mögliche Ursachen: fehlende Berechtigung (bitte neu anmelden), ` +
             `Account nicht in der User-Liste der Spotify-App oder kein Premium beim App-Owner.`,
         );
       }
-      if (res.status === 404 && err.error?.reason === 'NO_ACTIVE_DEVICE') {
-        throw new ApiError(409, 'no_active_device', 'Kein aktives Spotify-Gerät gefunden. Öffne Spotify auf einem Gerät.');
+      if (res.status === StatusCodes.NOT_FOUND && err.error?.reason === 'NO_ACTIVE_DEVICE') {
+        throw new ApiError(StatusCodes.CONFLICT, 'no_active_device', 'Kein aktives Spotify-Gerät gefunden. Öffne Spotify auf einem Gerät.');
       }
-      throw new ApiError(res.status === 404 ? 404 : 502, 'spotify_error', `Spotify-Fehler ${res.status}: ${message}`);
+      throw new ApiError(
+        res.status === StatusCodes.NOT_FOUND ? StatusCodes.NOT_FOUND : StatusCodes.BAD_GATEWAY,
+        'spotify_error',
+        `Spotify-Fehler ${res.status}: ${message}`,
+      );
     }
-    throw new ApiError(502, 'spotify_error', 'Spotify antwortet nicht – bitte später erneut versuchen.');
+    throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_error', 'Spotify antwortet nicht – bitte später erneut versuchen.');
   }
 
   async getMe() {
@@ -223,7 +225,7 @@ export class HttpSpotifyApi implements SpotifyApi {
     try {
       return await this.request<SpotifyEpisode>('GET', `/episodes/${encodeURIComponent(episodeId)}`);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 404) return undefined;
+      if (e instanceof ApiError && e.status === StatusCodes.NOT_FOUND) return undefined;
       throw e;
     }
   }

@@ -1,0 +1,76 @@
+/* Episode notes. */
+
+.note-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.note-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 90px;
+}
+.note-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.note-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+.note-state {
+  margin-left: auto;
+}
+.note-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.timestamp {
+  border: none;
+  padding: 0 4px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  cursor: pointer;
+}
+.note-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.note-card .row-between {
+  align-items: flex-start;
+}
+.note-card .grow {
+  display: flex;
+  flex-direction: column;
+}
+.note-sheet .note-controls {
+  justify-content: center;
+}
+.note-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  background: var(--pinned-soft);
+  color: var(--pinned);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}

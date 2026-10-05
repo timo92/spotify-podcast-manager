@@ -2,9 +2,9 @@ import { CreateTableCommand, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import dynalite from 'dynalite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Episode, Show } from '@podcast/shared';
-import { DynamoStore } from './dynamo.js';
-import { MemoryStore } from './memory.js';
-import type { Store } from './types.js';
+import { DynamoStore } from '../src/store/dynamo.js';
+import { MemoryStore } from '../src/store/memory.js';
+import type { Store } from '../src/store/types.js';
 
 const show: Show = {
   id: 's1',

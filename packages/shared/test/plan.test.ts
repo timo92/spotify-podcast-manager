@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildEpisodeViews, buildToday, summarizeShow } from './logic.js';
-import { addDays, buildWeek, localDate, weekdayOf, type PlanInput } from './plan.js';
-import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Schedule, type Show } from './types.js';
+import { buildEpisodeViews, buildToday, summarizeShow } from '../src/logic.js';
+import { addDays, buildWeek, localDate, weekdayOf, type PlanInput } from '../src/plan.js';
+import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Schedule, type Show } from '../src/types.js';
 
 const now = new Date('2026-10-05T08:00:00Z'); // a Monday
 

@@ -7,8 +7,8 @@ import { ErrorBox } from '../components/ui';
 export function SetupPage({ status }: { status: Status }) {
   const qc = useQueryClient();
   const [setupCode, setSetupCode] = useState('');
-  const [clientId, setClientId] = useState(status.demo ? 'demo0000000000000000000000000000' : '');
-  const [clientSecret, setClientSecret] = useState(status.demo ? 'demo0000000000000000000000000000' : '');
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);

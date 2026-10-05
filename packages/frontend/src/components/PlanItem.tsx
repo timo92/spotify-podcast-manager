@@ -15,11 +15,13 @@ export function PlanItemRow({
   item,
   isToday,
   onOpen,
+  onEdit,
   onRemove,
 }: {
   item: PlannedItem;
   isToday: boolean;
   onOpen: (showId: string, episodeId: string) => void;
+  onEdit?: () => void;
   onRemove?: () => void;
 }) {
   const actions = useEpisodeActions();
@@ -67,6 +69,7 @@ export function PlanItemRow({
         {open && isToday && item.state === 'next' && (
           <IconButton icon="check" label="Als gehört markieren" onClick={() => actions.setStatus(ep, 'COMPLETED')} />
         )}
+        {onEdit && <IconButton icon="note" label="Termin bearbeiten" onClick={onEdit} />}
         {onRemove && <IconButton icon="close" label="Aus dem Wochenplan entfernen" onClick={onRemove} />}
       </div>
     </li>

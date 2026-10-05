@@ -42,13 +42,13 @@ export async function applyRetention(store: Store, now = new Date()): Promise<Re
   return { deletedShows: stale, deletedAll: false };
 }
 
-/** Drops the shows' slots; retries if the user saved the plan at the same time. */
+/** Drops the shows' rules; retries if the user saved the plan at the same time. */
 async function removeFromSchedule(store: Store, showIds: string[], now: Date) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const schedule = await store.getSchedule();
-    const entries = schedule.entries.filter((e) => !showIds.includes(e.showId));
-    if (entries.length === schedule.entries.length) return;
-    const written = await store.putSchedule({ entries, updatedAt: now.toISOString() }, schedule.updatedAt ?? null);
+    const rules = schedule.rules.filter((r) => !showIds.includes(r.showId));
+    if (rules.length === schedule.rules.length) return;
+    const written = await store.putSchedule({ rules, updatedAt: now.toISOString() }, schedule.updatedAt ?? null);
     if (written) return;
   }
   // A concurrent save keeps winning; saveSchedule drops unknown shows anyway.

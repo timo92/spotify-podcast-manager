@@ -71,7 +71,7 @@ export function TodayPage() {
               </div>
               <ul className="plan-list card">
                 {t.plan.map((item) => (
-                  <PlanItemRow key={item.entryId} item={item} isToday onOpen={onOpen} />
+                  <PlanItemRow key={item.ruleId} item={item} isToday onOpen={onOpen} />
                 ))}
               </ul>
             </section>

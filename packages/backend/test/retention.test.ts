@@ -31,22 +31,22 @@ function show(id: string, extra: Partial<Show> = {}): Show {
 }
 
 describe('applyRetention', () => {
-  it(`deletes shows unfollowed more than ${RETENTION_DAYS} days ago, with their plan slots`, async () => {
+  it(`deletes shows unfollowed more than ${RETENTION_DAYS} days ago, with their plan rules`, async () => {
     const store = new MemoryStore();
     await store.putShow(show('old', { followed: false, unfollowedAt: daysAgo(RETENTION_DAYS + 1) }));
     await store.putShow(show('recent', { followed: false, unfollowedAt: daysAgo(RETENTION_DAYS - 1) }));
     await store.putShow(show('followed'));
     await store.putSchedule({
-      entries: [
-        { id: '1', showId: 'old', weekday: 1, part: 'MORNING' },
-        { id: '2', showId: 'followed', weekday: 2, part: 'EVENING' },
+      rules: [
+        { id: '1', showId: 'old', weekdays: [1], part: 'MORNING' },
+        { id: '2', showId: 'followed', weekdays: [2], part: 'EVENING' },
       ],
     });
 
     const result = await applyRetention(store, now);
     expect(result).toEqual({ deletedShows: ['old'], deletedAll: false });
     expect((await store.listShows()).map((s) => s.id).sort()).toEqual(['followed', 'recent']);
-    expect((await store.getSchedule()).entries.map((e) => e.showId)).toEqual(['followed']);
+    expect((await store.getSchedule()).rules.map((r) => r.showId)).toEqual(['followed']);
   });
 
   it(`deletes everything once access has been revoked for more than ${RETENTION_DAYS} days`, async () => {

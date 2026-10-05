@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { localDate, weekdayOf, type AppStatus, type Show, type SyncState, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
+import { localDate, weekdayOf, type AppStatus, type Schedule, type Show, type SyncState, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
 import { createApp } from '../src/app.js';
 import { SyncService, type SyncOptions } from '../src/services/sync.js';
 import { authorizeUrl } from '../src/spotify/client.js';
@@ -277,15 +277,14 @@ describe('library flow', () => {
     const weekday = weekdayOf(localDate(Date.now(), tz));
     const tomorrow = (weekday % 7) + 1;
     const res = await t.call('PUT', '/api/schedule', {
-      entries: [
-        { showId: 'demo-wissensreise', weekday, part: 'EVENING' },
-        { showId: 'demo-dertag', weekday, part: 'MORNING' },
-        { showId: 'demo-wissensreise', weekday: tomorrow, part: 'ANYTIME' },
+      rules: [
+        { showId: 'demo-wissensreise', weekdays: [weekday], part: 'EVENING' },
+        { showId: 'demo-dertag', weekdays: [weekday], part: 'MORNING' },
+        { showId: 'demo-wissensreise', weekdays: [tomorrow], part: 'ANYTIME' },
       ],
     });
     expect(res.status).toBe(200);
-    expect((res.body as { entries: { id: string }[] }).entries.every((e) => e.id)).toBe(true);
-    expect((await t.call('PUT', '/api/schedule', { entries: [{ weekday: 1 }] })).status).toBe(400);
+    expect((res.body as Schedule).rules.every((r) => r.id)).toBe(true);
 
     const week = (await t.call('GET', `/api/week?tz=${tz}`)).body as WeekResponse;
     expect(week.days).toHaveLength(7);
@@ -309,16 +308,44 @@ describe('library flow', () => {
     expect(nextWeek.days[1].items[0].episode?.id).toBe('demo-wissensreise-2');
   });
 
-  it('drops plan slots of podcasts that no longer exist instead of rejecting the save', async () => {
+  it('validates plan rules', async () => {
     const t = await ready();
-    const res = await t.call('PUT', '/api/schedule', {
-      entries: [
-        { showId: 'demo-wissensreise', weekday: 1, part: 'MORNING' },
-        { showId: 'deleted-meanwhile', weekday: 2, part: 'EVENING' },
+    const save = (body: unknown) => t.call('PUT', '/api/schedule', body);
+    expect((await save({ rules: [{ weekdays: [1] }] })).status).toBe(400);
+    expect((await save({ rules: [{ showId: 'demo-dertag', weekdays: [] }] })).status).toBe(400);
+    expect((await save({ rules: [{ showId: 'demo-dertag', weekdays: [8] }] })).status).toBe(400);
+    expect((await save({ rules: 'x' })).status).toBe(400);
+    expect((await save({ rules: [null] })).status).toBe(400);
+
+    const res = await save({
+      rules: [
+        { id: 'same', showId: 'demo-dertag', weekdays: [5, 1, 1], part: 'NIGHT' },
+        { id: 'same', showId: 'demo-wissensreise', weekdays: [2], part: 'EVENING' },
       ],
     });
     expect(res.status).toBe(200);
-    expect((res.body as { entries: { showId: string }[] }).entries.map((e) => e.showId)).toEqual(['demo-wissensreise']);
+    const [first, second] = (res.body as Schedule).rules;
+    expect(first).toEqual({ id: 'same', showId: 'demo-dertag', weekdays: [1, 5], part: 'ANYTIME' });
+    expect(second.id).not.toBe('same');
+  });
+
+  it('exports the plan as rules', async () => {
+    const t = await ready();
+    const rules = [{ id: 'a', showId: 'demo-dertag', weekdays: [1, 3], part: 'MORNING' }];
+    expect((await t.call('PUT', '/api/schedule', { rules })).status).toBe(200);
+    expect(((await t.call('GET', '/api/export')).body as { schedule: Schedule }).schedule).toMatchObject({ rules });
+  });
+
+  it('drops plan rules of podcasts that no longer exist instead of rejecting the save', async () => {
+    const t = await ready();
+    const res = await t.call('PUT', '/api/schedule', {
+      rules: [
+        { showId: 'demo-wissensreise', weekdays: [1], part: 'MORNING' },
+        { showId: 'deleted-meanwhile', weekdays: [2], part: 'EVENING' },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect((res.body as Schedule).rules.map((r) => r.showId)).toEqual(['demo-wissensreise']);
   });
 
   it('saves notes and flags episodes that have one', async () => {

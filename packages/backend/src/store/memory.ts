@@ -176,7 +176,7 @@ export class MemoryStore implements Store {
       .map(clone);
   }
   async getSchedule(): Promise<Schedule> {
-    return clone(this.data.schedule) ?? { entries: [] };
+    return clone(this.data.schedule) ?? { rules: [] };
   }
   async putSchedule(schedule: Schedule, expectedUpdatedAt?: string | null) {
     if (expectedUpdatedAt !== undefined && (this.data.schedule?.updatedAt ?? null) !== expectedUpdatedAt) return false;

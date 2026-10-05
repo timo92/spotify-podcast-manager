@@ -295,7 +295,7 @@ export class DynamoStore implements Store {
   }
 
   async getSchedule(): Promise<Schedule> {
-    return (await this.get<Schedule>('META', 'SCHEDULE')) ?? { entries: [] };
+    return (await this.get<Schedule>('META', 'SCHEDULE')) ?? { rules: [] };
   }
   async putSchedule(schedule: Schedule, expectedUpdatedAt?: string | null) {
     if (expectedUpdatedAt === undefined) {

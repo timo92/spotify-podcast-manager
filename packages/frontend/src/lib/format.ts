@@ -104,6 +104,24 @@ export const WEEKDAY_LONG: Record<Weekday, string> = {
   7: 'Sonntag',
 };
 
+/** "Mo–Fr", "Mo, Mi, Fr", "Mo–Mi, Sa": runs of three or more days become a range. */
+export function formatWeekdays(days: Weekday[]): string {
+  const sorted = [...new Set(days)].sort((a, b) => a - b);
+  const runs: Weekday[][] = [];
+  for (const d of sorted) {
+    const run = runs.at(-1);
+    if (run && run[run.length - 1] === d - 1) run.push(d);
+    else runs.push([d]);
+  }
+  return runs
+    .flatMap((run) =>
+      run.length >= 3
+        ? [`${WEEKDAY_SHORT[run[0]]}–${WEEKDAY_SHORT[run[run.length - 1]]}`]
+        : run.map((d) => WEEKDAY_SHORT[d]),
+    )
+    .join(', ');
+}
+
 /** "5. Okt." for a YYYY-MM-DD calendar date. */
 export function formatDayMonth(date: string): string {
   const [y, m, d] = date.split('-').map(Number);

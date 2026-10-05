@@ -100,9 +100,9 @@ function contract(name: string, create: () => Promise<Store>) {
     });
 
     it('stores the schedule and notes', async () => {
-      expect((await store.getSchedule()).entries).toEqual([]);
-      await store.putSchedule({ entries: [{ id: 'a', showId: 's1', weekday: 1, part: 'MORNING' }] });
-      expect((await store.getSchedule()).entries).toHaveLength(1);
+      expect((await store.getSchedule()).rules).toEqual([]);
+      await store.putSchedule({ rules: [{ id: 'a', showId: 's1', weekdays: [1, 3], part: 'MORNING' }] });
+      expect((await store.getSchedule()).rules).toEqual([{ id: 'a', showId: 's1', weekdays: [1, 3], part: 'MORNING' }]);
 
       await store.putNote({ showId: 's1', episodeId: 'e2', text: 'one', createdAt: 'c', updatedAt: '2026-01-01T00:00:00Z' });
       await store.putNote({ showId: 's1', episodeId: 'e3', text: 'two', createdAt: 'c', updatedAt: '2026-01-02T00:00:00Z' });
@@ -160,9 +160,9 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.getConfig()).toBeUndefined();
 
       // plan: written only if nobody saved in between
-      await store.putSchedule({ entries: [], updatedAt: 'v1' });
-      expect(await store.putSchedule({ entries: [], updatedAt: 'v2' }, 'v0')).toBe(false);
-      expect(await store.putSchedule({ entries: [], updatedAt: 'v2' }, 'v1')).toBe(true);
+      await store.putSchedule({ rules: [], updatedAt: 'v1' });
+      expect(await store.putSchedule({ rules: [], updatedAt: 'v2' }, 'v0')).toBe(false);
+      expect(await store.putSchedule({ rules: [], updatedAt: 'v2' }, 'v1')).toBe(true);
       expect((await store.getSchedule()).updatedAt).toBe('v2');
     });
 

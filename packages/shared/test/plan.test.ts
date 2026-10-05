@@ -64,12 +64,10 @@ describe('dates', () => {
 
 describe('buildWeek', () => {
   const schedule: Schedule = {
-    entries: [
-      { id: '1', showId: 'series', weekday: 1, part: 'EVENING' },
-      { id: '2', showId: 'news', weekday: 1, part: 'MORNING' },
-      { id: '3', showId: 'series', weekday: 3, part: 'EVENING' },
-      { id: '4', showId: 'news', weekday: 2, part: 'MORNING' },
-      { id: '5', showId: 'series', weekday: 1, part: 'EVENING' },
+    rules: [
+      { id: '1', showId: 'series', weekdays: [1, 3], part: 'EVENING' },
+      { id: '2', showId: 'news', weekdays: [1, 2], part: 'MORNING' },
+      { id: '5', showId: 'series', weekdays: [1], part: 'EVENING' },
     ],
   };
 
@@ -114,9 +112,9 @@ describe('buildWeek', () => {
     const manual = show('manual', 'MANUAL');
     manual.pinnedEpisodeId = 'manual-2';
     const twice: Schedule = {
-      entries: [
-        { id: 'a', showId: 'manual', weekday: 2, part: 'MORNING' },
-        { id: 'b', showId: 'manual', weekday: 4, part: 'EVENING' },
+      rules: [
+        { id: 'a', showId: 'manual', weekdays: [2], part: 'MORNING' },
+        { id: 'b', showId: 'manual', weekdays: [4], part: 'EVENING' },
       ],
     };
     const inputs = new Map([['manual', input(manual, eps('manual', 3))]]);
@@ -127,9 +125,9 @@ describe('buildWeek', () => {
 
   it('shows the newest episode of a news show in every slot of today, counting it once', () => {
     const twice: Schedule = {
-      entries: [
-        { id: 'a', showId: 'news', weekday: 1, part: 'MORNING' },
-        { id: 'b', showId: 'news', weekday: 1, part: 'EVENING' },
+      rules: [
+        { id: 'a', showId: 'news', weekdays: [1], part: 'MORNING' },
+        { id: 'b', showId: 'news', weekdays: [1], part: 'EVENING' },
       ],
     };
     const inputs = new Map([['news', input(show('news', 'LATEST'), eps('news', 5))]]);
@@ -143,9 +141,9 @@ describe('buildWeek', () => {
 
   it('ticks off only one slot when a repeated episode was heard today', () => {
     const twice: Schedule = {
-      entries: [
-        { id: 'a', showId: 'news', weekday: 1, part: 'MORNING' },
-        { id: 'b', showId: 'news', weekday: 1, part: 'EVENING' },
+      rules: [
+        { id: 'a', showId: 'news', weekdays: [1], part: 'MORNING' },
+        { id: 'b', showId: 'news', weekdays: [1], part: 'EVENING' },
       ],
     };
     const inputs = new Map([
@@ -172,7 +170,7 @@ describe('buildToday with a plan', () => {
     const inputs = new Map([['series', input(series, eps('series', 3, 20))]]);
     series.summary = summarizeShow(series, inputs.get('series')!.views, now);
     other.summary = summarizeShow(other, buildEpisodeViews(eps('other', 3, 15), new Map(), DEFAULT_SETTINGS, now), now);
-    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, { entries: [{ id: 'x', showId: 'series', weekday: 1, part: 'ANYTIME' }] }, inputs);
+    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, { rules: [{ id: 'x', showId: 'series', weekdays: [1], part: 'ANYTIME' }] }, inputs);
     const today = buildToday([series, other], { ...DEFAULT_SETTINGS, audioBudgetMinutes: 30, budgetTolerancePercent: 0 }, [], mon.items);
     expect(today.plan).toHaveLength(1);
     expect(today.recommended).toHaveLength(0);
@@ -185,9 +183,9 @@ describe('buildToday with a plan', () => {
     manual.pinnedEpisodeId = 'manual-1';
     const inputs = new Map([['manual', input(manual, eps('manual', 2, 20))]]);
     const twice: Schedule = {
-      entries: [
-        { id: 'a', showId: 'manual', weekday: 1, part: 'MORNING' },
-        { id: 'b', showId: 'manual', weekday: 1, part: 'EVENING' },
+      rules: [
+        { id: 'a', showId: 'manual', weekdays: [1], part: 'MORNING' },
+        { id: 'b', showId: 'manual', weekdays: [1], part: 'EVENING' },
       ],
     };
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, twice, inputs);

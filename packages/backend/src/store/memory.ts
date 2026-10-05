@@ -2,11 +2,9 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   DEFAULT_SETTINGS,
-  migrateSchedule,
   type Episode,
   type EpisodeNote,
   type EpisodeProgress,
-  type LegacySchedule,
   type Schedule,
   type Settings,
   type Show,
@@ -23,8 +21,7 @@ interface Data {
   shows: Record<string, Show>;
   episodes: Record<string, Record<string, Episode>>;
   progress: Record<string, Record<string, EpisodeProgress>>;
-  /** Files written before plan rules hold the legacy shape until the next save. */
-  schedule?: Schedule | LegacySchedule;
+  schedule?: Schedule;
   notes: Record<string, Record<string, EpisodeNote>>;
 }
 
@@ -179,8 +176,7 @@ export class MemoryStore implements Store {
       .map(clone);
   }
   async getSchedule(): Promise<Schedule> {
-    const stored = clone(this.data.schedule);
-    return stored ? migrateSchedule(stored) : { rules: [] };
+    return clone(this.data.schedule) ?? { rules: [] };
   }
   async putSchedule(schedule: Schedule, expectedUpdatedAt?: string | null) {
     if (expectedUpdatedAt !== undefined && (this.data.schedule?.updatedAt ?? null) !== expectedUpdatedAt) return false;

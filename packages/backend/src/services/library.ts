@@ -82,6 +82,7 @@ export class LibraryService {
       updatedAt: now,
       episodeName: episode.name,
       showName: show.name,
+      episodeReleaseDate: episode.releaseDate,
     };
     await this.store.putNote(note);
     return note;

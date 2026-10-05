@@ -361,7 +361,11 @@ describe('library flow', () => {
     expect((await t.call('GET', path)).body).toBeNull();
     const saved = await t.call('PUT', path, { text: '[02:10] Spannender Punkt' });
     expect(saved.status).toBe(200);
-    expect((await t.call('GET', path)).body).toMatchObject({ text: '[02:10] Spannender Punkt', showName: 'Wissensreise' });
+    expect((await t.call('GET', path)).body).toMatchObject({
+      text: '[02:10] Spannender Punkt',
+      showName: 'Wissensreise',
+      episodeReleaseDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}/),
+    });
     const detail = (await t.call('GET', '/api/shows/demo-wissensreise')).body as ShowDetailResponse;
     expect(detail.episodes.find((e) => e.id === 'demo-wissensreise-1')!.hasNote).toBe(true);
     expect(((await t.call('GET', '/api/notes')).body as unknown[]).length).toBe(1);

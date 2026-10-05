@@ -330,4 +330,6 @@ export interface EpisodeNote {
   updatedAt: string;
   episodeName?: string;
   showName?: string;
+  /** Release date of the episode when the note was saved; orders notes by episode. */
+  episodeReleaseDate?: string;
 }

@@ -1,0 +1,24 @@
+// GitHub Codespaces: opening a codespace on a branch starts `pnpm dev:demo`
+// for that branch and opens the UI (fake Spotify, no credentials needed).
+// See "Preview a branch in Codespaces" in the README.
+{
+  "name": "Podcast-Cockpit demo",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  // The smallest Codespaces machine is enough for the demo.
+  "hostRequirements": { "cpus": 2 },
+  "containerEnv": {
+    // pnpm comes from "packageManager" in package.json; download it without asking.
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
+  },
+  "onCreateCommand": "sudo corepack enable",
+  // Runs before the editor connects, so the demo below starts on installed packages.
+  "updateContentCommand": "pnpm install --frozen-lockfile",
+  // Long-running, so it goes here (shown in a terminal) rather than in postStartCommand.
+  "postAttachCommand": { "demo": "pnpm dev:demo" },
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": { "label": "Demo", "onAutoForward": "openBrowser" },
+    // The API is reached through the Vite proxy on 5173.
+    "8787": { "label": "API", "onAutoForward": "ignore" }
+  }
+}

@@ -33,6 +33,10 @@ Run them before you push. Keep package scripts cross-platform: no POSIX-only
 syntax (`VAR=x cmd`, `rm -rf`, `&&` chains that assume bash); use Node flags or
 CLI arguments instead.
 
+To try a branch without checking it out, open it in GitHub Codespaces; the dev
+container starts `pnpm dev:demo` (see "Preview a branch in Codespaces" in the
+README).
+
 ## Code
 
 ### Where code goes

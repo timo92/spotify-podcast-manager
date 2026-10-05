@@ -101,6 +101,16 @@ Open http://127.0.0.1:5173 and click *Mit Spotify anmelden*. All demo wiring
 lives in `packages/backend/dev/` and `packages/frontend/dev/`; the app itself
 has no demo mode.
 
+**Preview a branch in Codespaces.** To try a branch, for example a PR under
+review, without checking it out: on the repository page choose *Code →
+Codespaces → Create codespace on …* for that branch (on a PR: *Code →
+Codespaces* on the PR's branch). The dev container in `.devcontainer/` installs
+the packages and starts `pnpm dev:demo`; after a couple of minutes the demo
+opens in the browser (port *Demo*, `https://<codespace>-5173.app.github.dev`,
+visible only to you). It runs the fake Spotify only. A running codespace uses
+the account's Codespaces compute quota and an existing one its storage quota,
+so stop or delete it after the review (*github.com/codespaces*).
+
 **Against real Spotify.**
 
 ```bash

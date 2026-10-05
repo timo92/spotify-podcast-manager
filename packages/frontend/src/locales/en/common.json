@@ -72,7 +72,11 @@
     "moreActions": "More actions",
     "loading": "Loading…",
     "retry": "Try again",
-    "close": "Close"
+    "close": "Close",
+    "edit": "Edit",
+    "done": "Done",
+    "save": "Save",
+    "change": "Change"
   },
   "nav": {
     "main": "Main navigation",
@@ -115,7 +119,9 @@
     "pinned": "Set as the next episode",
     "unpinned": "Choice removed",
     "markPlayed": "Mark as played",
-    "autoCompleted": "“{{name}}” marked as played"
+    "autoCompleted": "“{{name}}” marked as played",
+    "number": "Episode {{index}}",
+    "remaining": "{{time}} left"
   },
   "attribution": {
     "contentFrom": "Content from",

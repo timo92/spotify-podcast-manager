@@ -1,0 +1,70 @@
+{
+  "slot": {
+    "latest": "Neueste Folge des Tages",
+    "noneChosen": "Keine Folge gewählt",
+    "allHeard": "Alles gehört 🎉",
+    "heard": "gehört",
+    "expected": "voraussichtlich",
+    "heardToday": "Heute gehört",
+    "pick": "Folge wählen",
+    "edit": "Termin bearbeiten",
+    "remove": "Aus dem Wochenplan entfernen"
+  },
+  "week": {
+    "title": "Wochenplan",
+    "summary_one": "{{count}} fester Termin pro Woche · {{open}} offen in den nächsten 7 Tagen",
+    "summary_other": "{{count}} feste Termine pro Woche · {{open}} offen in den nächsten 7 Tagen",
+    "intro": "Lege fest, an welchen Tagen du welchen Podcast hörst.",
+    "emptyTitle": "Noch kein Plan",
+    "emptyText": "Zum Beispiel: werktags morgens die Nachrichten, dienstags und donnerstags abends eine Folge deiner Geschichtsreihe. Die passende Folge sucht die App jeweils automatisch aus.",
+    "firstSlot": "Ersten Termin anlegen",
+    "today": "Heute",
+    "addOn": "Termin am {{day}} hinzufügen",
+    "nothingPlanned": "Nichts geplant",
+    "addSlot": "Termin hinzufügen",
+    "footnote": "Termine wiederholen sich jede Woche. Bei Reihen wird pro Termin die jeweils nächste Folge eingeplant; was du heute schon gehört hast, wird abgehakt."
+  },
+  "toast": {
+    "planned": "{{show}} eingeplant",
+    "dayRemoved": "{{show}} am {{day}} entfernt",
+    "ruleRemoved": "Regel entfernt",
+    "showRuleRemoved": "{{show}}: Regel entfernt",
+    "showRuleRemovedNamed": "{{show}}: {{rule}} entfernt"
+  },
+  "remove": {
+    "title": "Termin entfernen",
+    "text": "{{show}} ist für {{rule}} geplant.",
+    "onlyDay": "Nur am {{day}}",
+    "wholeRule": "Ganze Regel ({{days}})"
+  },
+  "rule": {
+    "add": "Termin hinzufügen",
+    "edit": "Termin bearbeiten",
+    "podcast": "Podcast",
+    "searchPodcast": "Podcast suchen",
+    "days": "Tage",
+    "weekdays": "Werktags",
+    "weekend": "Wochenende",
+    "daily": "Täglich",
+    "part": "Tageszeit",
+    "appliesTo": "Gilt für {{rule}}",
+    "chooseDay": "Wähle mindestens einen Tag.",
+    "choosePodcast": "Podcast wählen",
+    "plan": "{{show}} einplanen",
+    "removeWhole": "Ganze Regel entfernen"
+  },
+  "show": {
+    "title": "Wochenplan",
+    "add": "Termin",
+    "notPlanned": "Nicht im Wochenplan.",
+    "editRule": "{{rule}} bearbeiten",
+    "removeRule": "{{rule}} entfernen",
+    "toWeek": "Zum Wochenplan"
+  },
+  "picker": {
+    "title": "Folge wählen",
+    "search": "Folgen durchsuchen",
+    "empty": "Keine offenen Folgen",
+    "allEpisodes": "Alle Folgen des Podcasts"
+  }
+}

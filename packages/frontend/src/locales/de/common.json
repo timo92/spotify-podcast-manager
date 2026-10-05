@@ -72,7 +72,11 @@
     "moreActions": "Weitere Aktionen",
     "loading": "Lädt…",
     "retry": "Erneut versuchen",
-    "close": "Schließen"
+    "close": "Schließen",
+    "edit": "Bearbeiten",
+    "done": "Fertig",
+    "save": "Speichern",
+    "change": "Ändern"
   },
   "nav": {
     "main": "Hauptnavigation",
@@ -115,7 +119,9 @@
     "pinned": "Als nächste Folge festgelegt",
     "unpinned": "Auswahl aufgehoben",
     "markPlayed": "Als gehört markieren",
-    "autoCompleted": "„{{name}}“ als gehört markiert"
+    "autoCompleted": "„{{name}}“ als gehört markiert",
+    "number": "Folge {{index}}",
+    "remaining": "noch {{time}}"
   },
   "attribution": {
     "contentFrom": "Inhalte von",

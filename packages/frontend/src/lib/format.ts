@@ -101,6 +101,11 @@ export function formatWeekdays(days: Weekday[]): string {
     .join(', ');
 }
 
+/** "Mo–Fr · Morgens": a plan rule's weekdays and part of day. */
+export function formatRule(rule: { weekdays: Weekday[]; part: DayPart }): string {
+  return `${formatWeekdays(rule.weekdays)} · ${dayPartLabel(rule.part)}`;
+}
+
 /** "5. Okt." / "5 Oct" for a YYYY-MM-DD calendar date. */
 export function formatDayMonth(date: string): string {
   const [y, m, d] = date.split('-').map(Number);

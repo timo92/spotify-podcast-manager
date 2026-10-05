@@ -1,4 +1,5 @@
 import type { PlannedItem } from '@podcast/shared';
+import { Link } from 'react-router-dom';
 import { useEpisodeActions } from '../lib/actions';
 import { DAY_PART_LABEL, formatDuration } from '../lib/format';
 import { PlayButton } from './EpisodeCard';
@@ -26,15 +27,21 @@ export function PlanItemRow({
   const done = item.state === 'done';
   const open = ep && (item.state === 'next' || item.state === 'upcoming');
   const started = ep && ep.remainingMs < ep.durationMs && !done;
+  const showPath = `/podcasts/${encodeURIComponent(item.show.id)}`;
   const emptyText =
     STATE_TEXT[item.state] ?? (item.show.mode === 'MANUAL' ? 'Keine Folge gewählt' : 'Alles gehört 🎉');
 
   return (
     <li className={`plan-item${done ? ' is-done' : ''}`}>
       <span className="plan-part">{DAY_PART_LABEL[item.part]}</span>
-      <Cover src={ep?.imageUrl ?? item.show.imageUrl} alt={item.show.name} size={44} />
+      {/* Same target as the name; hidden from assistive tech and the tab order to avoid a duplicate link. */}
+      <Link to={showPath} className="plan-item-cover" tabIndex={-1} aria-hidden>
+        <Cover src={ep?.imageUrl ?? item.show.imageUrl} alt={item.show.name} size={44} />
+      </Link>
       <div className="plan-item-body">
-        <span className="show-name">{item.show.name}</span>
+        <Link to={showPath} className="show-name">
+          {item.show.name}
+        </Link>
         {ep ? (
           <button type="button" className="episode-title linklike" onClick={() => onOpen(item.show.id, ep.id)}>
             {ep.name}

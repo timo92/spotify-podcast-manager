@@ -1,17 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { DAY_PARTS, type DayPart, type ScheduleRule, type Show, type Weekday } from '@podcast/shared';
+import type { PlannedItem, ScheduleRule, Weekday } from '@podcast/shared';
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Icon } from '../components/Icon';
 import { PlanItemRow } from '../components/PlanItem';
-import { Chip, Cover, Empty, ErrorBox, IconButton, Segmented, Spinner } from '../components/ui';
+import { ScheduleRuleSheet } from '../components/ScheduleRuleSheet';
+import { Empty, ErrorBox, IconButton, Spinner } from '../components/ui';
 import { api } from '../lib/api';
-import { DAY_PART_LABEL, formatDayMonth, formatDuration, WEEKDAY_LONG, WEEKDAY_SHORT } from '../lib/format';
+import { DAY_PART_LABEL, formatDayMonth, formatDuration, formatWeekdays, WEEKDAY_LONG, WEEKDAY_SHORT } from '../lib/format';
 import { qk, useInvalidateLibrary } from '../lib/queries';
 import { useToast } from '../lib/toast';
-
-const ALL_DAYS: Weekday[] = [1, 2, 3, 4, 5, 6, 7];
 
 export function WeekPage() {
   const week = useQuery({ queryKey: qk.week, queryFn: api.week });
@@ -21,6 +20,8 @@ export function WeekPage() {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState<Weekday[] | null>(null);
+  const [editingRule, setEditingRule] = useState<ScheduleRule | null>(null);
+  const [removing, setRemoving] = useState<{ rule: ScheduleRule; item: PlannedItem; weekday: Weekday } | null>(null);
   const [open, setOpen] = useState<{ showId: string; episodeId: string } | null>(null);
 
   const rules = schedule.data?.rules ?? [];
@@ -35,6 +36,16 @@ export function WeekPage() {
     } catch (e) {
       toast({ message: (e as Error).message, tone: 'error' });
     }
+  }
+
+  const ruleOf = (item: PlannedItem) => rules.find((r) => r.id === item.ruleId) ?? null;
+
+  /** A rule with one day goes at once; otherwise the user picks the day or the whole rule. */
+  function remove(item: PlannedItem, weekday: Weekday) {
+    const rule = ruleOf(item);
+    if (!rule) return;
+    if (rule.weekdays.length > 1) setRemoving({ rule, item, weekday });
+    else void save(withoutRule(rules, rule.id), `${item.show.name} am ${WEEKDAY_LONG[weekday]} entfernt`);
   }
 
   const weekMinutes = (week.data?.days ?? []).reduce((sum, d) => sum + d.openMs, 0);
@@ -97,15 +108,8 @@ export function WeekPage() {
                       item={item}
                       isToday={day.isToday}
                       onOpen={(showId, episodeId) => setOpen({ showId, episodeId })}
-                      onRemove={
-                        editing
-                          ? () =>
-                              void save(
-                                withoutDay(rules, item.ruleId, day.weekday),
-                                `${item.show.name} am ${WEEKDAY_LONG[day.weekday]} entfernt`,
-                              )
-                          : undefined
-                      }
+                      onEdit={editing ? () => setEditingRule(ruleOf(item)) : undefined}
+                      onRemove={editing ? () => remove(item, day.weekday) : undefined}
                     />
                   ))}
                 </ul>
@@ -123,19 +127,57 @@ export function WeekPage() {
       )}
 
       {adding && (
-        <AddToPlanSheet
+        <ScheduleRuleSheet
           initialDays={adding}
           onClose={() => setAdding(null)}
-          onSave={(showId, days, part, showName) => {
-            // The server assigns ids to new rules.
+          onSave={(rule, showName) => {
             setAdding(null);
-            void save([...rules, { id: '', showId, weekdays: days, part }], `${showName} eingeplant`);
+            void save([...rules, rule], `${showName} eingeplant`);
+          }}
+        />
+      )}
+      {editingRule && (
+        <ScheduleRuleSheet
+          rule={editingRule}
+          onClose={() => setEditingRule(null)}
+          onSave={(rule, showName) => {
+            setEditingRule(null);
+            void save(
+              rules.map((r) => (r.id === rule.id ? rule : r)),
+              `${showName}: ${formatWeekdays(rule.weekdays)} · ${DAY_PART_LABEL[rule.part]}`,
+            );
+          }}
+          onDelete={() => {
+            setEditingRule(null);
+            void save(withoutRule(rules, editingRule.id), 'Regel entfernt');
+          }}
+        />
+      )}
+      {removing && (
+        <RemoveSlotSheet
+          {...removing}
+          onClose={() => setRemoving(null)}
+          onRemoveDay={() => {
+            setRemoving(null);
+            void save(
+              withoutDay(rules, removing.rule.id, removing.weekday),
+              `${removing.item.show.name} am ${WEEKDAY_LONG[removing.weekday]} entfernt`,
+            );
+          }}
+          onRemoveRule={() => {
+            setRemoving(null);
+            void save(withoutRule(rules, removing.rule.id), `${removing.item.show.name}: Regel entfernt`);
           }}
         />
       )}
       {open && <EpisodeSheet {...open} onClose={() => setOpen(null)} />}
     </div>
   );
+}
+
+/** Removes the whole rule, i.e. all of its slots. */
+function withoutRule(rules: ScheduleRule[], ruleId: string): ScheduleRule[] {
+  return rules.filter((r) => r.id !== ruleId);
 }
 
 /** Removes one weekday from a rule, and the rule once it has no weekday left. */
@@ -145,107 +187,36 @@ function withoutDay(rules: ScheduleRule[], ruleId: string, weekday: Weekday): Sc
     .filter((r) => r.weekdays.length > 0);
 }
 
-const PRESETS: { label: string; days: Weekday[] }[] = [
-  { label: 'Werktags', days: [1, 2, 3, 4, 5] },
-  { label: 'Wochenende', days: [6, 7] },
-  { label: 'Täglich', days: ALL_DAYS },
-];
-
-function AddToPlanSheet({
-  initialDays,
+function RemoveSlotSheet({
+  rule,
+  item,
+  weekday,
   onClose,
-  onSave,
+  onRemoveDay,
+  onRemoveRule,
 }: {
-  initialDays: Weekday[];
+  rule: ScheduleRule;
+  item: PlannedItem;
+  weekday: Weekday;
   onClose: () => void;
-  onSave: (showId: string, days: Weekday[], part: DayPart, showName: string) => void;
+  onRemoveDay: () => void;
+  onRemoveRule: () => void;
 }) {
-  const shows = useQuery({ queryKey: qk.shows, queryFn: api.shows });
-  const [showId, setShowId] = useState<string | null>(null);
-  const [days, setDays] = useState<Weekday[]>(initialDays);
-  const [part, setPart] = useState<DayPart>('ANYTIME');
-  const [query, setQuery] = useState('');
-
-  const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (shows.data ?? []).filter((s: Show) => s.followed && (!q || s.name.toLowerCase().includes(q)));
-  }, [shows.data, query]);
-  const chosen = shows.data?.find((s) => s.id === showId);
-
-  const toggle = (d: Weekday) => setDays((ds) => (ds.includes(d) ? ds.filter((x) => x !== d) : [...ds, d].sort()));
-
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label="Termin hinzufügen" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label="Termin entfernen" onClick={(e) => e.stopPropagation()}>
         <div className="row-between">
-          <h2>Termin hinzufügen</h2>
+          <h2>Termin entfernen</h2>
           <IconButton icon="close" label="Schließen" onClick={onClose} />
         </div>
-
-        <div className="stack-sm">
-          <strong className="small">Podcast</strong>
-          {chosen ? (
-            <div className="row gap">
-              <Cover src={chosen.imageUrl} alt={chosen.name} size={40} />
-              <strong className="grow">{chosen.name}</strong>
-              <button className="btn btn-small" onClick={() => setShowId(null)}>
-                Ändern
-              </button>
-            </div>
-          ) : (
-            <>
-              <input type="search" placeholder="Podcast suchen" value={query} onChange={(e) => setQuery(e.target.value)} />
-              {shows.isLoading && <Spinner />}
-              <ul className="pick-list">
-                {list.map((s) => (
-                  <li key={s.id}>
-                    <button type="button" className="pick" onClick={() => setShowId(s.id)}>
-                      <Cover src={s.imageUrl} alt={s.name} size={36} />
-                      <span>{s.name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
-
-        <div className="stack-sm">
-          <strong className="small">Tage</strong>
-          <div className="chips">
-            {ALL_DAYS.map((d) => (
-              <Chip key={d} active={days.includes(d)} onClick={() => toggle(d)}>
-                {WEEKDAY_SHORT[d]}
-              </Chip>
-            ))}
-          </div>
-          <div className="chips">
-            {PRESETS.map((p) => (
-              <button key={p.label} type="button" className="btn btn-small" onClick={() => setDays(p.days)}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="stack-sm">
-          <strong className="small">Tageszeit</strong>
-          <Segmented
-            label="Tageszeit"
-            value={part}
-            onChange={setPart}
-            options={DAY_PARTS.map((p) => ({ value: p, label: DAY_PART_LABEL[p] }))}
-          />
-        </div>
-
-        <button
-          className="btn btn-primary btn-block"
-          disabled={!chosen || days.length === 0}
-          onClick={() => chosen && onSave(chosen.id, days, part, chosen.name)}
-        >
-          {chosen && days.length
-            ? `${chosen.name} an ${days.length === 7 ? 'jedem Tag' : days.map((d) => WEEKDAY_SHORT[d]).join(', ')} einplanen`
-            : 'Podcast und Tage wählen'}
+        <p>
+          {item.show.name} ist für {formatWeekdays(rule.weekdays)} · {DAY_PART_LABEL[rule.part]} geplant.
+        </p>
+        <button className="btn btn-block" onClick={onRemoveDay}>
+          Nur am {WEEKDAY_LONG[weekday]}
+        </button>
+        <button className="btn btn-danger btn-block" onClick={onRemoveRule}>
+          Ganze Regel ({formatWeekdays(rule.weekdays)})
         </button>
       </div>
     </div>

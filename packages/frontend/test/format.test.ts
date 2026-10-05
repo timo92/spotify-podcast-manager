@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatClock, formatDuration, formatReleaseDate } from '../src/lib/format';
+import { formatClock, formatDuration, formatReleaseDate, formatWeekdays } from '../src/lib/format';
 
 describe('format', () => {
   it('formats durations', () => {
@@ -14,6 +14,16 @@ describe('format', () => {
     expect(formatReleaseDate('2026-10-05', now)).toBe('Heute');
     expect(formatReleaseDate('2026-10-04', now)).toBe('Gestern');
     expect(formatReleaseDate('2024-03-01', now)).toContain('2024');
+  });
+});
+
+describe('formatWeekdays', () => {
+  it('lists single days and shortens runs of three or more', () => {
+    expect(formatWeekdays([1, 3, 5])).toBe('Mo, Mi, Fr');
+    expect(formatWeekdays([5, 1, 2, 3, 4])).toBe('Mo–Fr');
+    expect(formatWeekdays([6, 7])).toBe('Sa, So');
+    expect(formatWeekdays([1, 2, 3, 6])).toBe('Mo–Mi, Sa');
+    expect(formatWeekdays([1, 2, 3, 4, 5, 6, 7])).toBe('Mo–So');
   });
 });
 

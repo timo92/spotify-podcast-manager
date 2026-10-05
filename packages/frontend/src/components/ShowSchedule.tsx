@@ -46,7 +46,10 @@ export function ShowSchedule({ showId, showName }: { showId: string; showName: s
                 icon="close"
                 label={t('show.removeRule', { rule: formatRule(r) })}
                 onClick={() =>
-                  void save(removeRule(rules, r.id), t('toast.showRuleRemovedNamed', { show: showName, rule: formatRule(r) }))
+                  void save(
+                    (current) => removeRule(current, r.id),
+                    t('toast.showRuleRemovedNamed', { show: showName, rule: formatRule(r) }),
+                  )
                 }
               />
             </li>
@@ -65,7 +68,7 @@ export function ShowSchedule({ showId, showName }: { showId: string; showName: s
           onSave={(rule) => {
             setEditing(null);
             void save(
-              editing === 'new' ? [...rules, rule] : replaceRule(rules, rule),
+              (current) => (editing === 'new' ? [...current, rule] : replaceRule(current, rule)),
               `${showName}: ${formatRule(rule)}`,
             );
           }}
@@ -75,7 +78,7 @@ export function ShowSchedule({ showId, showName }: { showId: string; showName: s
               : () => {
                   setEditing(null);
                   void save(
-                    removeRule(rules, editing.id),
+                    (current) => removeRule(current, editing.id),
                     t('toast.showRuleRemovedNamed', { show: showName, rule: formatRule(editing) }),
                   );
                 }

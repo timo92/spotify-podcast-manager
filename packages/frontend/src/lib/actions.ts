@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import type { EpisodeStatus, EpisodeView, ScheduleRule } from '@podcast/shared';
-import { api } from './api';
+import type { EpisodeStatus, EpisodeView, Schedule, ScheduleRule } from '@podcast/shared';
+import { api, ApiError } from './api';
 import { qk, useInvalidateLibrary } from './queries';
 import { useToast } from './toast';
 
@@ -56,18 +56,33 @@ export function useEpisodeActions() {
   };
 }
 
-/** Saves the whole weekly plan, refreshes what depends on it and confirms with `message`. */
+/**
+ * Saves an edit of the weekly plan and confirms it with `message`. `edit` is
+ * applied to the plan the page shows, and the result is saved only if that is
+ * still the stored plan. If the plan changed elsewhere in the meantime, the
+ * edit is applied once more to the fresh plan; a second conflict is reported.
+ */
 export function useSaveSchedule() {
   const qc = useQueryClient();
   const invalidate = useInvalidateLibrary();
   const toast = useToast();
-  return async (rules: ScheduleRule[], message: string) => {
+  return async (edit: (rules: ScheduleRule[]) => ScheduleRule[], message: string) => {
+    const saveOn = (base: Schedule) =>
+      api.saveSchedule({ rules: edit(base.rules), expectedUpdatedAt: base.updatedAt ?? null });
+    const isConflict = (e: unknown) => e instanceof ApiError && e.code === 'schedule_conflict';
     try {
-      const saved = await api.saveSchedule({ rules });
+      let saved: Schedule;
+      try {
+        saved = await saveOn(qc.getQueryData<Schedule>(qk.schedule) ?? (await api.schedule()));
+      } catch (e) {
+        if (!isConflict(e)) throw e;
+        saved = await saveOn(await qc.fetchQuery({ queryKey: qk.schedule, queryFn: api.schedule, staleTime: 0 }));
+      }
       qc.setQueryData(qk.schedule, saved);
       await invalidate();
       toast({ message, tone: 'success' });
     } catch (e) {
+      if (isConflict(e)) void qc.invalidateQueries({ queryKey: qk.schedule });
       toast({ message: (e as Error).message, tone: 'error' });
     }
   };

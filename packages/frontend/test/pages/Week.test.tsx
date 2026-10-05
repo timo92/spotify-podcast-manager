@@ -1,10 +1,11 @@
 import { screen, within } from '@testing-library/react';
-import type { PlanDay, Schedule, ScheduleRule, Weekday } from '@podcast/shared';
+import type { PlanDay, ScheduleRule, Weekday } from '@podcast/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { api } from '../../src/lib/api';
 import { WeekPage } from '../../src/pages/Week';
 import { plannedItem, settings, show } from '../support/fixtures';
 import { renderWithProviders } from '../support/render';
+import { mockSchedule } from '../support/schedule';
 
 const RULE: ScheduleRule = { id: 'r1', showId: 'wissen', weekdays: [1, 3, 5], part: 'EVENING' };
 
@@ -22,10 +23,9 @@ function week(rules: ScheduleRule[]): PlanDay[] {
 function renderWeek(rules: ScheduleRule[]) {
   vi.spyOn(api, 'settings').mockResolvedValue(settings);
   vi.spyOn(api, 'shows').mockResolvedValue([show()]);
-  vi.spyOn(api, 'schedule').mockResolvedValue({ rules });
   vi.spyOn(api, 'week').mockResolvedValue({ days: week(rules) });
   vi.spyOn(api, 'today').mockRejectedValue(new Error('not needed'));
-  const saveSchedule = vi.spyOn(api, 'saveSchedule').mockImplementation(async (s: Schedule) => s);
+  const { saveSchedule } = mockSchedule(rules);
   return { ...renderWithProviders(<WeekPage />), saveSchedule };
 }
 
@@ -46,6 +46,7 @@ describe('WeekPage', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Wissensreise einplanen' }));
     expect(saveSchedule).toHaveBeenCalledWith({
       rules: [{ id: '', showId: 'wissen', weekdays: [1, 2, 3, 4, 5], part: 'EVENING' }],
+      expectedUpdatedAt: null,
     });
   });
 
@@ -57,7 +58,7 @@ describe('WeekPage', () => {
     expect(within(sheet).getByText('Gilt für Mo, Mi, Fr · Abends')).toBeInTheDocument();
     await user.click(within(sheet).getByRole('button', { name: 'Mi' }));
     await user.click(within(sheet).getByRole('button', { name: 'Speichern' }));
-    expect(saveSchedule).toHaveBeenCalledWith({ rules: [{ ...RULE, weekdays: [1, 5] }] });
+    expect(saveSchedule).toHaveBeenCalledWith({ rules: [{ ...RULE, weekdays: [1, 5] }], expectedUpdatedAt: null });
   });
 
   it('removes one day or the whole rule', async () => {
@@ -66,11 +67,11 @@ describe('WeekPage', () => {
 
     await user.click(slotOn('Mittwoch').getByRole('button', { name: 'Aus dem Wochenplan entfernen' }));
     await user.click(screen.getByRole('button', { name: 'Nur am Mittwoch' }));
-    expect(saveSchedule).toHaveBeenLastCalledWith({ rules: [{ ...RULE, weekdays: [1, 5] }] });
+    expect(saveSchedule).toHaveBeenLastCalledWith({ rules: [{ ...RULE, weekdays: [1, 5] }], expectedUpdatedAt: null });
 
     await user.click(slotOn('Freitag').getByRole('button', { name: 'Aus dem Wochenplan entfernen' }));
     await user.click(screen.getByRole('button', { name: /Ganze Regel/ }));
-    expect(saveSchedule).toHaveBeenLastCalledWith({ rules: [] });
+    expect(saveSchedule).toHaveBeenLastCalledWith({ rules: [], expectedUpdatedAt: 'v1' });
   });
 
   it('removes a single-day rule without asking', async () => {
@@ -78,6 +79,6 @@ describe('WeekPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
     await user.click(slotOn('Mittwoch').getByRole('button', { name: 'Aus dem Wochenplan entfernen' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(saveSchedule).toHaveBeenCalledWith({ rules: [] });
+    expect(saveSchedule).toHaveBeenCalledWith({ rules: [], expectedUpdatedAt: null });
   });
 });

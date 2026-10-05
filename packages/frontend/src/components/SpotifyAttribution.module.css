@@ -1,0 +1,49 @@
+/* "Inhalte von <logo>": in column flex containers, don't stretch the link across the whole row. */
+.attribution {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 2px;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: none;
+  }
+}
+
+/* Clear space around the logo: half the icon height (≈ 10px at 78px width). */
+.logo {
+  display: inline-flex;
+  padding: 10px;
+  flex: none;
+
+  & img {
+    display: block;
+    height: auto;
+    min-width: 70px;
+  }
+}
+
+/* One image per theme; the theme follows the system unless set explicitly. */
+.dark {
+  display: none !important;
+}
+:global(:root[data-theme='dark']) {
+  & .light {
+    display: none !important;
+  }
+  & .dark {
+    display: block !important;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) {
+    & .light {
+      display: none !important;
+    }
+    & .dark {
+      display: block !important;
+    }
+  }
+}

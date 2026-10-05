@@ -45,7 +45,7 @@ export class LibraryService {
 
   async requireShow(showId: string): Promise<Show> {
     const show = await this.store.getShow(showId);
-    if (!show) throw notFound('Podcast nicht gefunden');
+    if (!show) throw notFound('show_not_found', 'Podcast nicht gefunden');
     return show;
   }
 
@@ -61,14 +61,14 @@ export class LibraryService {
 
   /** Saves (or, if empty, deletes) the personal note of an episode. */
   async saveNote(showId: string, episodeId: string, text: unknown): Promise<EpisodeNote | null> {
-    if (typeof text !== 'string') throw badRequest('text muss ein String sein');
-    if (text.length > 50_000) throw badRequest('Notiz ist zu lang (max. 50.000 Zeichen)');
+    if (typeof text !== 'string') throw badRequest('invalid_note', 'text muss ein String sein');
+    if (text.length > 50_000) throw badRequest('note_too_long', 'Notiz ist zu lang (max. 50.000 Zeichen)', { max: 50_000 });
     const [show, episode, existing] = await Promise.all([
       this.requireShow(showId),
       this.store.getEpisode(showId, episodeId),
       this.store.getNote(showId, episodeId),
     ]);
-    if (!episode) throw notFound('Folge nicht gefunden');
+    if (!episode) throw notFound('episode_not_found', 'Folge nicht gefunden');
     if (!text.trim()) {
       if (existing) await this.store.deleteNote(showId, episodeId);
       return null;
@@ -91,7 +91,7 @@ export class LibraryService {
   async episode(showId: string, episodeId: string): Promise<EpisodeView> {
     const show = await this.requireShow(showId);
     const view = (await this.loadViews(show)).find((v) => v.id === episodeId);
-    if (!view) throw notFound('Folge nicht gefunden');
+    if (!view) throw notFound('episode_not_found', 'Folge nicht gefunden');
     return view;
   }
 
@@ -99,11 +99,11 @@ export class LibraryService {
     await this.requireShow(showId);
     const clean: ShowSettingsPatch = {};
     if (patch.mode !== undefined) {
-      if (!['LATEST', 'SEQUENTIAL', 'MANUAL'].includes(patch.mode)) throw badRequest('Ungültiger Modus');
+      if (!['LATEST', 'SEQUENTIAL', 'MANUAL'].includes(patch.mode)) throw badRequest('invalid_mode', 'Ungültiger Modus');
       clean.mode = patch.mode;
     }
     if (patch.categories !== undefined) {
-      if (!Array.isArray(patch.categories)) throw badRequest('categories muss eine Liste sein');
+      if (!Array.isArray(patch.categories)) throw badRequest('invalid_categories', 'categories muss eine Liste sein');
       clean.categories = [...new Set(patch.categories.map((c) => String(c).trim()).filter(Boolean))].slice(0, 10);
     }
     for (const key of ['paused', 'hiddenFromToday', 'reofferSkipped', 'needsReview'] as const) {
@@ -116,7 +116,7 @@ export class LibraryService {
   }
 
   async reorder(ids: string[]): Promise<void> {
-    if (!Array.isArray(ids)) throw badRequest('ids muss eine Liste sein');
+    if (!Array.isArray(ids)) throw badRequest('invalid_order', 'ids muss eine Liste sein');
     const existing = new Set((await this.store.listShows()).map((s) => s.id));
     await mapLimit(
       ids.filter((id) => existing.has(id)),
@@ -131,12 +131,12 @@ export class LibraryService {
    */
   async setStatus(showId: string, episodeIds: string[], status: EpisodeStatus | null): Promise<Show> {
     if (status !== null && !['UNSEEN', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED'].includes(status)) {
-      throw badRequest('Ungültiger Status');
+      throw badRequest('invalid_status', 'Ungültiger Status');
     }
     const show = await this.requireShow(showId);
     const episodes = new Map((await this.store.listEpisodes(showId)).map((e) => [e.id, e]));
     const unknown = episodeIds.filter((id) => !episodes.has(id));
-    if (unknown.length) throw notFound('Folge nicht gefunden');
+    if (unknown.length) throw notFound('episode_not_found', 'Folge nicht gefunden');
 
     if (status === null) {
       for (const id of episodeIds) await this.store.deleteProgress(showId, id);
@@ -173,7 +173,7 @@ export class LibraryService {
     const show = await this.requireShow(showId);
     const views = await this.loadViews(show);
     const target = views.find((v) => v.id === episodeId);
-    if (!target) throw notFound('Folge nicht gefunden');
+    if (!target) throw notFound('episode_not_found', 'Folge nicht gefunden');
     const ids = views
       .filter((v) => v.index < target.index && v.status !== 'COMPLETED' && v.status !== 'SKIPPED')
       .map((v) => v.id);

@@ -27,7 +27,7 @@ const CACHE_MS = 5 * 60 * 1000;
 const MISSING_CACHE_MS = 30 * 1000;
 
 const notConfigured = (detail: string) =>
-  new ApiError(StatusCodes.SERVICE_UNAVAILABLE, 'not_configured', `Spotify-Zugangsdaten fehlen: ${detail}`);
+  new ApiError(StatusCodes.SERVICE_UNAVAILABLE, 'not_configured', `Spotify-Zugangsdaten fehlen: ${detail}`, { detail });
 
 /**
  * Reads the credentials from the environment:

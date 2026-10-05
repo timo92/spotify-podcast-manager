@@ -246,8 +246,8 @@ covers what SASS used to be needed for, without a build step. No CSS
 framework keeps the bundle small and the markup readable. lucide is
 tree-shakeable, so only the icons in use are bundled.
 
-**Follow-up.** Co-locating styles with components (CSS Modules) is a
-reasonable next step once the component set grows.
+*Where the styles live is superseded by D20 (CSS Modules); tokens, plain CSS
+and lucide still apply.*
 
 ## D15 — Testing strategy and fakes
 
@@ -371,3 +371,111 @@ podcast's detail page.
   is code to maintain for data that doesn't need to survive before V1.
 - *Merge rules automatically (same podcast and part of day):* surprising
   when the user deliberately kept two rules apart.
+
+## D19 — Frontend component tests with Testing Library and jsdom
+
+**Decision.**
+- Components and pages are tested with Vitest, React Testing Library and
+  `user-event`, in a jsdom environment (`test` section of
+  `frontend/vite.config.ts`).
+- `renderWithProviders` renders with the app's providers (query client
+  without retries, toasts, player, an in-memory router). Tests mock the
+  `api` object per test; any request that isn't mocked fails, so no test
+  depends on a backend.
+- Tests find elements by role and visible text and assert on what the user
+  sees or on the API calls made.
+- Browser end-to-end checks against `pnpm dev:demo` stay manual and outside
+  CI.
+
+**Why.** UI behaviour (links, editors, confirmations) could only be checked
+by hand. Testing Library tests run in the existing `pnpm test`, on Ubuntu and
+Windows, in seconds, and keep working when markup or styles change, as long
+as the user-visible behaviour stays the same. Mocking `api` rather than
+`fetch` keeps tests independent of URLs and response encoding.
+
+**Alternatives.**
+- *Playwright component or end-to-end tests in CI:* closer to a real browser,
+  but needs browsers on both CI runners and running demo servers, and is
+  slower. Worth it later for a few critical flows.
+- *happy-dom instead of jsdom:* faster, but less complete; jsdom is the
+  default the Testing Library docs assume.
+- *Mocking `fetch` or a mock service worker:* tests the HTTP layer too, which
+  the backend app tests already cover.
+
+## D20 — Component styles as CSS Modules
+
+**Decision.** Supersedes the file layout of D14.
+- A component's or page's own rules live in `<Component>.module.css` next to
+  it and are imported as `styles` (`className={styles.item}`). Class names
+  in modules are camelCase. Pages that share a layout share one module
+  (`pages/auth.module.css`).
+- `src/styles/` keeps only what is global: tokens, base and utilities
+  (`.row`, `.muted`, …), page layout (`.page`, `.section`, `.container`) and
+  the shared primitives (buttons, chips, badges, toggles, cards, covers,
+  lists, menus, sheets, search).
+- Global styles are imported first in `main.tsx`; modules load after them,
+  so a module rule can refine a primitive with the same specificity.
+- A module refers to global classes with `:global(.name)` and to shared
+  keyframes with `global(name)`. Conditional classes are joined with `cx`.
+- Native CSS nesting where it groups a component's states and children.
+
+**Why.** A component's styles sit next to its markup, can't leak into other
+components, and disappear with it. Vite supports CSS Modules without a
+dependency. Keeping the primitives global avoids passing class names around
+for buttons and badges, which appear everywhere.
+
+**Alternatives.**
+- *Keep global files per area:* simple, but every class name is global and a
+  component's styles live away from it.
+- *CSS-in-JS or utility classes (Tailwind):* a runtime or a build-time
+  dependency and a different way of writing styles, for no gain at this size.
+- *SASS modules:* nesting and variables are native CSS now.
+
+## D21 — Translations with i18next; the API returns error codes
+
+**Decision.**
+- The UI is translated with `i18next` and `react-i18next`. Texts live in
+  `frontend/src/locales/<de|en>/<namespace>.json`, one namespace per area
+  (common, today, plan, shows, episode, history, settings, auth, player,
+  errors). Keys are typed from the German files, so a missing or misspelt
+  key fails the type check; a test checks that both languages have the same
+  keys and variables.
+- The language follows the browser (German, else English). Einstellungen can
+  pin German or English; the choice is stored in this browser only
+  (`localStorage`, like the theme), not in the user's settings. Dates and
+  durations use `Intl` with the browser's locale for the active language.
+- The API returns a stable error `code` with `params`; the frontend
+  translates it, and the German `message` stays as a fallback and for logs.
+  The codes and their parameters are declared once in `shared`
+  (`ErrorParams`, plus `ERROR_PARAMS` for the parameter names at runtime).
+  The backend can only throw declared codes with their parameters, both
+  translation files must have a text for every code (`satisfies` on the
+  imported JSON), and a test checks that each text uses exactly the code's
+  parameters. Codes the login page explains are a `LoginErrorCode`.
+  The sync state carries counts, the reloaded podcast and an error code,
+  and the frontend builds its own messages from them.
+- User data stays as it is: category names, episode titles and the default
+  categories created for new installations are not translated.
+- Spotify's link labels ("LISTEN ON SPOTIFY", "PLAY ON SPOTIFY") stay in
+  English in both languages, as the design guidelines give them (D16).
+
+**Why.** i18next is the most widely used option, supports plurals,
+interpolation and inline markup (`<Trans>`), and needs no build step. Error
+codes keep the backend independent of the UI language and let a client
+explain errors in its own words. A per-browser choice needs no API change
+and matches the theme setting.
+
+**Alternatives.**
+- *FormatJS (react-intl):* ICU messages are more expressive, but heavier
+  for two languages and simple plurals.
+- *A hand-written dictionary:* no dependency, but no plurals, interpolation
+  or typed keys without writing them ourselves.
+- *Error codes only as string literals, checked by scanning the backend
+  source:* catches a missing translation, but not a mistyped code or a
+  parameter named differently on each side.
+- *Translated messages from the backend (Accept-Language):* every error and
+  status text would need both languages on the server, and cached responses
+  would depend on the header.
+- *Storing the language in the user's settings:* follows the user across
+  devices, but needs an API change and is less useful than following each
+  device's browser.

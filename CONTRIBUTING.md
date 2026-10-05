@@ -44,8 +44,9 @@ CLI arguments instead.
   services, the Spotify client and the stores. `dev/` holds the local server,
   `test/` the tests and fakes.
 - **`packages/frontend`**: the React SPA. Pages in `src/pages`, components in
-  `src/components`, API calls and queries in `src/lib`, styles in
-  `src/styles`. `dev/` holds development-only helpers; the app itself has no
+  `src/components`, API calls and queries in `src/lib`. A component's
+  styles sit next to it as `<Component>.module.css`; `src/styles` holds the
+  global ones (D20). `dev/` holds development-only helpers; the app itself has no
   demo mode.
 - **`packages/infra`**: the CDK app. Names, stage and tags come from
   `lib/config.ts`.
@@ -77,7 +78,15 @@ There is no formatter yet; match the surrounding code:
 
 ### Language
 
-- User-facing text (UI and API error messages) is German.
+- User-facing text is German and English. It lives only in
+  `frontend/src/locales/<de|en>/<area>.json` and is used through
+  `useTranslation` (typed keys); no UI string is hard-coded in a component.
+  Add every key to both languages; the i18n test checks that.
+- API errors carry a stable `code` (and `params`) that the frontend
+  translates; their `message` is a German fallback for logs. Codes and their
+  parameters are declared in `shared/src/errors.ts` (`ErrorParams` and
+  `ERROR_PARAMS`); the type check then requires them at every `throw` and a
+  text for each in both `errors.json` files.
 - Everything else is English: identifiers, comments, docs, commits, PRs,
   issues.
 
@@ -105,6 +114,11 @@ There is no formatter yet; match the surrounding code:
 - Icons from `lucide-react` via `src/components/Icon.tsx`.
 - Plain CSS with the design tokens in `src/styles/tokens.css`; no inline colours
   or magic numbers.
+- Component styles go into `<Component>.module.css` next to the component
+  (camelCase class names, joined with `cx`). Only tokens, base styles and
+  shared primitives (buttons, chips, badges, cards, sheets, …) are global.
+  Refer to a global class from a module with `:global(.name)` and to shared
+  keyframes with `global(name)`.
 - Keep the Spotify compliance from D16 intact: attribution and official logos,
   artwork never cropped, "Open in Spotify" links.
 - Mobile first: every page must work at phone width.
@@ -121,8 +135,13 @@ There is no formatter yet; match the surrounding code:
 - Vitest; tests live in each package's `test/` folder.
 - Every behaviour change comes with a test: pure logic in `shared`, API
   behaviour through the backend app tests (with `MemoryStore` and the fake
-  Spotify), store changes in the store contract tests, infra through CDK
-  assertions.
+  Spotify), store changes in the store contract tests, UI behaviour through
+  frontend component tests, infra through CDK assertions.
+- Frontend component tests live in `frontend/test/components` and
+  `frontend/test/pages`. They render with `renderWithProviders`
+  (`test/support/render.tsx`) and mock the API per test with
+  `vi.spyOn(api, …)`; an unmocked request fails the test. Query elements by
+  role and visible text, as a user would find them.
 - A bug fix starts with a test that fails without the fix.
 
 ### Docs

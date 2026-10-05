@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { localDate, weekdayOf, type AppStatus, type Schedule, type Show, type SyncState, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
+import { StatusCodes } from 'http-status-codes';
 import { createApp } from '../src/app.js';
+import { ApiError } from '../src/errors.js';
 import { SyncService, type SyncOptions } from '../src/services/sync.js';
 import { authorizeUrl } from '../src/spotify/client.js';
 import { staticCredentials, type SpotifyCredentialsProvider } from '../src/spotify/credentials.js';
@@ -146,6 +148,7 @@ describe('configuration and auth', () => {
     expect(res.headers.Location).toBe('/?welcome=1');
     const state = await t.store.getSyncState();
     expect(state.status).toBe('error');
+    expect(state.errorCode).toBe('sync_start_failed');
     expect(state.leaseId).toBeUndefined();
     // the button reports the failure, and nothing stays blocked
     expect((await t.call('POST', '/api/sync', {})).status).toBe(500);
@@ -172,13 +175,34 @@ describe('configuration and auth', () => {
 
     // The triggered run takes its lease over, imports, and frees it.
     const done = await t.sync();
-    expect(done.status).toBe('idle');
+    expect(done).toMatchObject({ status: 'idle', showsSynced: 5, showsFailed: 0 });
     expect((await t.store.getSyncState()).leaseId).toBeUndefined();
     expect(await t.store.listShows()).toHaveLength(5);
 
     // Afterwards a new sync can start.
     await t.call('POST', '/api/sync', {});
     expect(t.syncs).toHaveLength(2);
+  });
+
+  it('reports which podcast a single reload is for, and why a sync failed', async () => {
+    const t = setup();
+    await login(t);
+    await t.sync();
+    const running = await t.call('POST', '/api/shows/demo-dertag/sync', {});
+    expect(running.body).toMatchObject({ status: 'running', showId: 'demo-dertag' });
+    const reloaded = await t.sync();
+    expect(reloaded.status).toBe('idle');
+    expect(reloaded.showId).toBeUndefined();
+
+    t.spotify.getSavedShows = async () => {
+      throw new ApiError(StatusCodes.TOO_MANY_REQUESTS, 'spotify_rate_limited', 'Rate-Limit', { minutes: 3 });
+    };
+    await t.call('POST', '/api/sync', {});
+    expect(await t.sync()).toMatchObject({
+      status: 'error',
+      errorCode: 'spotify_rate_limited',
+      errorParams: { minutes: 3 },
+    });
   });
 
   it('requires JSON for mutating requests', async () => {
@@ -311,7 +335,12 @@ describe('library flow', () => {
   it('validates plan rules', async () => {
     const t = await ready();
     const save = (body: unknown) => t.call('PUT', '/api/schedule', body);
-    expect((await save({ rules: [{ weekdays: [1] }] })).status).toBe(400);
+    expect((await save({ rules: [{ weekdays: [1] }] })).body).toMatchObject({ error: 'rule_show_missing' });
+    expect((await save({ rules: Array(201).fill({ showId: 'demo-dertag', weekdays: [1] }) })).body).toEqual({
+      error: 'too_many_rules',
+      message: 'Höchstens 200 Regeln',
+      params: { max: 200 },
+    });
     expect((await save({ rules: [{ showId: 'demo-dertag', weekdays: [] }] })).status).toBe(400);
     expect((await save({ rules: [{ showId: 'demo-dertag', weekdays: [8] }] })).status).toBe(400);
     expect((await save({ rules: 'x' })).status).toBe(400);

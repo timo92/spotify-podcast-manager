@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { cx } from './cx';
+import styles from './toast.module.css';
 
 export interface Toast {
   id: number;
@@ -26,13 +28,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={show}>
       {children}
-      <div className="toasts" role="status" aria-live="polite">
+      <div className={styles.toasts} role="status" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.tone ?? 'info'}`}>
+          <div key={t.id} className={cx(styles.toast, t.tone === 'error' && styles.error)}>
             <span>{t.message}</span>
             {t.action && (
               <button
-                className="toast-action"
+                className={styles.action}
                 onClick={() => {
                   t.action!.onClick();
                   dismiss(t.id);

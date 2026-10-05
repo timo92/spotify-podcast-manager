@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { EpisodeNote } from '@podcast/shared';
 import { api } from '../lib/api';
+import { cx } from '../lib/cx';
 import { formatClock, formatRelative, splitTimestamps } from '../lib/format';
 import { usePlayer, type PlayableItem } from '../lib/player';
 import { qk } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
-import { SpotifyLogo } from './SpotifyAttribution';
+import styles from './Notes.module.css';
+import { NowPlayingTitle } from './NowPlaying';
 import { Cover, IconButton } from './ui';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
@@ -28,6 +31,7 @@ export function NoteEditor({
   autoFocus?: boolean;
   rows?: number;
 }) {
+  const { t } = useTranslation('player');
   const qc = useQueryClient();
   const toast = useToast();
   const player = usePlayer();
@@ -57,7 +61,7 @@ export function NoteEditor({
     } catch (e) {
       setState('error');
       pending.current = value;
-      toast({ message: `Notiz nicht gespeichert: ${(e as Error).message}`, tone: 'error' });
+      toast({ message: t('note.notSaved', { error: (e as Error).message }), tone: 'error' });
     }
   }, [showId, episodeId, qc, toast]);
 
@@ -93,31 +97,31 @@ export function NoteEditor({
   }
 
   return (
-    <div className="note-editor">
+    <div className={styles.editor}>
       <textarea
         ref={ref}
-        className="note-input"
+        className={styles.input}
         rows={rows}
         value={text ?? ''}
         disabled={text === null}
         autoFocus={autoFocus}
-        placeholder={note.isLoading ? 'Lädt…' : 'Gedanken, Zitate, Links … – wird automatisch gespeichert'}
+        placeholder={note.isLoading ? t('ui.loading', { ns: 'common' }) : t('note.placeholder')}
         onChange={(e) => change(e.target.value)}
         onBlur={() => void flush()}
-        aria-label="Notiz"
+        aria-label={t('note.label')}
       />
-      <div className="note-toolbar">
+      <div className={styles.toolbar}>
         {canStamp && (
           <button type="button" className="btn btn-small" onClick={insertTimestamp}>
-            <Icon name="clock" size={16} /> Zeitstempel {formatClock(np!.positionMs)}
+            <Icon name="clock" size={16} /> {t('note.timestamp', { time: formatClock(np!.positionMs) })}
           </button>
         )}
-        <span className="muted tiny note-state">
-          {state === 'dirty' && 'Ungespeichert…'}
-          {state === 'saving' && 'Speichert…'}
-          {state === 'saved' && 'Gespeichert'}
-          {state === 'error' && <span className="text-error">Fehler beim Speichern</span>}
-          {state === 'idle' && note.data?.updatedAt && `Zuletzt bearbeitet ${formatRelative(note.data.updatedAt)}`}
+        <span className={cx('muted tiny', styles.state)}>
+          {state === 'dirty' && t('note.unsaved')}
+          {state === 'saving' && t('note.saving')}
+          {state === 'saved' && t('note.saved')}
+          {state === 'error' && <span className="text-error">{t('note.saveFailed')}</span>}
+          {state === 'idle' && note.data?.updatedAt && t('note.lastEdited', { when: formatRelative(note.data.updatedAt) })}
         </span>
       </div>
     </div>
@@ -126,6 +130,7 @@ export function NoteEditor({
 
 /** Note text with clickable timestamps that jump to that position. */
 export function NoteText({ note, item }: { note: Pick<EpisodeNote, 'text'>; item: PlayableItem }) {
+  const { t } = useTranslation('player');
   const player = usePlayer();
   const jump = (ms: number) => {
     const np = player.nowPlaying;
@@ -133,10 +138,10 @@ export function NoteText({ note, item }: { note: Pick<EpisodeNote, 'text'>; item
     else void player.play(item, { positionMs: ms });
   };
   return (
-    <p className="note-text">
+    <p className={styles.text}>
       {splitTimestamps(note.text).map((part, i) =>
         'ms' in part ? (
-          <button key={i} type="button" className="timestamp" onClick={() => jump(part.ms)} title="Ab hier abspielen">
+          <button key={i} type="button" className={styles.timestamp} onClick={() => jump(part.ms)} title={t('note.jump')}>
             {part.label}
           </button>
         ) : (
@@ -149,6 +154,7 @@ export function NoteText({ note, item }: { note: Pick<EpisodeNote, 'text'>; item
 
 /** Note panel for the episode that is currently playing. Playback continues. */
 export function PlayerNoteSheet({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation('player');
   const player = usePlayer();
   const np = player.nowPlaying;
 
@@ -163,31 +169,24 @@ export function PlayerNoteSheet({ onClose }: { onClose: () => void }) {
   // Portal: the player bar is its own stacking context below the navigation.
   return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet note-sheet" role="dialog" aria-modal="true" aria-label="Notiz" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label={t('note.label')} onClick={(e) => e.stopPropagation()}>
         <div className="row gap">
           <Cover src={np.imageUrl} alt={np.showName} size={44} />
           <div className="grow">
-            <div className="player-title">{np.name}</div>
-            <div className="player-meta">
-              <SpotifyLogo />
-              <span className="muted small ellipsis">
-                {np.showName}
-                {local && ` · ${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}`}
-              </span>
-            </div>
+            <NowPlayingTitle np={np} detail={local ? ` · ${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}` : ''} />
           </div>
-          <IconButton icon="close" label="Schließen" onClick={onClose} />
+          <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
         </div>
         {local && (
-          <div className="row gap note-controls">
-            <IconButton icon="rewind" label="15 Sekunden zurück" onClick={() => player.seekBy(-15_000)} />
+          <div className={cx('row gap', styles.controls)}>
+            <IconButton icon="rewind" label={t('back15')} onClick={() => player.seekBy(-15_000)} />
             <IconButton
               icon={np.paused ? 'play' : 'pause'}
-              label={np.paused ? 'Fortsetzen' : 'Pause'}
+              label={np.paused ? t('resume') : t('pause')}
               variant="primary"
               onClick={player.togglePause}
             />
-            <IconButton icon="forward" label="30 Sekunden vor" onClick={() => player.seekBy(30_000)} />
+            <IconButton icon="forward" label={t('forward30')} onClick={() => player.seekBy(30_000)} />
           </div>
         )}
         <NoteEditor showId={np.showId} episodeId={np.episodeId} autoFocus rows={10} />

@@ -1,0 +1,43 @@
+{
+  "play": {
+    "play": "Abspielen",
+    "playing": "Läuft",
+    "fromStart": "Von vorne"
+  },
+  "card": {
+    "details": "Details zu {{name}}",
+    "progress": "Fortschritt"
+  },
+  "action": {
+    "skip": "Überspringen",
+    "details": "Details",
+    "completeBeforeMenu": "Alle früheren als gehört",
+    "markUnplayed": "Als ungehört markieren",
+    "unpin": "Auswahl aufheben",
+    "pin": "Als nächste Folge festlegen",
+    "resetStatus": "Status zurücksetzen (Spotify)"
+  },
+  "row": {
+    "next": "Als Nächstes",
+    "chosen": "Gewählt",
+    "fromSpotify": "Status stammt aus Spotify",
+    "noteExists": "Notiz vorhanden",
+    "note": "Notiz"
+  },
+  "sheet": {
+    "label": "Folge",
+    "pinned": "Als nächste gewählt",
+    "statusFromSpotify": "Status aus Spotify",
+    "progress": "Fortschritt in Spotify",
+    "progressText": "{{percent}} % gehört · noch {{remaining}}",
+    "playedOn": "Gehört am {{date}}",
+    "skippedOn": "Übersprungen am {{date}}",
+    "played": "Gehört",
+    "unplayed": "Ungehört",
+    "skip": "Überspringen",
+    "unpin": "Auswahl aufheben",
+    "pin": "Als nächste",
+    "completeBefore": "Alle früheren gehört",
+    "notes": "Notizen"
+  }
+}

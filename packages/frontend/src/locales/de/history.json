@@ -1,0 +1,13 @@
+{
+  "title": "Verlauf",
+  "view": "Ansicht",
+  "tabPlayed": "Gehört",
+  "tabNotes": "Notizen",
+  "notesEmptyTitle": "Noch keine Notizen",
+  "notesEmptyText": "Öffne eine Folge oder tippe im Player auf <icon/> – Notizen werden automatisch gespeichert.",
+  "notesSearch": "Notizen durchsuchen",
+  "lastWeek": "{{time}} in den letzten 7 Tagen",
+  "recent": "Zuletzt gehörte Folgen",
+  "emptyTitle": "Noch nichts gehört",
+  "emptyText": "Markiere Folgen als gehört – sie erscheinen dann hier."
+}

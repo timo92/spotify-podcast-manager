@@ -21,7 +21,8 @@ finished, and fills the rest of your daily time budget by priority. You can play
 (Spotify Web Playback SDK, Premium), on any Spotify Connect device (phone,
 speaker…), or open it in the Spotify app.
 
-The UI is in German. The code and docs are in English.
+The UI is in German and English (following the browser, switchable in
+*Einstellungen*). The code and docs are in English.
 
 ![Architecture](docs/architecture.svg)
 

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ErrorBox, Spinner } from './components/ui';
@@ -13,6 +14,8 @@ import { TodayPage } from './pages/Today';
 import { WeekPage } from './pages/Week';
 
 export function App() {
+  // Also re-renders the whole app when the language changes.
+  const { t } = useTranslation();
   const { data: status, error, isLoading, refetch } = useStatus();
 
   if (isLoading) {
@@ -25,7 +28,7 @@ export function App() {
   if (error || !status) {
     return (
       <div className="center-screen">
-        <ErrorBox error={error ?? 'Keine Verbindung zum Server'} onRetry={() => void refetch()} />
+        <ErrorBox error={error ?? t('ui.noConnection')} onRetry={() => void refetch()} />
       </div>
     );
   }

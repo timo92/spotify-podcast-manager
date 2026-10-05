@@ -1,0 +1,80 @@
+{
+  "progress": {
+    "noEpisodes": "No episodes yet",
+    "chosen": "Chosen: episode {{index}} / {{total}}",
+    "noNew": "No new episode",
+    "newAvailable": "● New episode available",
+    "newestOpen": "Newest episode unplayed",
+    "allDone": "All {{total}} episodes done",
+    "noneChosen": "No episode chosen"
+  },
+  "list": {
+    "allConfirmed": "All podcasts confirmed",
+    "titleReview": "Sort your podcasts",
+    "title": "My podcasts",
+    "introReview": "For each podcast, choose whether you always listen to the newest episode or work through it in order.",
+    "intro": "{{count}} podcasts from your Spotify library",
+    "priority": "Priority",
+    "reviewBanner_one": "{{count}} new podcast – its mode and category were guessed.",
+    "reviewBanner_other": "{{count}} new podcasts – their mode and category were guessed.",
+    "review": "Review",
+    "confirmAll": "Confirm all",
+    "priorityHint": "Higher priority = higher up on “Today” and first in the time budget.",
+    "unfollowed": "No longer followed",
+    "emptyReview": "All sorted",
+    "empty": "No podcasts",
+    "toOverview": "Back to the overview",
+    "emptyText": "Follow podcasts in Spotify and sync – they will appear here.",
+    "moveUp": "Move up",
+    "moveDown": "Move down"
+  },
+  "card": {
+    "newCount": "{{count}} new",
+    "notOnToday": "Not on Today",
+    "review": "Review",
+    "next": "Up next:",
+    "lastPlayed": "Last played: {{name}}",
+    "synced": "Synced {{when}}",
+    "syncError": "The last sync failed"
+  },
+  "review": {
+    "episodes": "{{count}} episodes",
+    "ok": "Looks good",
+    "notOnToday": "Not on “Today”"
+  },
+  "detail": {
+    "filter": {
+      "alle": "All",
+      "ungehoert": "Unplayed",
+      "neu": "New",
+      "begonnen": "Started",
+      "gehoert": "Played",
+      "uebersprungen": "Skipped"
+    },
+    "back": "Podcasts",
+    "unfollowed": "No longer in your Spotify library",
+    "removedOn": "will be removed on {{date}}",
+    "reloading": "Reloading episodes…",
+    "reload": "Reload",
+    "newest": "Newest episode",
+    "next": "Up next",
+    "left": "left",
+    "settings": "Settings",
+    "pause": "Pause",
+    "pauseHint": "Temporarily not suggested on “Today”",
+    "hide": "Don’t show on “Today”",
+    "hideHint": "Stays in the overview but is never suggested",
+    "reoffer": "Offer skipped episodes again",
+    "reofferHint": "Once everything else is played",
+    "confirm": "Confirm settings",
+    "counts": "{{played}} played · {{skipped}} skipped · {{open}} open",
+    "synced": "Synced {{when}}",
+    "episodes": "Episodes",
+    "reverse": "Reverse order",
+    "oldestFirst": "Oldest first",
+    "newestFirst": "Newest first",
+    "search": "Search episodes",
+    "noneFound": "No episodes found",
+    "more": "Show {{count}} more of {{rest}}"
+  }
+}

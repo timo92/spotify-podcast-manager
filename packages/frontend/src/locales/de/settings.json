@@ -1,0 +1,58 @@
+{
+  "title": "Einstellungen",
+  "budget": {
+    "title": "Tagesbudget",
+    "perDay": "Audio pro Tag: {{value}}",
+    "minutes": "{{count}} min",
+    "unlimited": "kein Limit",
+    "tolerance": "Toleranz: {{percent}} %",
+    "toleranceHint": "Wie weit eine Auswahl das Budget überschreiten darf."
+  },
+  "episodes": {
+    "title": "Folgen",
+    "newWindow": "„Neu“ heißt: erschienen in den letzten {{days}} Tagen",
+    "spotifyState": "Spotify-Hörstand übernehmen",
+    "spotifyStateHint": "Folgen, die Spotify als vollständig gehört meldet, gelten als gehört. Eigene Markierungen haben immer Vorrang.",
+    "autoComplete": "Automatisch als gehört markieren",
+    "autoCompleteHint": "Wenn eine Folge im Browser-Player zu Ende läuft"
+  },
+  "categories": {
+    "title": "Kategorien"
+  },
+  "appearance": {
+    "title": "Darstellung",
+    "theme": "Farbschema",
+    "system": "System",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "language": "Sprache",
+    "languageAuto": "Automatisch",
+    "languageHint": "„Automatisch“ folgt der Sprache des Browsers. Die Wahl gilt für diesen Browser."
+  },
+  "sync": {
+    "title": "Synchronisierung",
+    "schedule": "Automatisch alle 2 Stunden (neue Folgen), einmal täglich vollständig.",
+    "lastSuccess": "Zuletzt erfolgreich: {{date}}.",
+    "started": "Sync gestartet",
+    "fullStarted": "Vollständiger Sync gestartet",
+    "now": "Jetzt synchronisieren",
+    "full": "Alles neu laden"
+  },
+  "spotify": {
+    "title": "Spotify",
+    "connectedAs": "Verbunden als <strong>{{name}}</strong>",
+    "missingScopes": "Fehlende Berechtigungen: {{scopes}}",
+    "reconnect": "Neu verbinden",
+    "logout": "Abmelden",
+    "redirectUri": "Redirect-URI für die Spotify-App: {{uri}}"
+  },
+  "data": {
+    "title": "Daten",
+    "export": "Export (JSON)",
+    "deleteAll": "Alle Daten löschen",
+    "deleteText": "Löscht Fortschritt, Einstellungen, Spotify-Token und Zugangsdaten unwiderruflich. Danach muss die App neu eingerichtet werden. Tippe <strong>{{word}}</strong> zur Bestätigung.",
+    "confirmWord": "LÖSCHEN",
+    "confirmation": "Bestätigung",
+    "deleteForever": "Endgültig löschen"
+  }
+}

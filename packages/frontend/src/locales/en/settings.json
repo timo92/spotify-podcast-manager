@@ -1,0 +1,58 @@
+{
+  "title": "Settings",
+  "budget": {
+    "title": "Daily budget",
+    "perDay": "Audio per day: {{value}}",
+    "minutes": "{{count}} min",
+    "unlimited": "no limit",
+    "tolerance": "Tolerance: {{percent}} %",
+    "toleranceHint": "How far a selection may exceed the budget."
+  },
+  "episodes": {
+    "title": "Episodes",
+    "newWindow": "“New” means: released in the last {{days}} days",
+    "spotifyState": "Use Spotify's listening state",
+    "spotifyStateHint": "Episodes Spotify reports as fully played count as played. Your own marks always take precedence.",
+    "autoComplete": "Mark as played automatically",
+    "autoCompleteHint": "When an episode finishes in the browser player"
+  },
+  "categories": {
+    "title": "Categories"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "theme": "Colour scheme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "language": "Language",
+    "languageAuto": "Automatic",
+    "languageHint": "“Automatic” follows the browser’s language. The choice applies to this browser."
+  },
+  "sync": {
+    "title": "Sync",
+    "schedule": "Automatically every 2 hours (new episodes), fully once a day.",
+    "lastSuccess": "Last successful: {{date}}.",
+    "started": "Sync started",
+    "fullStarted": "Full sync started",
+    "now": "Sync now",
+    "full": "Reload everything"
+  },
+  "spotify": {
+    "title": "Spotify",
+    "connectedAs": "Connected as <strong>{{name}}</strong>",
+    "missingScopes": "Missing permissions: {{scopes}}",
+    "reconnect": "Reconnect",
+    "logout": "Log out",
+    "redirectUri": "Redirect URI for the Spotify app: {{uri}}"
+  },
+  "data": {
+    "title": "Data",
+    "export": "Export (JSON)",
+    "deleteAll": "Delete all data",
+    "deleteText": "Permanently deletes progress, settings, Spotify tokens and credentials. Afterwards the app has to be set up again. Type <strong>{{word}}</strong> to confirm.",
+    "confirmWord": "DELETE",
+    "confirmation": "Confirmation",
+    "deleteForever": "Delete permanently"
+  }
+}

@@ -72,7 +72,7 @@ export function Layout() {
       <header className={styles.topbar}>
         <NavLink to="/" className={styles.brand}>
           <img src="/icon.svg" alt="" width={28} height={28} />
-          <span>Podcast-Cockpit</span>
+          <span>{t('appName')}</span>
         </NavLink>
         <nav className={styles.topnav} aria-label={t('nav.main')}>
           {NAV.map((n) => (

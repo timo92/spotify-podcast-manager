@@ -60,8 +60,6 @@
     "next": "Up next",
     "left": "left",
     "settings": "Settings",
-    "newCategory": "New category",
-    "categoryPlaceholder": "+ Category",
     "pause": "Pause",
     "pauseHint": "Temporarily not suggested on “Today”",
     "hide": "Don’t show on “Today”",

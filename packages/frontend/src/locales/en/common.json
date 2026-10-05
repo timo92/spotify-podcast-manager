@@ -83,7 +83,10 @@
     "filter": "Filter",
     "all": "All",
     "back": "Back",
-    "paused": "Paused"
+    "paused": "Paused",
+    "noConnection": "No connection to the server",
+    "newCategory": "New category",
+    "categoryPlaceholder": "+ Category"
   },
   "nav": {
     "main": "Main navigation",

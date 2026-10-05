@@ -101,6 +101,11 @@ export function formatWeekdays(days: Weekday[]): string {
     .join(', ');
 }
 
+/** "Montag, 5. Oktober" / "Monday 5 October". */
+export function formatLongDate(date: Date): string {
+  return dateFormat({ weekday: 'long', day: 'numeric', month: 'long' }).format(date);
+}
+
 /** "Mo–Fr · Morgens": a plan rule's weekdays and part of day. */
 export function formatRule(rule: { weekdays: Weekday[]; part: DayPart }): string {
   return `${formatWeekdays(rule.weekdays)} · ${dayPartLabel(rule.part)}`;

@@ -170,7 +170,9 @@ export function ShowDetailPage() {
               void update({ categories: [...show.categories, c] });
             }}
           >
-            <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder={t('detail.categoryPlaceholder')} aria-label={t('detail.newCategory')} />
+            <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder={t('ui.categoryPlaceholder', { ns: 'common' })}
+              aria-label={t('ui.newCategory', { ns: 'common' })}
+            />
           </form>
         </div>
         <Toggle label={t('detail.pause')} hint={t('detail.pauseHint')} checked={show.paused} onChange={(paused) => void update({ paused })} />

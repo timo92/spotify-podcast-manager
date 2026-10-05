@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { EpisodeProgress } from '@podcast/shared';
 import { EpisodeSheet } from '../components/EpisodeSheet';
@@ -7,9 +8,10 @@ import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Icon } from '../components/Icon';
 import { NoteText } from '../components/Notes';
 import { Empty, ErrorBox, Segmented, Spinner } from '../components/ui';
+import i18n from '../i18n';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatDuration, formatRelative } from '../lib/format';
+import { formatDuration, formatLongDate, formatRelative } from '../lib/format';
 import { qk } from '../lib/queries';
 import styles from './History.module.css';
 
@@ -18,14 +20,15 @@ function dayLabel(iso: string): string {
   const today = new Date();
   const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diff = Math.round((start(today) - start(d)) / 86_400_000);
-  if (diff === 0) return 'Heute';
-  if (diff === 1) return 'Gestern';
-  return new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
+  if (diff === 0) return i18n.t('time.today');
+  if (diff === 1) return i18n.t('time.yesterday');
+  return formatLongDate(d);
 }
 
 type Tab = 'gehoert' | 'notizen';
 
 export function HistoryPage() {
+  const { t } = useTranslation('history');
   const [params, setParams] = useSearchParams();
   const tab: Tab = params.get('tab') === 'notizen' ? 'notizen' : 'gehoert';
   const [open, setOpen] = useState<{ showId: string; episodeId: string } | null>(null);
@@ -34,16 +37,16 @@ export function HistoryPage() {
   return (
     <div className="page">
       <header className="page-head">
-        <h1>Verlauf</h1>
+        <h1>{t('title')}</h1>
         <SpotifyAttribution on="page" />
       </header>
       <Segmented
-        label="Ansicht"
+        label={t('view')}
         value={tab}
-        onChange={(t) => setParams(t === 'notizen' ? { tab: 'notizen' } : {})}
+        onChange={(next) => setParams(next === 'notizen' ? { tab: 'notizen' } : {})}
         options={[
-          { value: 'gehoert', label: 'Gehört' },
-          { value: 'notizen', label: 'Notizen' },
+          { value: 'gehoert', label: t('tabPlayed') },
+          { value: 'notizen', label: t('tabNotes') },
         ]}
       />
       {tab === 'gehoert' ? <Listened onOpen={onOpen} /> : <Notes onOpen={onOpen} />}
@@ -53,6 +56,7 @@ export function HistoryPage() {
 }
 
 function Notes({ onOpen }: { onOpen: (showId: string, episodeId: string) => void }) {
+  const { t } = useTranslation('history');
   const notes = useQuery({ queryKey: qk.notes, queryFn: api.notes });
   const [query, setQuery] = useState('');
   const list = useMemo(() => {
@@ -71,14 +75,14 @@ function Notes({ onOpen }: { onOpen: (showId: string, episodeId: string) => void
       {notes.isLoading && <Spinner />}
       {notes.error && <ErrorBox error={notes.error} />}
       {notes.data?.length === 0 && (
-        <Empty title="Noch keine Notizen">
-          Öffne eine Folge oder tippe im Player auf <Icon name="note" size={14} /> – Notizen werden automatisch gespeichert.
+        <Empty title={t('notesEmptyTitle')}>
+          <Trans t={t} i18nKey="notesEmptyText" components={{ icon: <Icon name="note" size={14} /> }} />
         </Empty>
       )}
       {!!notes.data?.length && (
         <label className="search">
           <Icon name="search" size={18} />
-          <input type="search" placeholder="Notizen durchsuchen" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input type="search" placeholder={t('notesSearch')} value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
       )}
       <div className="card-list">
@@ -117,6 +121,7 @@ function Notes({ onOpen }: { onOpen: (showId: string, episodeId: string) => void
 }
 
 function Listened({ onOpen }: { onOpen: (showId: string, episodeId: string) => void }) {
+  const { t } = useTranslation('history');
   const history = useQuery({ queryKey: qk.history, queryFn: () => api.history(200) });
 
   const groups: [string, EpisodeProgress[]][] = [];
@@ -132,11 +137,11 @@ function Listened({ onOpen }: { onOpen: (showId: string, episodeId: string) => v
 
   return (
     <>
-      <p className="muted">{totalMs > 0 ? `${formatDuration(totalMs)} in den letzten 7 Tagen` : 'Zuletzt gehörte Folgen'}</p>
+      <p className="muted">{totalMs > 0 ? t('lastWeek', { time: formatDuration(totalMs) }) : t('recent')}</p>
       {history.isLoading && <Spinner />}
       {history.error && <ErrorBox error={history.error} />}
       {history.data?.length === 0 && (
-        <Empty title="Noch nichts gehört">Markiere Folgen als gehört – sie erscheinen dann hier.</Empty>
+        <Empty title={t('emptyTitle')}>{t('emptyText')}</Empty>
       )}
       {groups.map(([label, items]) => (
         <section key={label} className="section">

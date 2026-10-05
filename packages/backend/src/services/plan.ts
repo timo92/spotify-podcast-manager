@@ -2,9 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   buildWeek,
   DAY_PARTS,
-  isLegacySchedule,
   localDate,
-  migrateSchedule,
   type DayPart,
   type PlanDay,
   type PlanInput,
@@ -44,13 +42,11 @@ export class PlanService {
   ) {}
 
   /**
-   * Validates and stores the whole plan. A body in the legacy `entries` shape
-   * (e.g. from an older export) is converted into rules first. Rules without a
-   * unique id get a new one.
+   * Validates and stores the whole plan. Rules without a unique id get a new
+   * one.
    */
   async saveSchedule(input: unknown): Promise<Schedule> {
-    const body = isLegacySchedule(input) ? migrateSchedule(input) : input;
-    const raw = (body as { rules?: unknown })?.rules;
+    const raw = (input as { rules?: unknown })?.rules;
     if (!Array.isArray(raw)) throw badRequest('rules muss eine Liste sein');
     if (raw.length > MAX_RULES) throw badRequest(`Höchstens ${MAX_RULES} Regeln`);
     const shows = new Set((await this.store.listShows()).map((s) => s.id));

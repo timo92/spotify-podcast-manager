@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildEpisodeViews, buildToday, summarizeShow } from '../src/logic.js';
-import { addDays, buildWeek, isLegacySchedule, localDate, migrateSchedule, weekdayOf, type PlanInput } from '../src/plan.js';
+import { addDays, buildWeek, localDate, weekdayOf, type PlanInput } from '../src/plan.js';
 import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Schedule, type Show } from '../src/types.js';
 
 const now = new Date('2026-10-05T08:00:00Z'); // a Monday
@@ -160,37 +160,6 @@ describe('buildWeek', () => {
     const inputs = new Map([['news', input(show('news', 'MANUAL'), eps('news', 2))]]);
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, schedule, inputs);
     expect(mon.items[0].state).toBe('none');
-  });
-});
-
-describe('migrateSchedule', () => {
-  it('groups legacy slots into one rule per podcast and part of day', () => {
-    const legacy = {
-      entries: [
-        { id: 'a', showId: 'news', weekday: 3 as const, part: 'MORNING' as const },
-        { id: 'b', showId: 'series', weekday: 2 as const, part: 'EVENING' as const },
-        { id: 'c', showId: 'news', weekday: 1 as const, part: 'MORNING' as const },
-        { id: 'd', showId: 'news', weekday: 6 as const, part: 'EVENING' as const },
-        { id: 'e', showId: 'news', weekday: 1 as const, part: 'MORNING' as const },
-      ],
-      updatedAt: 'v1',
-    };
-    expect(isLegacySchedule(legacy)).toBe(true);
-    expect(migrateSchedule(legacy)).toEqual({
-      rules: [
-        { id: 'a', showId: 'news', weekdays: [1, 3], part: 'MORNING' },
-        { id: 'b', showId: 'series', weekdays: [2], part: 'EVENING' },
-        { id: 'd', showId: 'news', weekdays: [6], part: 'EVENING' },
-      ],
-      updatedAt: 'v1',
-    });
-  });
-
-  it('leaves rules unchanged', () => {
-    const schedule: Schedule = { rules: [{ id: 'a', showId: 'news', weekdays: [1], part: 'ANYTIME' }] };
-    expect(isLegacySchedule(schedule)).toBe(false);
-    expect(migrateSchedule(schedule)).toBe(schedule);
-    expect(migrateSchedule({ entries: [] })).toEqual({ rules: [] });
   });
 });
 

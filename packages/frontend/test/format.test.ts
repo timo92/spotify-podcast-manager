@@ -52,3 +52,17 @@ describe('splitTimestamps', () => {
     expect(splitTimestamps('kein Zeitstempel')).toEqual([{ text: 'kein Zeitstempel' }]);
   });
 });
+
+describe('parseClock', () => {
+  it('reads m:ss, mm:ss and h:mm:ss', async () => {
+    const { parseClock } = await import('../src/lib/format');
+    expect(parseClock('2:05')).toBe(125_000);
+    expect(parseClock(' 75:00 ')).toBe(4_500_000);
+    expect(parseClock('1:02:03')).toBe(3_723_000);
+  });
+
+  it('rejects anything else', async () => {
+    const { parseClock } = await import('../src/lib/format');
+    for (const text of ['', '5', '2:5', '2:65', '1:60:00', 'ab:cd', '-1:00']) expect(parseClock(text)).toBeUndefined();
+  });
+});

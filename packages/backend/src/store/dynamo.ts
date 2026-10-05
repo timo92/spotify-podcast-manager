@@ -35,10 +35,10 @@ import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
  *   SHOW          <showId>    Show
  *   EP#<showId>   <epId>      Episode           (written by sync only)
  *   PROG#<showId> <epId>      EpisodeProgress   (written by the user only)
- *   NOTE#<showId> <epId>      EpisodeNote
+ *   NOTE#<showId> <epId>#<id> EpisodeNote
  *
  * GSI1 indexes completed episodes (GSI1PK = HISTORY, GSI1SK = listenedAt)
- * and notes (GSI1PK = NOTES, GSI1SK = updatedAt).
+ * and notes (GSI1PK = NOTES, GSI1SK = createdAt).
  */
 export class DynamoStore implements Store {
   private readonly db: DynamoDBDocumentClient;
@@ -315,14 +315,26 @@ export class DynamoStore implements Store {
     );
   }
 
-  getNote(showId: string, episodeId: string) {
-    return this.get<EpisodeNote>(`NOTE#${showId}`, episodeId);
+  getNote(showId: string, episodeId: string, noteId: string) {
+    return this.get<EpisodeNote>(`NOTE#${showId}`, `${episodeId}#${noteId}`);
   }
   putNote(note: EpisodeNote) {
-    return this.put(`NOTE#${note.showId}`, note.episodeId, note, { GSI1PK: 'NOTES', GSI1SK: note.updatedAt });
+    return this.put(`NOTE#${note.showId}`, `${note.episodeId}#${note.id}`, note, {
+      GSI1PK: 'NOTES',
+      GSI1SK: note.createdAt,
+    });
   }
-  async deleteNote(showId: string, episodeId: string) {
-    await this.db.send(new DeleteCommand({ TableName: this.table, Key: { PK: `NOTE#${showId}`, SK: episodeId } }));
+  async deleteNote(showId: string, episodeId: string, noteId: string) {
+    await this.db.send(
+      new DeleteCommand({ TableName: this.table, Key: { PK: `NOTE#${showId}`, SK: `${episodeId}#${noteId}` } }),
+    );
+  }
+  async listEpisodeNotes(showId: string, episodeId: string) {
+    const items = await this.queryAll({
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+      ExpressionAttributeValues: { ':pk': `NOTE#${showId}`, ':prefix': `${episodeId}#` },
+    });
+    return items.map((i) => strip(i) as EpisodeNote);
   }
   async listShowNotes(showId: string) {
     const items = await this.queryAll({

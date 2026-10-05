@@ -3,10 +3,12 @@ import { ApiError } from '../errors.js';
 import type { SpotifyTokens, Store } from '../store/types.js';
 import type { SpotifyCredentials, SpotifyCredentialsProvider } from './credentials.js';
 import type {
+  PlayingEpisode,
   SpotifyApi,
   SpotifyDevice,
   SpotifyEpisode,
   SpotifyPage,
+  SpotifyPlaybackState,
   SpotifyShow,
   SpotifyUser,
   TokenResponse,
@@ -22,7 +24,8 @@ const ACCOUNTS = 'https://accounts.spotify.com';
  *  - user-read-playback-position: resume points / "fully played" of episodes
  *  - streaming, user-read-email, user-read-private: Web Playback SDK (Premium)
  *  - user-read-playback-state, user-modify-playback-state: start playback on
- *    the browser player or any other Spotify Connect device
+ *    the browser player or any other Spotify Connect device, and read the
+ *    position of the playing episode for a new note
  */
 export const SCOPES = [
   'user-library-read',
@@ -288,6 +291,13 @@ export class HttpSpotifyApi implements SpotifyApi {
       uris: [`spotify:episode:${episodeId}`],
       position_ms: Math.max(0, Math.floor(positionMs)),
     });
+  }
+
+  async getPlayingEpisode(): Promise<PlayingEpisode | undefined> {
+    // GET /me/player needs user-read-playback-state, which playback already requires.
+    const res = await this.request<SpotifyPlaybackState>('GET', '/me/player?additional_types=episode');
+    if (res?.currently_playing_type !== 'episode' || !res.item || res.progress_ms === null) return undefined;
+    return { episodeId: res.item.id, positionMs: res.progress_ms };
   }
 
   async getAccessToken() {

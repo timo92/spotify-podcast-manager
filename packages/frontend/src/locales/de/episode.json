@@ -21,8 +21,8 @@
     "next": "Als Nächstes",
     "chosen": "Gewählt",
     "fromSpotify": "Status stammt aus Spotify",
-    "noteExists": "Notiz vorhanden",
-    "note": "Notiz"
+    "noteExists": "Notizen vorhanden",
+    "note": "Notizen"
   },
   "sheet": {
     "label": "Folge",

@@ -47,3 +47,8 @@
     flex-direction: column;
   }
 }
+.noteBody {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}

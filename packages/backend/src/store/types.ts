@@ -97,11 +97,16 @@ export interface Store {
    */
   putSchedule(schedule: Schedule, expectedUpdatedAt?: string | null): Promise<boolean>;
 
-  getNote(showId: string, episodeId: string): Promise<EpisodeNote | undefined>;
+  getNote(showId: string, episodeId: string, noteId: string): Promise<EpisodeNote | undefined>;
+  /** Creates or replaces a note (identified by show, episode and id). */
   putNote(note: EpisodeNote): Promise<void>;
-  deleteNote(showId: string, episodeId: string): Promise<void>;
+  /** Removes a note; removing a missing note does nothing. */
+  deleteNote(showId: string, episodeId: string, noteId: string): Promise<void>;
+  /** The notes of one episode, in no particular order. */
+  listEpisodeNotes(showId: string, episodeId: string): Promise<EpisodeNote[]>;
+  /** The notes of all episodes of a show, in no particular order. */
   listShowNotes(showId: string): Promise<EpisodeNote[]>;
-  /** All notes, most recently edited first. */
+  /** All notes, most recently written (`createdAt`) first. */
   listNotes(limit: number): Promise<EpisodeNote[]>;
 
   /** Removes a show with its episodes, progress and notes. */

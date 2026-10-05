@@ -34,6 +34,13 @@ export function formatClock(ms: number): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
 }
 
+/** "12:34", "75:00" or "1:02:03" in ms; undefined if it isn't such a time. */
+export function parseClock(text: string): number | undefined {
+  const m = /^(?:(\d+):)?(\d+):(\d{2})$/.exec(text.trim());
+  if (!m || Number(m[3]) > 59 || (m[1] !== undefined && Number(m[2]) > 59)) return undefined;
+  return ((Number(m[1] ?? 0) * 60 + Number(m[2])) * 60 + Number(m[3])) * 1000;
+}
+
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }

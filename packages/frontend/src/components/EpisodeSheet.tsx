@@ -11,7 +11,7 @@ import { PlayButton } from './EpisodeCard';
 import styles from './EpisodeSheet.module.css';
 import { Icon } from './Icon';
 import { ListenOnSpotify, SpotifyAttribution } from './SpotifyAttribution';
-import { NoteEditor } from './Notes';
+import { EpisodeNotes } from './Notes';
 import { Badge, Cover, ErrorBox, IconButton, ProgressBar, Spinner, StatusBadge } from './ui';
 
 /** Modal with the full episode: description, status and all actions. */
@@ -114,7 +114,7 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
             </div>
             <section className="stack-sm">
               <h3 className="h3">{t('sheet.notes')}</h3>
-              <NoteEditor showId={showId} episodeId={episodeId} />
+              <EpisodeNotes item={{ show: s ?? { id: showId, name: '' }, episode: ep }} />
             </section>
             {ep.description && <p className="description">{ep.description}</p>}
           </>

@@ -4,7 +4,7 @@
   "tabPlayed": "Played",
   "tabNotes": "Notes",
   "notesEmptyTitle": "No notes yet",
-  "notesEmptyText": "Open an episode or tap <icon/> in the player – notes are saved automatically.",
+  "notesEmptyText": "Open an episode or tap <icon/> in the player to write a note.",
   "notesSearch": "Search notes",
   "lastWeek": "{{time}} in the last 7 days",
   "recent": "Recently played episodes",

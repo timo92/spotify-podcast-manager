@@ -21,13 +21,26 @@ export function presetRange(preset: PeriodPreset, today: string): DateRange {
   }
 }
 
-/** Notes last edited within `range`, by the calendar date in `timeZone`. */
+/** Notes written within `range`, by the calendar date in `timeZone`. */
 export function notesInRange(notes: EpisodeNote[], range: DateRange, timeZone: string): EpisodeNote[] {
   if (!range.from && !range.to) return notes;
   return notes.filter((n) => {
-    const date = localDate(n.updatedAt, timeZone);
+    const date = localDate(n.createdAt, timeZone);
     return (!range.from || date >= range.from) && (!range.to || date <= range.to);
   });
+}
+
+/**
+ * Orders the notes of one episode: notes on the whole episode first, then by
+ * position, and notes at the same position in the order they were written.
+ */
+export function byPosition(a: EpisodeNote, b: EpisodeNote): number {
+  if (a.positionMs !== b.positionMs) {
+    if (a.positionMs === null) return -1;
+    if (b.positionMs === null) return 1;
+    return a.positionMs - b.positionMs;
+  }
+  return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
 }
 
 export interface NoteGroup {
@@ -37,9 +50,10 @@ export interface NoteGroup {
 }
 
 /**
- * Groups notes by podcast. Groups are ordered by their most recently edited
+ * Groups notes by podcast. Groups are ordered by their most recently written
  * note; inside a group, notes follow the episodes' release order (oldest
- * first). Notes without a known release date come last, newest edit first.
+ * first) and, within an episode, their position (see byPosition). Episodes
+ * without a known release date come last, most recently written first.
  */
 export function groupNotesByShow(notes: EpisodeNote[]): NoteGroup[] {
   const groups = new Map<string, NoteGroup>();
@@ -48,16 +62,23 @@ export function groupNotesByShow(notes: EpisodeNote[]): NoteGroup[] {
     group.notes.push(note);
     groups.set(note.showId, group);
   }
-  const lastEdit = (g: NoteGroup) => g.notes.reduce((max, n) => (n.updatedAt > max ? n.updatedAt : max), '');
-  for (const group of groups.values()) group.notes.sort(byEpisode);
-  return [...groups.values()].sort((a, b) => lastEdit(b).localeCompare(lastEdit(a)));
+  const latest = (list: EpisodeNote[]) => list.reduce((max, n) => (n.createdAt > max ? n.createdAt : max), '');
+  for (const group of groups.values()) {
+    const episodeLatest = new Map<string, string>();
+    for (const n of group.notes) {
+      if (n.createdAt > (episodeLatest.get(n.episodeId) ?? '')) episodeLatest.set(n.episodeId, n.createdAt);
+    }
+    group.notes.sort((a, b) => byEpisode(a, b, episodeLatest) || byPosition(a, b));
+  }
+  return [...groups.values()].sort((a, b) => latest(b.notes).localeCompare(latest(a.notes)));
 }
 
-function byEpisode(a: EpisodeNote, b: EpisodeNote): number {
+function byEpisode(a: EpisodeNote, b: EpisodeNote, latest: Map<string, string>): number {
+  if (a.episodeId === b.episodeId) return 0;
   if (a.episodeReleaseDate && b.episodeReleaseDate) {
     return a.episodeReleaseDate.localeCompare(b.episodeReleaseDate) || a.episodeId.localeCompare(b.episodeId);
   }
   if (a.episodeReleaseDate) return -1;
   if (b.episodeReleaseDate) return 1;
-  return b.updatedAt.localeCompare(a.updatedAt);
+  return (latest.get(b.episodeId) ?? '').localeCompare(latest.get(a.episodeId) ?? '') || a.episodeId.localeCompare(b.episodeId);
 }

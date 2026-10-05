@@ -20,6 +20,8 @@ export interface ErrorParams {
   schedule_conflict: undefined;
   invalid_note: undefined;
   note_too_long: { max: number };
+  invalid_note_position: undefined;
+  note_not_found: undefined;
   invalid_mode: undefined;
   invalid_categories: undefined;
   invalid_order: undefined;
@@ -61,6 +63,8 @@ export const ERROR_PARAMS = {
   schedule_conflict: [],
   invalid_note: [],
   note_too_long: ['max'],
+  invalid_note_position: [],
+  note_not_found: [],
   invalid_mode: [],
   invalid_categories: [],
   invalid_order: [],

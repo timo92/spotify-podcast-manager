@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { localDate, weekdayOf, type AppStatus, type Schedule, type Show, type SyncState, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
+import { describe, expect, it, vi } from 'vitest';
+import { localDate, weekdayOf, type AppStatus, type EpisodeNote, type Schedule, type Show, type SyncState, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
 import { StatusCodes } from 'http-status-codes';
 import { createApp } from '../src/app.js';
 import { ApiError } from '../src/errors.js';
@@ -400,24 +400,79 @@ describe('library flow', () => {
     expect((res.body as Schedule).rules.map((r) => r.showId)).toEqual(['demo-wissensreise']);
   });
 
-  it('saves notes and flags episodes that have one', async () => {
+  it('keeps any number of notes per episode, each with its own position', async () => {
     const t = await ready();
-    const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/note';
-    expect((await t.call('GET', path)).body).toBeNull();
-    const saved = await t.call('PUT', path, { text: '[02:10] Spannender Punkt' });
-    expect(saved.status).toBe(200);
-    expect((await t.call('GET', path)).body).toMatchObject({
-      text: '[02:10] Spannender Punkt',
+    const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/notes';
+    expect((await t.call('GET', path)).body).toEqual([]);
+
+    const later = await t.call('POST', path, { text: 'Spannender Punkt', positionMs: 130_400.6 });
+    expect(later.status).toBe(StatusCodes.CREATED);
+    expect(later.body).toMatchObject({
+      id: expect.any(String),
+      positionMs: 130_401,
+      text: 'Spannender Punkt',
       showName: 'Wissensreise',
       episodeReleaseDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}/),
     });
+    await t.call('POST', path, { text: 'Zur ganzen Folge', positionMs: null });
+    await t.call('POST', path, { text: 'Am Anfang', positionMs: 5_000 });
+    expect(((await t.call('GET', path)).body as EpisodeNote[]).map((n) => n.positionMs)).toEqual([null, 5_000, 130_401]);
+
     const detail = (await t.call('GET', '/api/shows/demo-wissensreise')).body as ShowDetailResponse;
     expect(detail.episodes.find((e) => e.id === 'demo-wissensreise-1')!.hasNote).toBe(true);
-    expect(((await t.call('GET', '/api/notes')).body as unknown[]).length).toBe(1);
-    // Emptying a note deletes it.
-    await t.call('PUT', path, { text: '  ' });
-    expect((await t.call('GET', '/api/notes')).body).toEqual([]);
-    expect((await t.call('PUT', '/api/shows/demo-wissensreise/episodes/nope/note', { text: 'x' })).status).toBe(404);
+    expect(detail.episodes.find((e) => e.id === 'demo-wissensreise-2')!.hasNote).toBe(false);
+    expect(((await t.call('GET', '/api/notes')).body as EpisodeNote[]).map((n) => n.text)).toEqual([
+      'Am Anfang',
+      'Zur ganzen Folge',
+      'Spannender Punkt',
+    ]);
+  });
+
+  it('edits and deletes a single note', async () => {
+    const t = await ready();
+    const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/notes';
+    const { id, createdAt } = (await t.call('POST', path, { text: 'Erst', positionMs: 1_000 })).body as EpisodeNote;
+    await t.call('POST', path, { text: 'Bleibt', positionMs: 2_000 });
+
+    const edited = await t.call('PATCH', `${path}/${id}`, { text: 'Korrigiert' });
+    expect(edited.body).toMatchObject({ id, text: 'Korrigiert', positionMs: 1_000, createdAt });
+    expect((await t.call('PATCH', `${path}/${id}`, { positionMs: null })).body).toMatchObject({ positionMs: null });
+    expect((await t.call('PATCH', `${path}/${id}`, { text: ' ' })).body).toMatchObject({ error: 'invalid_note' });
+
+    expect((await t.call('DELETE', `${path}/${id}`)).status).toBe(200);
+    expect(((await t.call('GET', path)).body as EpisodeNote[]).map((n) => n.text)).toEqual(['Bleibt']);
+    expect((await t.call('PATCH', `${path}/${id}`, { text: 'x' })).body).toMatchObject({ error: 'note_not_found' });
+  });
+
+  it('rejects notes without text, with an invalid position or for an unknown episode', async () => {
+    const t = await ready();
+    const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/notes';
+    expect((await t.call('POST', path, { text: '  ' })).body).toMatchObject({ error: 'invalid_note' });
+    expect((await t.call('POST', path, { text: 'x', positionMs: -1 })).body).toMatchObject({ error: 'invalid_note_position' });
+    expect((await t.call('POST', path, { text: 'x', positionMs: '1:00' })).body).toMatchObject({
+      error: 'invalid_note_position',
+    });
+    expect((await t.call('POST', '/api/shows/demo-wissensreise/episodes/nope/notes', { text: 'x' })).status).toBe(404);
+  });
+
+  it('gives a new note the position Spotify is playing the episode at', async () => {
+    const t = await ready();
+    const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/notes';
+    const playing = vi.spyOn(t.spotify, 'getPlayingEpisode');
+
+    playing.mockResolvedValue({ episodeId: 'demo-wissensreise-1', positionMs: 754_000 });
+    expect((await t.call('POST', path, { text: 'Am Handy notiert' })).body).toMatchObject({ positionMs: 754_000 });
+    // An explicit position (or null) wins over the playback state.
+    expect((await t.call('POST', path, { text: 'x', positionMs: 1_000 })).body).toMatchObject({ positionMs: 1_000 });
+    expect((await t.call('POST', path, { text: 'x', positionMs: null })).body).toMatchObject({ positionMs: null });
+
+    playing.mockResolvedValue({ episodeId: 'demo-wissensreise-2', positionMs: 754_000 });
+    expect((await t.call('POST', path, { text: 'Andere Folge läuft' })).body).toMatchObject({ positionMs: null });
+
+    playing.mockRejectedValue(new ApiError(StatusCodes.FORBIDDEN, 'spotify_forbidden', 'no', { detail: 'no' }));
+    const saved = await t.call('POST', path, { text: 'Spotify nicht erreichbar' });
+    expect(saved.status).toBe(StatusCodes.CREATED);
+    expect(saved.body).toMatchObject({ positionMs: null });
   });
 
   it('deletes all data', async () => {

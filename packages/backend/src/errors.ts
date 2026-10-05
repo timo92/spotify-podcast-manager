@@ -25,7 +25,10 @@ export class ApiError<C extends ErrorCode = ErrorCode> extends Error {
 
 export const badRequest = <C extends ErrorCode>(code: C, message: string, ...params: ParamsArg<C>) =>
   new ApiError(StatusCodes.BAD_REQUEST, code, message, ...params);
-export const notFound = (code: 'not_found' | 'show_not_found' | 'episode_not_found' = 'not_found', message = 'Nicht gefunden') =>
+export const notFound = (
+  code: 'not_found' | 'show_not_found' | 'episode_not_found' | 'note_not_found' = 'not_found',
+  message = 'Nicht gefunden',
+) =>
   new ApiError(StatusCodes.NOT_FOUND, code, message);
 export const unauthorized = (message = 'Nicht angemeldet') =>
   new ApiError(StatusCodes.UNAUTHORIZED, 'unauthorized', message);

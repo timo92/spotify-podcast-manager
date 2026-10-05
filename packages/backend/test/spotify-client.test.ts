@@ -100,6 +100,22 @@ describe('HttpSpotifyApi', () => {
     expect([saved.get('s0'), saved.get('s1'), saved.get('s40')]).toEqual([true, false, true]);
   });
 
+  it('reads the playing episode and its position from the playback state', async () => {
+    const store = await storeWithTokens();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, { progress_ms: 61_000, currently_playing_type: 'episode', item: { id: 'ep1' } }))
+      .mockResolvedValueOnce(response(200, { progress_ms: 5_000, currently_playing_type: 'track', item: { id: 't1' } }))
+      .mockResolvedValueOnce(response(204));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    expect(await api.getPlayingEpisode()).toEqual({ episodeId: 'ep1', positionMs: 61_000 });
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(url.pathname).toBe('/v1/me/player');
+    expect(url.searchParams.get('additional_types')).toBe('episode');
+    expect(await api.getPlayingEpisode()).toBeUndefined();
+    expect(await api.getPlayingEpisode()).toBeUndefined();
+  });
+
   it('retries after 429 using Retry-After', async () => {
     const store = await storeWithTokens();
     const fetchMock = vi

@@ -8,6 +8,8 @@ import {
   type EpisodeStatus,
   type HistoryItem,
   type LoginErrorCode,
+  type NoteCreate,
+  type NotePatch,
   type PlayerDevice,
   type Settings,
   type ShowSettingsPatch,
@@ -18,6 +20,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { StatusCodes } from 'http-status-codes';
 import { ApiError, badRequest, notFound, unauthorized } from './errors.js';
 import { LibraryService } from './services/library.js';
+import { NoteService } from './services/notes.js';
 import { PlanService, validTimeZone } from './services/plan.js';
 import { acquireSyncLease, releaseSyncLease, toEpisode, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
@@ -72,6 +75,7 @@ export function createApp(deps: AppDeps) {
   const auth = deps.auth ?? spotifyAuth;
   const library = new LibraryService(store);
   const planner = new PlanService(store, library);
+  const notes = new NoteService(store, library, deps.spotify);
   const app = new Hono();
 
   const baseUrl = (c: Context) => {
@@ -331,17 +335,30 @@ export function createApp(deps: AppDeps) {
   // ----------------------------------------------------------------- notes
 
   app.get('/api/notes', async (c) => {
-    const limit = Math.min(500, Math.max(1, Number(c.req.query('limit')) || 200));
+    const limit = Math.min(5000, Math.max(1, Number(c.req.query('limit')) || 2000));
     return c.json(await store.listNotes(limit));
   });
 
-  app.get('/api/shows/:id/episodes/:episodeId/note', async (c) =>
-    c.json((await store.getNote(c.req.param('id'), c.req.param('episodeId'))) ?? null),
+  app.get('/api/shows/:id/episodes/:episodeId/notes', async (c) =>
+    c.json(await notes.list(c.req.param('id'), c.req.param('episodeId'))),
   );
 
-  app.put('/api/shows/:id/episodes/:episodeId/note', async (c) => {
-    const { text } = await readBody<{ text: string }>(c);
-    return c.json(await library.saveNote(c.req.param('id'), c.req.param('episodeId'), text ?? ''));
+  app.post('/api/shows/:id/episodes/:episodeId/notes', async (c) =>
+    c.json(
+      await notes.create(c.req.param('id'), c.req.param('episodeId'), await readBody<NoteCreate>(c)),
+      StatusCodes.CREATED,
+    ),
+  );
+
+  app.patch('/api/shows/:id/episodes/:episodeId/notes/:noteId', async (c) =>
+    c.json(
+      await notes.update(c.req.param('id'), c.req.param('episodeId'), c.req.param('noteId'), await readBody<NotePatch>(c)),
+    ),
+  );
+
+  app.delete('/api/shows/:id/episodes/:episodeId/notes/:noteId', async (c) => {
+    await notes.delete(c.req.param('id'), c.req.param('episodeId'), c.req.param('noteId'));
+    return c.json({ ok: true });
   });
 
   // ------------------------------------------------------------------ sync

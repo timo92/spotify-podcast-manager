@@ -21,8 +21,8 @@
     "next": "Up next",
     "chosen": "Chosen",
     "fromSpotify": "Status comes from Spotify",
-    "noteExists": "Has a note",
-    "note": "Note"
+    "noteExists": "Has notes",
+    "note": "Notes"
   },
   "sheet": {
     "label": "Episode",

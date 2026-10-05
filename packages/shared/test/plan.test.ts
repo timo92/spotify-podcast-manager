@@ -3,9 +3,7 @@ import { buildEpisodeViews, buildToday, summarizeShow } from '../src/logic.js';
 import {
   addDays,
   buildWeek,
-  isLegacySchedule,
   localDate,
-  migrateSchedule,
   removeRule,
   removeWeekday,
   replaceRule,
@@ -189,37 +187,6 @@ describe('rule edits', () => {
   it('removes a weekday, and the rule with its last weekday', () => {
     expect(removeWeekday(rules, 'a', 3)).toEqual([{ ...rules[0], weekdays: [1] }, rules[1]]);
     expect(removeWeekday(rules, 'b', 2)).toEqual([rules[0]]);
-  });
-});
-
-describe('migrateSchedule', () => {
-  it('groups legacy slots into one rule per podcast and part of day', () => {
-    const legacy = {
-      entries: [
-        { id: 'a', showId: 'news', weekday: 3 as const, part: 'MORNING' as const },
-        { id: 'b', showId: 'series', weekday: 2 as const, part: 'EVENING' as const },
-        { id: 'c', showId: 'news', weekday: 1 as const, part: 'MORNING' as const },
-        { id: 'd', showId: 'news', weekday: 6 as const, part: 'EVENING' as const },
-        { id: 'e', showId: 'news', weekday: 1 as const, part: 'MORNING' as const },
-      ],
-      updatedAt: 'v1',
-    };
-    expect(isLegacySchedule(legacy)).toBe(true);
-    expect(migrateSchedule(legacy)).toEqual({
-      rules: [
-        { id: 'a', showId: 'news', weekdays: [1, 3], part: 'MORNING' },
-        { id: 'b', showId: 'series', weekdays: [2], part: 'EVENING' },
-        { id: 'd', showId: 'news', weekdays: [6], part: 'EVENING' },
-      ],
-      updatedAt: 'v1',
-    });
-  });
-
-  it('leaves rules unchanged', () => {
-    const schedule: Schedule = { rules: [{ id: 'a', showId: 'news', weekdays: [1], part: 'ANYTIME' }] };
-    expect(isLegacySchedule(schedule)).toBe(false);
-    expect(migrateSchedule(schedule)).toBe(schedule);
-    expect(migrateSchedule({ entries: [] })).toEqual({ rules: [] });
   });
 });
 

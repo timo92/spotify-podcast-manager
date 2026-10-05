@@ -60,7 +60,8 @@ docs/          requirements, architecture decisions, Spotify API notes
 ```
 
 Why it is built this way: [docs/decisions.md](docs/decisions.md). What it
-does: [docs/requirements.md](docs/requirements.md).
+does: [docs/requirements.md](docs/requirements.md). How code, commits and pull
+requests are written: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## The Spotify app
 

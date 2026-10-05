@@ -4,22 +4,24 @@
  * `SpotifyClientSecretParameter` output). Run it after the first deploy and
  * again whenever you rotate the secret in the Spotify dashboard:
  *
- *   pnpm run secret:put        # reads SPOTIFY_CLIENT_SECRET from .env or the environment
+ *   pnpm run secret:put                      # reads SPOTIFY_CLIENT_SECRET from .env or the environment
+ *   pnpm run secret:put -- -c stage=prod     # same -c context arguments as cdk
  *
  * Uses your normal AWS credentials and region (AWS_PROFILE / AWS_REGION) –
  * the region the stack is deployed to.
  */
 import { CloudFormationClient, DescribeStacksCommand } from '@aws-sdk/client-cloudformation';
 import { PutParameterCommand, SSMClient } from '@aws-sdk/client-ssm';
-import { cdkJsonContext, resolveConfig } from '../lib/config.js';
+import { resolveConfig, scriptContext } from '../lib/config.js';
 
 const fail = (message: string): never => {
   console.error(`✖ ${message}`);
   process.exit(1);
 };
 
+const { stackName } = resolveConfig(scriptContext());
+console.log(`Target stack: ${stackName}`);
 const secret = process.env.SPOTIFY_CLIENT_SECRET?.trim() || fail('SPOTIFY_CLIENT_SECRET is not set (environment or .env).');
-const { stackName } = resolveConfig(cdkJsonContext());
 
 const cfn = new CloudFormationClient({});
 const region = await cfn.config.region();

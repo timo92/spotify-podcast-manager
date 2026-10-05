@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { StatusCodes } from 'http-status-codes';
 import { guessCategories, guessMode, truncate, type Episode, type Settings, type Show, type SyncState } from '@podcast/shared';
 import { ApiError, notFound } from '../errors.js';
@@ -11,13 +12,36 @@ export interface SyncOptions {
   full?: boolean;
   /** Only sync this show (always a full re-import). */
   showId?: string;
+  /** Lease the API acquired for this run (see acquireSyncLease); the run takes it over. */
+  leaseId?: string;
 }
 
-/** A sync that has been "running" for longer than this is considered dead. */
+/**
+ * A sync that has been "running" for longer than this is considered dead, and
+ * its lease free (the sync Lambda times out after 15 minutes).
+ */
 export const STALE_SYNC_MS = 16 * 60 * 1000;
 
-export function isSyncRunning(state: SyncState, now = Date.now()): boolean {
-  return state.status === 'running' && !!state.startedAt && now - Date.parse(state.startedAt) < STALE_SYNC_MS;
+/**
+ * Starts a sync lease: only one sync may run at a time, enforced by a
+ * conditional write in the store rather than by Lambda reserved concurrency
+ * (which new AWS accounts can't spare). Returns the lease id, or undefined if
+ * another sync holds an unexpired lease.
+ */
+export async function acquireSyncLease(
+  store: Store,
+  fields: Pick<SyncState, 'message'>,
+  takeOver?: string,
+  now = new Date(),
+): Promise<string | undefined> {
+  const prev = await store.getSyncState();
+  const leaseId = takeOver ?? randomUUID();
+  const acquired = await store.acquireSyncLease(
+    { ...prev, ...fields, status: 'running', startedAt: now.toISOString(), error: undefined, leaseId },
+    new Date(now.getTime() - STALE_SYNC_MS).toISOString(),
+    takeOver,
+  );
+  return acquired ? leaseId : undefined;
 }
 
 export function pickImage(images: SpotifyImage[] | undefined): string | undefined {
@@ -72,16 +96,13 @@ export class SyncService {
     private readonly library = new LibraryService(store),
   ) {}
 
+  /** Runs a sync, or returns the current state unchanged if another sync holds the lease. */
   async run(opts: SyncOptions = {}): Promise<SyncState> {
     const prev = await this.store.getSyncState();
-    const startedAt = new Date().toISOString();
-    await this.store.putSyncState({
-      ...prev,
-      status: 'running',
-      startedAt,
-      message: opts.showId ? 'Podcast wird neu geladen…' : 'Synchronisiere mit Spotify…',
-      error: undefined,
-    });
+    const message = opts.showId ? 'Podcast wird neu geladen…' : 'Synchronisiere mit Spotify…';
+    const leaseId = await acquireSyncLease(this.store, { message }, opts.leaseId);
+    if (!leaseId) return this.store.getSyncState();
+    const startedAt = (await this.store.getSyncState()).startedAt;
     let state: SyncState;
     try {
       const result = opts.showId ? await this.syncSingle(opts.showId) : await this.syncAll(!!opts.full);
@@ -106,9 +127,11 @@ export class SyncService {
         finishedAt: new Date().toISOString(),
         error: e instanceof Error ? e.message : String(e),
         message: undefined,
+        leaseId: undefined,
       };
     }
-    await this.store.putSyncState(state);
+    // If the lease expired meanwhile and another sync took over, leave its state alone.
+    await this.store.releaseSyncLease(leaseId, state);
     return state;
   }
 

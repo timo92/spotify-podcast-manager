@@ -16,7 +16,7 @@ import { StatusCodes } from 'http-status-codes';
 import { ApiError, badRequest, notFound, unauthorized } from './errors.js';
 import { LibraryService } from './services/library.js';
 import { PlanService, validTimeZone } from './services/plan.js';
-import { isSyncRunning, toEpisode, type SyncOptions } from './services/sync.js';
+import { acquireSyncLease, toEpisode, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
 import { SCOPES } from './spotify/client.js';
 import type { SpotifyCredentialsProvider } from './spotify/credentials.js';
@@ -95,13 +95,14 @@ export function createApp(deps: AppDeps) {
     return !!id && !!(await store.getSession(id));
   }
 
+  /**
+   * Acquires the sync lease here, so the UI shows "running" immediately and a
+   * second click can't start a parallel sync, then hands it to the sync run.
+   */
   async function startSync(opts: SyncOptions) {
-    const state = await store.getSyncState();
-    if (isSyncRunning(state)) return state;
-    const next = { ...state, status: 'running' as const, startedAt: new Date().toISOString(), message: 'Gestartet…' };
-    await store.putSyncState(next);
-    await deps.triggerSync(opts);
-    return next;
+    const leaseId = await acquireSyncLease(store, { message: 'Gestartet…' });
+    if (leaseId) await deps.triggerSync({ ...opts, leaseId });
+    return store.getSyncState();
   }
 
   // ------------------------------------------------------------ middleware

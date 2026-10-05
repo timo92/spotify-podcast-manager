@@ -2,7 +2,7 @@ import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
 import { handle } from '@hono/aws-lambda';
 import { createApp } from './app.js';
 import { applyRetention } from './services/retention.js';
-import { isSyncRunning, SyncService, type SyncOptions } from './services/sync.js';
+import { SyncService, type SyncOptions } from './services/sync.js';
 import { HttpSpotifyApi } from './spotify/client.js';
 import { credentialsFromEnv } from './spotify/credentials.js';
 import { DynamoStore } from './store/dynamo.js';
@@ -44,14 +44,19 @@ export async function syncHandler(event: SyncOptions & { source?: string }) {
     // data of a revoked connection still has to expire.
     const retention = await applyRetention(store);
     console.log('Not connected – skipping sync', JSON.stringify(retention));
+    // Free a lease the API acquired for this run, so the UI doesn't show "running".
+    if (event.leaseId) {
+      const state = await store.getSyncState();
+      await store.releaseSyncLease(event.leaseId, { ...state, status: 'idle', leaseId: undefined, message: undefined });
+    }
     return;
   }
-  const scheduled = event.source === 'aws.events' || event.source === 'schedule';
-  if (scheduled && isSyncRunning(await store.getSyncState())) {
-    console.log('A sync is already running – skipping scheduled run');
-    return;
-  }
-  const result = await new SyncService(store, new HttpSpotifyApi(store, credentials)).run({ full: !!event.full, showId: event.showId });
+  // Only one sync at a time: run() skips if another sync holds the lease.
+  const result = await new SyncService(store, new HttpSpotifyApi(store, credentials)).run({
+    full: !!event.full,
+    showId: event.showId,
+    leaseId: event.leaseId,
+  });
   console.log('Sync finished', JSON.stringify(result));
   return result;
 }

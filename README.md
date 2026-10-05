@@ -133,7 +133,12 @@ loads the same file, and real environment variables take precedence over it.
 | `DOMAIN_NAME` | `domainName` | `podcasts.example.com` | Optional. Without it, the app runs on the CloudFront domain. |
 | `HOSTED_ZONE_NAME` | `hostedZoneName` | `example.com` | Defaults to the parent domain of `domainName`. Must be a Route 53 hosted zone in the same account. |
 | `CERTIFICATE_ARN` | `certificateArn` | `arn:aws:acm:us-east-1:…` | Only if your DNS is **not** in Route 53. The certificate must be in us-east-1. You then point a CNAME at the `DistributionDomain` output yourself. |
-| `STACK_NAME` | `stackName` | `PodcastCockpit` | Optional. |
+| `STAGE` | `stage` | `dev` | Deployment stage (default `dev`; lower-case letters, digits, `-`). Part of the stack names (`PodcastCockpit-dev`, `PodcastCockpit-dev-Certificate`) and of the secret's SSM path, so several stages can live in one account, each with its own `DOMAIN_NAME`. |
+| `STACK_NAME` | `stackName` | `PodcastCockpit` | Optional name prefix of the stacks and the SSM path. |
+
+Every resource of both stacks is tagged `app=podcast-cockpit`, `stage=<stage>` and `managed-by=cdk`. To see costs per app and stage, activate `app` and `stage` as cost allocation tags in AWS Billing.
+
+> Earlier versions named the stacks `PodcastCockpit` and `PodcastCockpitCertificate` (without a stage). A deploy creates the new `-<stage>` stacks next to them rather than updating them, so delete the old stacks first. DynamoDB keeps a table with retained data (`PodcastCockpit-Table…`); delete it too if you don't need it.
 
 The client secret is **not** part of this configuration; it is set after the
 first deploy (step 4).
@@ -142,11 +147,17 @@ The main stack goes to `CDK_DEFAULT_REGION` (your AWS profile's region). If
 none is set, it goes to `eu-central-1`. With a Route 53 domain, a small extra
 stack creates the TLS certificate in `us-east-1`, which CloudFront requires.
 
+**AWS account.** cdk and `secret:put` use the profile in `AWS_PROFILE`. Put
+it in `.env` to pin this repository to one account: the package scripts start
+the CDK CLI with `.env` loaded, before it resolves credentials. A shell
+`AWS_PROFILE` still wins. With AWS SSO, log in first:
+`aws sso login --profile <name>`. Always deploy through the package scripts,
+not a bare `cdk`, which wouldn't see `.env`.
+
 ### 2. Bootstrap (once per account/region)
 
 ```bash
-cd packages/infra
-pnpm exec cdk bootstrap aws://<ACCOUNT>/eu-central-1 aws://<ACCOUNT>/us-east-1
+pnpm --filter @podcast/infra run bootstrap aws://<ACCOUNT>/eu-central-1 aws://<ACCOUNT>/us-east-1
 ```
 
 ### 3. Deploy
@@ -160,18 +171,21 @@ The outputs show `Url`, `SpotifyRedirectUri` and `SpotifyClientSecretParameter`.
 ### 4. Set the client secret (once, after the first deploy)
 
 The stack creates an SSM Parameter Store *SecureString* named
-`/<stack name>/spotify-client-secret` (the `SpotifyClientSecretParameter`
+`/<STACK_NAME>/<STAGE>/spotify-client-secret`, e.g. `/PodcastCockpit/dev/spotify-client-secret` (the `SpotifyClientSecretParameter`
 output) with a placeholder. Until you replace it, the app shows *Spotify-App
 fehlt*. Set it with:
 
 ```bash
-pnpm run secret:put  # reads SPOTIFY_CLIENT_SECRET from .env or the environment
+pnpm run secret:put                    # reads SPOTIFY_CLIENT_SECRET from .env or the environment
+pnpm run secret:put -- -c stage=prod   # same -c context arguments as cdk
 ```
 
 The script looks up the parameter name in the stack's outputs and must run
-with the same AWS profile and region you deployed to. You can also edit the
+with the same AWS profile and region you deployed to. It resolves the stack
+like `cdk` does (environment, `-c` arguments, `cdk.json`) and prints the
+target stack first. You can also edit the
 parameter in the AWS console, or in CI run
-`aws ssm put-parameter --name /PodcastCockpit/spotify-client-secret --type SecureString --overwrite --value "$SPOTIFY_CLIENT_SECRET"`.
+`aws ssm put-parameter --name /PodcastCockpit/dev/spotify-client-secret --type SecureString --overwrite --value "$SPOTIFY_CLIENT_SECRET"`.
 Redeploys never touch the value. Repeat this step when you rotate the secret
 in the Spotify dashboard; the app picks it up within five minutes.
 
@@ -201,7 +215,7 @@ For one user, this stays in or near the AWS free tier: Lambda, DynamoDB on-deman
 - **Single origin.** CloudFront serves the SPA from S3 and forwards `/api/*` to API Gateway (HTTP API) and a Lambda function running a [Hono](https://hono.dev) app. Because everything is on one origin, there is no CORS.
 - **Cookies.** The session cookie is `HttpOnly`, `Secure` and `SameSite=Strict`. The short-lived OAuth state cookie is `SameSite=Lax`, because Spotify's redirect back to the app is a cross-site navigation and browsers drop `Strict` cookies on those. Requests that change data must be sent as JSON, which works as an additional CSRF guard.
 - **Tokens stay on the server.** Spotify access and refresh tokens are kept in DynamoDB. The browser only gets a short-lived access token for the Web Playback SDK, which needs one.
-- **Sync** runs in a separate Lambda function: asynchronously from the API (because API Gateway times out after 29 s), every 2 hours, and once a day as a full refresh. It runs with a reserved concurrency of 1, so two syncs never run at once.
+- **Sync** runs in a separate Lambda function: asynchronously from the API (because API Gateway times out after 29 s), every 2 hours, and once a day as a full refresh. A lease in DynamoDB (a conditional write on the sync state) ensures that two syncs never run at once.
 - **Data model:** one DynamoDB table. Episodes (`EP#<show>`) and progress (`PROG#<show>`) are separate items, so a sync can never overwrite your progress. Each show item carries a summary (next episode, counts) that is recomputed after every change. That way, "Heute" and the overview only need to read the list of shows. Details are in [`packages/backend/src/store/dynamo.ts`](packages/backend/src/store/dynamo.ts).
 - **Spotify layer:** [`packages/backend/src/spotify`](packages/backend/src/spotify). It refreshes tokens (including rotated refresh tokens), retries on 429 using `Retry-After` and on 5xx errors, and turns 401/403 into readable messages. The `SpotifyApi` interface can be replaced, for example by the offline fake or a future YouTube source. See [docs/spotify-api.md](docs/spotify-api.md) for the endpoints used and the 2026 restrictions for apps in development mode.
 

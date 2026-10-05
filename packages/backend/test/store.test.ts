@@ -116,6 +116,25 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.listShowNotes('s1')).toHaveLength(1);
     });
 
+    it('grants the sync lease to one holder at a time', async () => {
+      const running = (leaseId: string, startedAt: string) => ({ status: 'running' as const, startedAt, leaseId });
+      const stale = '2026-01-01T00:00:00.000Z';
+      expect(await store.acquireSyncLease(running('a', '2026-01-01T00:10:00.000Z'), stale)).toBe(true);
+      // held and not stale → refused, even for a second attempt at the same moment
+      expect(await store.acquireSyncLease(running('b', '2026-01-01T00:11:00.000Z'), stale)).toBe(false);
+      // the owner may take its own lease over (API acquires, sync Lambda continues)
+      expect(await store.acquireSyncLease(running('a', '2026-01-01T00:12:00.000Z'), stale, 'a')).toBe(true);
+      // only the holder may write the final state
+      expect(await store.releaseSyncLease('b', { status: 'idle' })).toBe(false);
+      expect(await store.releaseSyncLease('a', { status: 'idle' })).toBe(true);
+      expect((await store.getSyncState()).status).toBe('idle');
+      // free again after release, and a stale lease counts as free
+      expect(await store.acquireSyncLease(running('c', '2026-01-01T00:13:00.000Z'), stale)).toBe(true);
+      expect(await store.acquireSyncLease(running('d', '2026-01-01T01:00:00.000Z'), '2026-01-01T00:30:00.000Z')).toBe(true);
+      expect((await store.getSyncState()).leaseId).toBe('d');
+      await store.releaseSyncLease('d', { status: 'idle' });
+    });
+
     it('deletes tokens and a show with everything that belongs to it', async () => {
       await store.putTokens({ accessToken: 'a', refreshToken: 'r', expiresAt: 0, scope: '' });
       await store.deleteTokens();

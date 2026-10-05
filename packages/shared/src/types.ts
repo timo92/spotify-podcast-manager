@@ -223,6 +223,8 @@ export interface SyncState {
   error?: string;
   showsSynced?: number;
   newEpisodes?: number;
+  /** Identifies the sync that holds the lease while status is 'running'. */
+  leaseId?: string;
 }
 
 export interface AppStatus {

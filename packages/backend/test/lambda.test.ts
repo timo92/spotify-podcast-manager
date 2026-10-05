@@ -6,6 +6,7 @@ import { DynamoStore } from '../src/store/dynamo.js';
 
 let server: ReturnType<typeof dynalite>;
 let handler: typeof import('../src/lambda.js').handler;
+let syncHandler: typeof import('../src/lambda.js').syncHandler;
 let store: DynamoStore;
 
 beforeAll(async () => {
@@ -37,7 +38,7 @@ beforeAll(async () => {
     }),
   );
   store = new DynamoStore('lambda-test', client);
-  ({ handler } = await import('../src/lambda.js'));
+  ({ handler, syncHandler } = await import('../src/lambda.js'));
 });
 
 afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
@@ -128,6 +129,15 @@ describe('lambda handler', () => {
     expect(res.cookies?.[0]).toMatch(/^pm_session=;.*Max-Age=0/);
     expect(res.cookies?.[0]).toMatch(/Secure/);
     expect(await store.getSession('sess')).toBeUndefined();
+  });
+
+  it('frees the lease of a triggered sync when Spotify is not connected', async () => {
+    const startedAt = new Date().toISOString();
+    expect(await store.acquireSyncLease({ status: 'running', startedAt, leaseId: 'lease-1' }, '2000-01-01')).toBe(true);
+    await syncHandler({ leaseId: 'lease-1' });
+    const state = await store.getSyncState();
+    expect(state.status).toBe('idle');
+    expect(state.leaseId).toBeUndefined();
   });
 
   it('returns 400 for invalid JSON', async () => {

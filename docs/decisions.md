@@ -125,7 +125,7 @@ sessions can be revoked (logout, "delete all data"), unlike stateless tokens.
   from `.env` locally or from CI variables, and passed to the Lambdas by CDK.
   Synth fails without it.
 - The client secret lives in an SSM Parameter Store *SecureString* that the
-  stack creates, named after the stack, with a placeholder value (via a small
+  stack creates, named `/<app>/<stage>/spotify-client-secret`, with a placeholder value (via a small
   custom resource). Setting the real value is a documented post-deploy step
   (`pnpm run secret:put`, which finds the name in the stack outputs, or the
   console). The Lambdas read it at runtime and cache it for five minutes.
@@ -187,12 +187,25 @@ few megabytes. `Retain` keeps the data even if the stack is destroyed.
 ## D10 — Sync in a separate Lambda, triggered asynchronously
 
 **Decision.** The API invokes a sync Lambda asynchronously; EventBridge runs
-it every 2 hours (incremental) and nightly (full). Reserved concurrency 1.
+it every 2 hours (incremental) and nightly (full). Only one sync runs at a
+time, enforced by a lease in DynamoDB:
+- A sync starts only if a conditional write can set the sync state to
+  `running` with its `leaseId`, i.e. no other unexpired lease is running.
+- The API acquires the lease when the user starts a sync, so the UI shows it
+  at once and a second click is ignored. It passes the lease to the Lambda,
+  which takes it over.
+- Only the lease holder may write the final state. A lease expires after
+  16 minutes (the Lambda timeout is 15), so a crashed sync doesn't block
+  forever.
 
 **Why.** A first import can take minutes, but API Gateway times out after
-29 seconds. Reserved concurrency 1 guarantees there is never more than one
-sync running. Incremental syncs stop paging at the first known episode, which
+29 seconds. Incremental syncs stop paging at the first known episode, which
 keeps Spotify API usage low.
+
+**Alternatives.** *Reserved concurrency 1 on the sync Lambda* (the original
+approach): no code, but AWS requires 10 concurrent executions to stay
+unreserved, and new accounts may only have 10 in total, so the deploy fails
+there. The quota can only be raised to 1,000, which is far more than needed.
 
 ## D11 — AWS CDK in TypeScript
 
@@ -300,3 +313,32 @@ Design & Branding Guidelines (attribution, artwork, not imitating Spotify).
   is shown in the app.
 - *One logo per list row:* noisier, and not required. A logo per screen
   next to the content is the common reading of the guidelines.
+
+## D17 — Naming and tagging: app and stage
+
+**Decision.**
+- A deployment is identified by a name prefix (`STACK_NAME`, default
+  `PodcastCockpit`) and a stage (`STAGE`, default `dev`).
+- **Stacks** are named `<prefix>-<stage>` and `<prefix>-<stage>-Certificate`.
+- **SSM parameters** use the stage as a path segment:
+  `/<prefix>/<stage>/spotify-client-secret`.
+- **Other resources** keep CDK's generated names, which start with the
+  stack name.
+- **Tags:** every resource of both stacks is tagged `app=podcast-cockpit`,
+  `stage=<stage>` and `managed-by=cdk`, applied once to the whole CDK app.
+
+**Why.**
+- Several stages can live in the same account without clashing: each gets
+  its own stacks, table, parameter and (via `DOMAIN_NAME`) domain.
+- Path segments allow IAM policies and listings per app or per stage
+  (`/PodcastCockpit/dev/*`).
+- The tags make resources findable in the console and, once activated as
+  cost allocation tags, split the bill by app and stage. `managed-by=cdk`
+  warns against changing those resources by hand.
+
+**Alternatives.**
+- *Explicit physical names for all resources:* more readable, but they block
+  CloudFormation replacements and clash between stages.
+- *One AWS account per stage:* stronger isolation and the usual
+  recommendation for production. It stays possible with the same
+  configuration.

@@ -48,6 +48,15 @@ export interface Store {
 
   getSyncState(): Promise<SyncState>;
   putSyncState(state: SyncState): Promise<void>;
+  /**
+   * Atomically writes `state` (status 'running', with `leaseId`) unless another
+   * sync holds a lease that started after `staleBefore`. A lease whose id is
+   * `takeOver` counts as free (the API acquires it, the sync Lambda takes it
+   * over). Returns whether the lease was acquired.
+   */
+  acquireSyncLease(state: SyncState & { leaseId: string }, staleBefore: string, takeOver?: string): Promise<boolean>;
+  /** Writes the final `state` only if `leaseId` still holds the lease. Returns whether it did. */
+  releaseSyncLease(leaseId: string, state: SyncState): Promise<boolean>;
 
   putSession(session: Session): Promise<void>;
   getSession(id: string): Promise<Session | undefined>;

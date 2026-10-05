@@ -12,6 +12,7 @@
     "hostedZoneName": "",
     "certificateArn": "",
     "stackName": "PodcastCockpit",
+    "stage": "",
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": [

@@ -107,6 +107,42 @@ export class DynamoStore implements Store {
   async getSyncState(): Promise<SyncState> {
     return (await this.get<SyncState>('META', 'SYNC')) ?? { status: 'idle' };
   }
+  async acquireSyncLease(state: SyncState & { leaseId: string }, staleBefore: string, takeOver?: string) {
+    const free = ['attribute_not_exists(PK)', '#status <> :running', 'attribute_not_exists(startedAt)', 'startedAt < :stale'];
+    if (takeOver) free.push('leaseId = :takeOver');
+    return this.conditionalPut('META', 'SYNC', state, free.join(' OR '), {
+      ':running': 'running',
+      ':stale': staleBefore,
+      ...(takeOver ? { ':takeOver': takeOver } : {}),
+    });
+  }
+  releaseSyncLease(leaseId: string, state: SyncState) {
+    return this.conditionalPut('META', 'SYNC', state, 'leaseId = :lease', { ':lease': leaseId });
+  }
+  /** Put that only happens if `condition` holds; false instead of an error otherwise. */
+  private async conditionalPut(
+    pk: string,
+    sk: string,
+    item: object,
+    condition: string,
+    values: Record<string, unknown>,
+  ): Promise<boolean> {
+    try {
+      await this.db.send(
+        new PutCommand({
+          TableName: this.table,
+          Item: { ...item, PK: pk, SK: sk },
+          ConditionExpression: condition,
+          ExpressionAttributeNames: condition.includes('#status') ? { '#status': 'status' } : undefined,
+          ExpressionAttributeValues: values,
+        }),
+      );
+      return true;
+    } catch (e) {
+      if ((e as { name?: string }).name === 'ConditionalCheckFailedException') return false;
+      throw e;
+    }
+  }
   putSyncState(state: SyncState) {
     return this.put('META', 'SYNC', state);
   }

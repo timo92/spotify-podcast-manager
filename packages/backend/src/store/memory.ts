@@ -77,6 +77,25 @@ export class MemoryStore implements Store {
   async getSyncState(): Promise<SyncState> {
     return clone(this.data.sync) ?? { status: 'idle' };
   }
+  async acquireSyncLease(state: SyncState & { leaseId: string }, staleBefore: string, takeOver?: string) {
+    // Single-threaded: check and write happen without an await in between.
+    const cur = this.data.sync;
+    const held =
+      cur?.status === 'running' &&
+      !!cur.startedAt &&
+      cur.startedAt >= staleBefore &&
+      !(takeOver && cur.leaseId === takeOver);
+    if (held) return false;
+    this.data.sync = clone(state);
+    this.save();
+    return true;
+  }
+  async releaseSyncLease(leaseId: string, state: SyncState) {
+    if (this.data.sync?.leaseId !== leaseId) return false;
+    this.data.sync = clone(state);
+    this.save();
+    return true;
+  }
   async putSyncState(state: SyncState) {
     this.data.sync = clone(state);
     this.save();

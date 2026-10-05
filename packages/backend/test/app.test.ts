@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { localDate, weekdayOf, type AppStatus, type Show, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
+import { localDate, weekdayOf, type AppStatus, type Show, type SyncState, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
 import { createApp } from '../src/app.js';
-import { SyncService } from '../src/services/sync.js';
+import { SyncService, type SyncOptions } from '../src/services/sync.js';
 import { authorizeUrl } from '../src/spotify/client.js';
 import { staticCredentials, type SpotifyCredentialsProvider } from '../src/spotify/credentials.js';
 import { MemoryStore } from '../src/store/memory.js';
@@ -19,7 +19,9 @@ interface TestResponse {
 function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider } = {}) {
   const store = new MemoryStore();
   const spotify = new FakeSpotifyApi(new Date('2026-10-05T08:00:00Z'));
-  const syncs: unknown[] = [];
+  const syncs: SyncOptions[] = [];
+  // Runs the API triggered but not yet executed, like the async sync Lambda would.
+  const pending: SyncOptions[] = [];
   let userId = opts.userId ?? 'owner';
   const app = createApp({
     store,
@@ -27,6 +29,7 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
     credentials: opts.credentials ?? staticCredentials(CLIENT_ID, 'b'.repeat(32)),
     triggerSync: async (o) => {
       syncs.push(o);
+      pending.push(o);
     },
     auth: {
       authorizeUrl,
@@ -70,7 +73,10 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
     call,
     setUser: (id: string) => (userId = id),
     clearCookies: () => (cookies = {}),
-    sync: (full = false) => new SyncService(store, spotify).run({ full }),
+    sync: (full = false) => {
+      const triggered = pending.shift();
+      return new SyncService(store, spotify).run(triggered ? { ...triggered, full: full || triggered.full } : { full });
+    },
   };
 }
 
@@ -131,6 +137,35 @@ describe('configuration and auth', () => {
     await t.call('GET', '/api/auth/login');
     const res = await t.call('GET', '/api/auth/callback?code=x&state=forged');
     expect(res.headers!.Location).toBe('/login?error=state_mismatch');
+  });
+
+  it('never runs two syncs at once', async () => {
+    const t = setup();
+    await login(t); // the first login starts the initial import
+    expect(t.syncs).toHaveLength(1);
+    const lease = t.syncs[0].leaseId;
+    expect(lease).toBeDefined();
+
+    // A second click while it runs neither triggers nor steals the lease.
+    const again = await t.call('POST', '/api/sync', { full: true });
+    expect(again.status).toBe(202);
+    expect((again.body as SyncState).status).toBe('running');
+    expect(t.syncs).toHaveLength(1);
+
+    // A scheduled run without the lease is skipped and leaves the state alone.
+    const scheduled = await new SyncService(t.store, t.spotify).run({ full: true });
+    expect(scheduled.leaseId).toBe(lease);
+    expect(await t.store.listShows()).toHaveLength(0);
+
+    // The triggered run takes its lease over, imports, and frees it.
+    const done = await t.sync();
+    expect(done.status).toBe('idle');
+    expect((await t.store.getSyncState()).leaseId).toBeUndefined();
+    expect(await t.store.listShows()).toHaveLength(5);
+
+    // Afterwards a new sync can start.
+    await t.call('POST', '/api/sync', {});
+    expect(t.syncs).toHaveLength(2);
   });
 
   it('requires JSON for mutating requests', async () => {

@@ -33,6 +33,10 @@ export interface PodcastStackProps extends StackProps {
   certificateArn?: string;
   /** Client ID of the Spotify developer app. */
   spotifyClientId: string;
+  /** Name prefix, also the first segment of the SSM path (e.g. PodcastCockpit). */
+  appName: string;
+  /** Deployment stage, the second SSM path segment (e.g. dev). */
+  stage: string;
   /** Built frontend (packages/frontend/dist). */
   frontendDir?: string;
   /** Hours between incremental syncs. */
@@ -86,7 +90,7 @@ export class PodcastStack extends Stack {
     // creates it once with a placeholder. The real value is set after deploying
     // (`pnpm run secret:put` or the console) and is never part of a template.
     // Later deployments don't touch it; deleting the stack deletes it.
-    const clientSecretParameter = `/${this.stackName}/spotify-client-secret`;
+    const clientSecretParameter = `/${props.appName}/${props.stage}/spotify-client-secret`;
     const clientSecretArn = this.formatArn({
       service: 'ssm',
       resource: 'parameter',
@@ -146,8 +150,9 @@ export class PodcastStack extends Stack {
       handler: 'syncHandler',
       memorySize: 512,
       timeout: Duration.minutes(15),
-      // Never run two syncs at once.
-      reservedConcurrentExecutions: 1,
+      // No reserved concurrency: new accounts may only have 10 concurrent
+      // executions, all of which must stay unreserved. A lease in DynamoDB keeps
+      // syncs from running in parallel instead (backend services/sync.ts).
       logGroup: new logs.LogGroup(this, 'SyncLogs', {
         retention: logs.RetentionDays.ONE_MONTH,
         removalPolicy: RemovalPolicy.DESTROY,

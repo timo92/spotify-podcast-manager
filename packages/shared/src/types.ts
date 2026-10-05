@@ -300,6 +300,17 @@ export interface Schedule {
   updatedAt?: string;
 }
 
+/** A plan to save (PUT /api/schedule). */
+export interface ScheduleSave {
+  rules: ScheduleRule[];
+  /**
+   * `updatedAt` of the plan this edit was made on, or null if none was stored
+   * yet. The save fails with `schedule_conflict` if the plan changed since.
+   * Omitted, the plan is overwritten unconditionally.
+   */
+  expectedUpdatedAt?: string | null;
+}
+
 /**
  * done     – an episode of this show was finished on that day (today only)
  * next     – the episode that is actually next right now (in every slot showing it)

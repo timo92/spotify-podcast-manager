@@ -17,6 +17,7 @@ export interface ErrorParams {
   invalid_schedule: undefined;
   too_many_rules: { max: number };
   rule_show_missing: undefined;
+  schedule_conflict: undefined;
   invalid_note: undefined;
   note_too_long: { max: number };
   invalid_mode: undefined;
@@ -57,6 +58,7 @@ export const ERROR_PARAMS = {
   invalid_schedule: [],
   too_many_rules: ['max'],
   rule_show_missing: [],
+  schedule_conflict: [],
   invalid_note: [],
   note_too_long: ['max'],
   invalid_mode: [],

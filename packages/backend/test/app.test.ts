@@ -358,6 +358,29 @@ describe('library flow', () => {
     expect(second.id).not.toBe('same');
   });
 
+  it('does not overwrite a plan that changed since it was loaded', async () => {
+    const t = await ready();
+    const rules = [{ id: 'a', showId: 'demo-dertag', weekdays: [1], part: 'MORNING' }];
+    // The first save is based on "no plan stored yet".
+    const first = await t.call('PUT', '/api/schedule', { rules, expectedUpdatedAt: null });
+    expect(first.status).toBe(200);
+    const version = (first.body as Schedule).updatedAt;
+
+    // A second tab that still believes there is no plan is rejected.
+    const stale = await t.call('PUT', '/api/schedule', { rules: [], expectedUpdatedAt: null });
+    expect(stale.status).toBe(409);
+    expect(stale.body).toMatchObject({ error: 'schedule_conflict' });
+    expect(((await t.call('GET', '/api/schedule')).body as Schedule).rules).toHaveLength(1);
+
+    // A save based on the current version goes through.
+    const next = await t.call('PUT', '/api/schedule', { rules: [], expectedUpdatedAt: version });
+    expect(next.status).toBe(200);
+    expect((await t.call('PUT', '/api/schedule', { rules, expectedUpdatedAt: version })).status).toBe(409);
+
+    // Without expectedUpdatedAt the plan is overwritten.
+    expect((await t.call('PUT', '/api/schedule', { rules })).status).toBe(200);
+  });
+
   it('exports the plan as rules', async () => {
     const t = await ready();
     const rules = [{ id: 'a', showId: 'demo-dertag', weekdays: [1, 3], part: 'MORNING' }];

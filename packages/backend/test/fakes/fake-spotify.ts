@@ -116,6 +116,7 @@ export class FakeSpotifyApi implements SpotifyApi {
       total_episodes: def.count,
       media_type: 'audio',
     }));
+    for (const show of this.shows) this.saved.add(show.id);
     DEFS.forEach((def, s) => {
       const eps: SpotifyEpisode[] = [];
       for (let i = 0; i < def.count; i++) {
@@ -148,8 +149,15 @@ export class FakeSpotifyApi implements SpotifyApi {
     return { id: 'demo-user', display_name: 'Demo' };
   }
 
+  /** Ids of the shows in the fake library; tests can remove (unfollow) and re-add shows. */
+  readonly saved = new Set<string>();
+
   async getSavedShows() {
-    return structuredClone(this.shows);
+    return structuredClone(this.shows.filter((s) => this.saved.has(s.id)));
+  }
+
+  async libraryContains(showIds: string[]) {
+    return new Map(showIds.map((id) => [id, this.saved.has(id)]));
   }
 
   async getShowEpisodes(showId: string, stopAfterPage?: (page: SpotifyEpisode[]) => boolean) {

@@ -25,23 +25,42 @@ export const STALE_SYNC_MS = 16 * 60 * 1000;
 /**
  * Starts a sync lease: only one sync may run at a time, enforced by a
  * conditional write in the store rather than by Lambda reserved concurrency
- * (which new AWS accounts can't spare). Returns the lease id, or undefined if
- * another sync holds an unexpired lease.
+ * (which new AWS accounts can't spare). Returns the state it wrote (with the
+ * lease id), or undefined if another sync holds an unexpired lease.
+ *
+ * A takeover always switches to a new lease id: async Lambda invocations are
+ * delivered at least once, and only the first delivery of a duplicate may
+ * match `takeOver`.
  */
 export async function acquireSyncLease(
   store: Store,
   fields: Pick<SyncState, 'message'>,
   takeOver?: string,
   now = new Date(),
-): Promise<string | undefined> {
+): Promise<(SyncState & { leaseId: string }) | undefined> {
   const prev = await store.getSyncState();
-  const leaseId = takeOver ?? randomUUID();
-  const acquired = await store.acquireSyncLease(
-    { ...prev, ...fields, status: 'running', startedAt: now.toISOString(), error: undefined, leaseId },
-    new Date(now.getTime() - STALE_SYNC_MS).toISOString(),
-    takeOver,
-  );
-  return acquired ? leaseId : undefined;
+  const state = {
+    ...prev,
+    ...fields,
+    status: 'running' as const,
+    startedAt: now.toISOString(),
+    error: undefined,
+    leaseId: randomUUID(),
+  };
+  const acquired = await store.acquireSyncLease(state, new Date(now.getTime() - STALE_SYNC_MS).toISOString(), takeOver);
+  return acquired ? state : undefined;
+}
+
+/** Ends a lease without a sync result, e.g. when the triggered run could not start. */
+export async function releaseSyncLease(store: Store, lease: SyncState & { leaseId: string }, error?: string) {
+  await store.releaseSyncLease(lease.leaseId, {
+    ...lease,
+    status: error ? 'error' : 'idle',
+    error,
+    message: undefined,
+    leaseId: undefined,
+    finishedAt: new Date().toISOString(),
+  });
 }
 
 export function pickImage(images: SpotifyImage[] | undefined): string | undefined {
@@ -98,11 +117,10 @@ export class SyncService {
 
   /** Runs a sync, or returns the current state unchanged if another sync holds the lease. */
   async run(opts: SyncOptions = {}): Promise<SyncState> {
-    const prev = await this.store.getSyncState();
     const message = opts.showId ? 'Podcast wird neu geladen…' : 'Synchronisiere mit Spotify…';
-    const leaseId = await acquireSyncLease(this.store, { message }, opts.leaseId);
-    if (!leaseId) return this.store.getSyncState();
-    const startedAt = (await this.store.getSyncState()).startedAt;
+    const lease = await acquireSyncLease(this.store, { message }, opts.leaseId);
+    if (!lease) return this.store.getSyncState();
+    const { leaseId, startedAt } = lease;
     let state: SyncState;
     try {
       const result = opts.showId ? await this.syncSingle(opts.showId) : await this.syncAll(!!opts.full);
@@ -121,7 +139,7 @@ export class SyncService {
       };
     } catch (e) {
       state = {
-        ...prev,
+        ...lease,
         status: 'error',
         startedAt,
         finishedAt: new Date().toISOString(),
@@ -129,6 +147,16 @@ export class SyncService {
         message: undefined,
         leaseId: undefined,
       };
+    }
+    // Retention is housekeeping: it runs after a library sync (not after a
+    // single-show reload), and a failure there must not turn a successful sync
+    // into an error.
+    if (!opts.showId && state.status === 'idle') {
+      try {
+        await applyRetention(this.store);
+      } catch (e) {
+        console.error('Retention failed', e);
+      }
     }
     // If the lease expired meanwhile and another sync took over, leave its state alone.
     await this.store.releaseSyncLease(leaseId, state);
@@ -142,13 +170,37 @@ export class SyncService {
       this.store.getSettings(),
     ]);
     const existing = new Map(existingList.map((s) => [s.id, s]));
-    const savedIds = new Set(saved.map((s) => s.id));
+    const listed = new Set(saved.map((s) => s.id));
+    const now = new Date().toISOString();
+
+    // The library listing skips entries Spotify returns without show data (e.g.
+    // taken down), so a known show missing from it is only a candidate: ask
+    // Spotify directly. If that check fails, nothing is unfollowed this time.
+    const missing = existingList.filter((s) => !listed.has(s.id)).map((s) => s.id);
+    let inLibrary = new Map<string, boolean>();
+    if (missing.length) {
+      try {
+        inLibrary = await this.spotify.libraryContains(missing);
+      } catch (e) {
+        console.error('Could not check the library for missing shows', e);
+        inLibrary = new Map(missing.map((id) => [id, true]));
+      }
+    }
+    const isSaved = (id: string) => listed.has(id) || inLibrary.get(id) === true;
+
+    // Shows in the library count as followed right away, independent of whether
+    // their episode sync below succeeds – otherwise retention could delete a
+    // show the user follows.
+    for (const show of existingList) {
+      if (isSaved(show.id) && (!show.followed || show.unfollowedAt)) {
+        await this.store.updateShow(show.id, { followed: true, unfollowedAt: undefined });
+      }
+    }
 
     // Shows removed from the Spotify library are kept (with their progress)
     // but no longer suggested, and deleted after RETENTION_DAYS (retention.ts).
-    const now = new Date().toISOString();
     for (const show of existingList) {
-      if (savedIds.has(show.id)) continue;
+      if (isSaved(show.id)) continue;
       if (show.followed) {
         await this.store.updateShow(show.id, { followed: false, unfollowedAt: now });
         await this.library.recompute(show.id, settings);
@@ -182,7 +234,6 @@ export class SyncService {
     created.sort((a, b) => Number(b.mode === 'LATEST') - Number(a.mode === 'LATEST') || a.name.localeCompare(b.name));
     await mapLimit(created, 5, (s, i) => this.store.updateShow(s.id, { priority: basePriority + i + 1 }));
 
-    await applyRetention(this.store);
     return { shows: saved.length, newEpisodes, failed };
   }
 

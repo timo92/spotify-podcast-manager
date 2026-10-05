@@ -40,3 +40,8 @@
     display: block !important;
   }
 }
+
+/* In column flex containers, don't stretch the link across the whole row. */
+.spotify-attribution {
+  align-self: flex-start;
+}

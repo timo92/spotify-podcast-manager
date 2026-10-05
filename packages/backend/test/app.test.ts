@@ -16,7 +16,7 @@ interface TestResponse {
   body: unknown;
 }
 
-function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider } = {}) {
+function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider; triggerFails?: boolean } = {}) {
   const store = new MemoryStore();
   const spotify = new FakeSpotifyApi(new Date('2026-10-05T08:00:00Z'));
   const syncs: SyncOptions[] = [];
@@ -28,6 +28,7 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
     spotify: () => spotify,
     credentials: opts.credentials ?? staticCredentials(CLIENT_ID, 'b'.repeat(32)),
     triggerSync: async (o) => {
+      if (opts.triggerFails) throw new Error('Lambda invoke failed');
       syncs.push(o);
       pending.push(o);
     },
@@ -137,6 +138,18 @@ describe('configuration and auth', () => {
     await t.call('GET', '/api/auth/login');
     const res = await t.call('GET', '/api/auth/callback?code=x&state=forged');
     expect(res.headers!.Location).toBe('/login?error=state_mismatch');
+  });
+
+  it('frees the lease when the sync cannot be started, without failing the login', async () => {
+    const t = setup({ triggerFails: true });
+    const res = await login(t); // first login tries to start the initial import
+    expect(res.headers.Location).toBe('/?welcome=1');
+    const state = await t.store.getSyncState();
+    expect(state.status).toBe('error');
+    expect(state.leaseId).toBeUndefined();
+    // the button reports the failure, and nothing stays blocked
+    expect((await t.call('POST', '/api/sync', {})).status).toBe(500);
+    expect((await t.store.getSyncState()).leaseId).toBeUndefined();
   });
 
   it('never runs two syncs at once', async () => {
@@ -250,8 +263,7 @@ describe('library flow', () => {
 
   it('marks shows removed from the Spotify library as unfollowed', async () => {
     const t = await ready();
-    const original = t.spotify.getSavedShows.bind(t.spotify);
-    t.spotify.getSavedShows = async () => (await original()).filter((s) => s.id !== 'demo-dertag');
+    t.spotify.saved.delete('demo-dertag');
     await t.sync();
     const tag = (await t.call('GET', '/api/shows/demo-dertag')).body as ShowDetailResponse;
     expect(tag.show.followed).toBe(false);
@@ -273,7 +285,7 @@ describe('library flow', () => {
     });
     expect(res.status).toBe(200);
     expect((res.body as { entries: { id: string }[] }).entries.every((e) => e.id)).toBe(true);
-    expect((await t.call('PUT', '/api/schedule', { entries: [{ showId: 'nope', weekday: 1 }] })).status).toBe(400);
+    expect((await t.call('PUT', '/api/schedule', { entries: [{ weekday: 1 }] })).status).toBe(400);
 
     const week = (await t.call('GET', `/api/week?tz=${tz}`)).body as WeekResponse;
     expect(week.days).toHaveLength(7);
@@ -295,6 +307,18 @@ describe('library flow', () => {
     expect([slot.state, slot.episode?.id]).toEqual(['done', 'demo-wissensreise-1']);
     const nextWeek = (await t.call('GET', `/api/week?tz=${tz}`)).body as WeekResponse;
     expect(nextWeek.days[1].items[0].episode?.id).toBe('demo-wissensreise-2');
+  });
+
+  it('drops plan slots of podcasts that no longer exist instead of rejecting the save', async () => {
+    const t = await ready();
+    const res = await t.call('PUT', '/api/schedule', {
+      entries: [
+        { showId: 'demo-wissensreise', weekday: 1, part: 'MORNING' },
+        { showId: 'deleted-meanwhile', weekday: 2, part: 'EVENING' },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect((res.body as { entries: { showId: string }[] }).entries.map((e) => e.showId)).toEqual(['demo-wissensreise']);
   });
 
   it('saves notes and flags episodes that have one', async () => {

@@ -68,7 +68,14 @@ export interface TokenResponse {
  */
 export interface SpotifyApi {
   getMe(): Promise<SpotifyUser>;
+  /**
+   * The shows saved in the user's library. Entries Spotify returns without show
+   * data (e.g. taken down) are skipped, so a missing show is not proof that it
+   * was unfollowed – see libraryContains.
+   */
   getSavedShows(): Promise<SpotifyShow[]>;
+  /** Which of the shows are saved in the user's library (GET /me/library/contains). */
+  libraryContains(showIds: string[]): Promise<Map<string, boolean>>;
   /**
    * Returns episodes newest first. Paging stops early once `stopAfterPage`
    * returns true for a fetched page (used for incremental syncs).

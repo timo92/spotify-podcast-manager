@@ -1,4 +1,4 @@
-import { RETENTION_DAYS, type ConsumptionMode, type DayPart, type EpisodeStatus, type TodayLabel, type Weekday } from '@podcast/shared';
+import { retentionExpiry, type ConsumptionMode, type DayPart, type EpisodeStatus, type TodayLabel, type Weekday } from '@podcast/shared';
 
 export function formatDuration(ms: number): string {
   const totalMin = Math.max(1, Math.round(ms / 60_000));
@@ -126,11 +126,9 @@ export function splitTimestamps(text: string): ({ text: string } | { label: stri
   return parts;
 }
 
-/** Date on which data with the given start time is deleted (see RETENTION_DAYS). */
-export function expiresAfterRetention(since: string): Date {
-  return new Date(Date.parse(since) + RETENTION_DAYS * 24 * 60 * 60 * 1000);
-}
+const longDateFmt = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
 
-export function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+/** The day on which data marked at `since` (unfollowed, disconnected) is deleted. */
+export function formatDeletionDate(since: string): string {
+  return longDateFmt.format(retentionExpiry(since));
 }

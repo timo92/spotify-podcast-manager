@@ -89,14 +89,48 @@ export class DynamoStore implements Store {
   putConfig(config: AppConfig) {
     return this.put('META', 'CONFIG', config);
   }
+  async markDisconnected(at: string) {
+    await this.conditionally(
+      this.db.send(
+        new UpdateCommand({
+          TableName: this.table,
+          Key: { PK: 'META', SK: 'CONFIG' },
+          UpdateExpression: 'SET disconnectedAt = :at, updatedAt = :at',
+          ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(disconnectedAt)',
+          ExpressionAttributeValues: { ':at': at },
+        }),
+      ),
+    );
+  }
+  deleteConfigIfDisconnectedAt(disconnectedAt: string) {
+    return this.conditionally(
+      this.db.send(
+        new DeleteCommand({
+          TableName: this.table,
+          Key: { PK: 'META', SK: 'CONFIG' },
+          ConditionExpression: 'disconnectedAt = :at',
+          ExpressionAttributeValues: { ':at': disconnectedAt },
+        }),
+      ),
+    );
+  }
   getTokens() {
     return this.get<SpotifyTokens>('META', 'TOKENS');
   }
   putTokens(tokens: SpotifyTokens) {
     return this.put('META', 'TOKENS', tokens);
   }
-  async deleteTokens() {
-    await this.db.send(new DeleteCommand({ TableName: this.table, Key: { PK: 'META', SK: 'TOKENS' } }));
+  deleteTokens(refreshToken: string) {
+    return this.conditionally(
+      this.db.send(
+        new DeleteCommand({
+          TableName: this.table,
+          Key: { PK: 'META', SK: 'TOKENS' },
+          ConditionExpression: 'refreshToken = :rt',
+          ExpressionAttributeValues: { ':rt': refreshToken },
+        }),
+      ),
+    );
   }
   async getSettings(): Promise<Settings> {
     return { ...DEFAULT_SETTINGS, ...(await this.get<Settings>('META', 'SETTINGS')) };
@@ -110,33 +144,38 @@ export class DynamoStore implements Store {
   async acquireSyncLease(state: SyncState & { leaseId: string }, staleBefore: string, takeOver?: string) {
     const free = ['attribute_not_exists(PK)', '#status <> :running', 'attribute_not_exists(startedAt)', 'startedAt < :stale'];
     if (takeOver) free.push('leaseId = :takeOver');
-    return this.conditionalPut('META', 'SYNC', state, free.join(' OR '), {
-      ':running': 'running',
-      ':stale': staleBefore,
-      ...(takeOver ? { ':takeOver': takeOver } : {}),
-    });
-  }
-  releaseSyncLease(leaseId: string, state: SyncState) {
-    return this.conditionalPut('META', 'SYNC', state, 'leaseId = :lease', { ':lease': leaseId });
-  }
-  /** Put that only happens if `condition` holds; false instead of an error otherwise. */
-  private async conditionalPut(
-    pk: string,
-    sk: string,
-    item: object,
-    condition: string,
-    values: Record<string, unknown>,
-  ): Promise<boolean> {
-    try {
-      await this.db.send(
+    return this.conditionally(
+      this.db.send(
         new PutCommand({
           TableName: this.table,
-          Item: { ...item, PK: pk, SK: sk },
-          ConditionExpression: condition,
-          ExpressionAttributeNames: condition.includes('#status') ? { '#status': 'status' } : undefined,
-          ExpressionAttributeValues: values,
+          Item: { ...state, PK: 'META', SK: 'SYNC' },
+          ConditionExpression: free.join(' OR '),
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':running': 'running',
+            ':stale': staleBefore,
+            ...(takeOver ? { ':takeOver': takeOver } : {}),
+          },
         }),
-      );
+      ),
+    );
+  }
+  releaseSyncLease(leaseId: string, state: SyncState) {
+    return this.conditionally(
+      this.db.send(
+        new PutCommand({
+          TableName: this.table,
+          Item: { ...state, PK: 'META', SK: 'SYNC' },
+          ConditionExpression: 'leaseId = :lease',
+          ExpressionAttributeValues: { ':lease': leaseId },
+        }),
+      ),
+    );
+  }
+  /** Awaits a conditional write; false instead of an error when the condition fails. */
+  private async conditionally(write: Promise<unknown>): Promise<boolean> {
+    try {
+      await write;
       return true;
     } catch (e) {
       if ((e as { name?: string }).name === 'ConditionalCheckFailedException') return false;
@@ -258,8 +297,22 @@ export class DynamoStore implements Store {
   async getSchedule(): Promise<Schedule> {
     return (await this.get<Schedule>('META', 'SCHEDULE')) ?? { entries: [] };
   }
-  putSchedule(schedule: Schedule) {
-    return this.put('META', 'SCHEDULE', schedule);
+  async putSchedule(schedule: Schedule, expectedUpdatedAt?: string | null) {
+    if (expectedUpdatedAt === undefined) {
+      await this.put('META', 'SCHEDULE', schedule);
+      return true;
+    }
+    return this.conditionally(
+      this.db.send(
+        new PutCommand({
+          TableName: this.table,
+          Item: { ...schedule, PK: 'META', SK: 'SCHEDULE' },
+          ...(expectedUpdatedAt === null
+            ? { ConditionExpression: 'attribute_not_exists(updatedAt)' }
+            : { ConditionExpression: 'updatedAt = :expected', ExpressionAttributeValues: { ':expected': expectedUpdatedAt } }),
+        }),
+      ),
+    );
   }
 
   getNote(showId: string, episodeId: string) {
@@ -300,14 +353,16 @@ export class DynamoStore implements Store {
   }
 
   async deleteShow(showId: string) {
-    for (const prefix of ['EP', 'PROG', 'NOTE']) {
-      const items = await this.queryAll({
-        KeyConditionExpression: 'PK = :pk',
-        ExpressionAttributeValues: { ':pk': `${prefix}#${showId}` },
-        ProjectionExpression: 'PK, SK',
-      });
-      await this.batchWrite(items.map((i) => ({ DeleteRequest: { Key: { PK: i.PK, SK: i.SK } } })));
-    }
+    await Promise.all(
+      ['EP', 'PROG', 'NOTE'].map(async (prefix) => {
+        const items = await this.queryAll({
+          KeyConditionExpression: 'PK = :pk',
+          ExpressionAttributeValues: { ':pk': `${prefix}#${showId}` },
+          ProjectionExpression: 'PK, SK',
+        });
+        await this.batchWrite(items.map((i) => ({ DeleteRequest: { Key: { PK: i.PK, SK: i.SK } } })));
+      }),
+    );
     await this.db.send(new DeleteCommand({ TableName: this.table, Key: { PK: 'SHOW', SK: showId } }));
   }
 

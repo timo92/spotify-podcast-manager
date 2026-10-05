@@ -193,7 +193,8 @@ time, enforced by a lease in DynamoDB:
   `running` with its `leaseId`, i.e. no other unexpired lease is running.
 - The API acquires the lease when the user starts a sync, so the UI shows it
   at once and a second click is ignored. It passes the lease to the Lambda,
-  which takes it over.
+  which takes it over under a new lease id. Async invocations are delivered
+  at least once, so a duplicate delivery then finds the old id gone and skips.
 - Only the lease holder may write the final state. A lease expires after
   16 minutes (the Lambda timeout is 15), so a crashed sync doesn't block
   forever.

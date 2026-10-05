@@ -56,6 +56,17 @@ export class MemoryStore implements Store {
     this.data.config = clone(config);
     this.save();
   }
+  async markDisconnected(at: string) {
+    if (!this.data.config || this.data.config.disconnectedAt) return;
+    this.data.config = { ...this.data.config, disconnectedAt: at, updatedAt: at };
+    this.save();
+  }
+  async deleteConfigIfDisconnectedAt(disconnectedAt: string) {
+    if (this.data.config?.disconnectedAt !== disconnectedAt) return false;
+    delete this.data.config;
+    this.save();
+    return true;
+  }
   async getTokens() {
     return clone(this.data.tokens);
   }
@@ -63,9 +74,11 @@ export class MemoryStore implements Store {
     this.data.tokens = clone(tokens);
     this.save();
   }
-  async deleteTokens() {
+  async deleteTokens(refreshToken: string) {
+    if (this.data.tokens?.refreshToken !== refreshToken) return false;
     delete this.data.tokens;
     this.save();
+    return true;
   }
   async getSettings() {
     return { ...DEFAULT_SETTINGS, ...clone(this.data.settings) };
@@ -165,9 +178,11 @@ export class MemoryStore implements Store {
   async getSchedule(): Promise<Schedule> {
     return clone(this.data.schedule) ?? { entries: [] };
   }
-  async putSchedule(schedule: Schedule) {
+  async putSchedule(schedule: Schedule, expectedUpdatedAt?: string | null) {
+    if (expectedUpdatedAt !== undefined && (this.data.schedule?.updatedAt ?? null) !== expectedUpdatedAt) return false;
     this.data.schedule = clone(schedule);
     this.save();
+    return true;
   }
   async getNote(showId: string, episodeId: string) {
     return clone(this.data.notes[showId]?.[episodeId]);

@@ -16,7 +16,7 @@ import { StatusCodes } from 'http-status-codes';
 import { ApiError, badRequest, notFound, unauthorized } from './errors.js';
 import { LibraryService } from './services/library.js';
 import { PlanService, validTimeZone } from './services/plan.js';
-import { acquireSyncLease, toEpisode, type SyncOptions } from './services/sync.js';
+import { acquireSyncLease, releaseSyncLease, toEpisode, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
 import { SCOPES } from './spotify/client.js';
 import type { SpotifyCredentialsProvider } from './spotify/credentials.js';
@@ -100,9 +100,16 @@ export function createApp(deps: AppDeps) {
    * second click can't start a parallel sync, then hands it to the sync run.
    */
   async function startSync(opts: SyncOptions) {
-    const leaseId = await acquireSyncLease(store, { message: 'Gestartet…' });
-    if (leaseId) await deps.triggerSync({ ...opts, leaseId });
-    return store.getSyncState();
+    const lease = await acquireSyncLease(store, { message: 'Gestartet…' });
+    if (!lease) return store.getSyncState();
+    try {
+      await deps.triggerSync({ ...opts, leaseId: lease.leaseId });
+    } catch (e) {
+      // Nothing will run under this lease, so free it instead of blocking syncs.
+      await releaseSyncLease(store, lease, 'Sync konnte nicht gestartet werden.');
+      throw e;
+    }
+    return lease;
   }
 
   // ------------------------------------------------------------ middleware
@@ -216,7 +223,9 @@ export function createApp(deps: AppDeps) {
     setCookie(c, SESSION_COOKIE, sessionId, { ...cookieOptions(c), maxAge: SESSION_SECONDS });
 
     const firstRun = (await store.listShows()).length === 0;
-    if (firstRun) await startSync({});
+    // A failed start must not fail the login; the sync state shows the error and
+    // the user can start the import again.
+    if (firstRun) await startSync({}).catch((e: unknown) => console.error('Initial sync could not start', e));
     return c.redirect(firstRun ? '/?welcome=1' : '/');
   });
 

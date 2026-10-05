@@ -12,6 +12,7 @@ SDK in the browser.
 | Login | `GET accounts.spotify.com/authorize`, `POST /api/token` (authorization code + refresh) | – |
 | Owner check | `GET /v1/me` | – |
 | Saved shows | `GET /v1/me/shows` (paged, 50) | `user-library-read` |
+| Is a show still saved? (shows missing from the listing, e.g. taken down) | `GET /v1/me/library/contains?uris=spotify:show:…` (up to 40 per call) | `user-library-read` |
 | Episodes of a show | `GET /v1/shows/{id}/episodes` (paged, 50, newest first) | `user-read-playback-position` for `resume_point` |
 | Single episode (resume point before playback, refresh of the "next" episode) | `GET /v1/episodes/{id}` | `user-read-playback-position` |
 | Devices | `GET /v1/me/player/devices` | `user-read-playback-state` |

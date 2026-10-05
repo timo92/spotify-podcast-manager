@@ -38,10 +38,21 @@ export interface Session {
 export interface Store {
   getConfig(): Promise<AppConfig | undefined>;
   putConfig(config: AppConfig): Promise<void>;
+  /** Sets `disconnectedAt` on an existing config unless it is already set (atomic). */
+  markDisconnected(at: string): Promise<void>;
+  /**
+   * Deletes the config only if its `disconnectedAt` is still `disconnectedAt`, so a
+   * login that just cleared it wins. Returns whether it deleted.
+   */
+  deleteConfigIfDisconnectedAt(disconnectedAt: string): Promise<boolean>;
 
   getTokens(): Promise<SpotifyTokens | undefined>;
   putTokens(tokens: SpotifyTokens): Promise<void>;
-  deleteTokens(): Promise<void>;
+  /**
+   * Deletes the tokens only if they still hold `refreshToken` (so tokens a
+   * concurrent refresh or login just stored survive). Returns whether it deleted.
+   */
+  deleteTokens(refreshToken: string): Promise<boolean>;
 
   getSettings(): Promise<Settings>;
   putSettings(settings: Settings): Promise<void>;
@@ -80,7 +91,11 @@ export interface Store {
   listHistory(limit: number): Promise<EpisodeProgress[]>;
 
   getSchedule(): Promise<Schedule>;
-  putSchedule(schedule: Schedule): Promise<void>;
+  /**
+   * With `expectedUpdatedAt`, writes only if the stored schedule still has that
+   * `updatedAt` (null: no schedule stored yet). Returns whether it wrote.
+   */
+  putSchedule(schedule: Schedule, expectedUpdatedAt?: string | null): Promise<boolean>;
 
   getNote(showId: string, episodeId: string): Promise<EpisodeNote | undefined>;
   putNote(note: EpisodeNote): Promise<void>;

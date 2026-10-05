@@ -37,18 +37,22 @@ export class PlanService {
     if (!Array.isArray(raw)) throw badRequest('entries muss eine Liste sein');
     if (raw.length > MAX_ENTRIES) throw badRequest(`Höchstens ${MAX_ENTRIES} Einträge`);
     const shows = new Set((await this.store.listShows()).map((s) => s.id));
-    const entries: ScheduleEntry[] = raw.map((e: Partial<ScheduleEntry>) => {
-      const weekday = Number(e?.weekday);
-      if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7) throw badRequest('Ungültiger Wochentag');
-      if (!e?.showId || !shows.has(e.showId)) throw badRequest('Unbekannter Podcast im Plan');
-      const part = (DAY_PARTS.includes(e.part as DayPart) ? e.part : 'ANYTIME') as DayPart;
-      return {
-        id: typeof e.id === 'string' && e.id ? e.id.slice(0, 64) : randomUUID(),
-        showId: e.showId,
-        weekday: weekday as ScheduleEntry['weekday'],
-        part,
-      };
-    });
+    const entries: ScheduleEntry[] = raw
+      .map((e: Partial<ScheduleEntry>) => {
+        const weekday = Number(e?.weekday);
+        if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7) throw badRequest('Ungültiger Wochentag');
+        if (!e?.showId) throw badRequest('Podcast fehlt im Plan');
+        const part = (DAY_PARTS.includes(e.part as DayPart) ? e.part : 'ANYTIME') as DayPart;
+        return {
+          id: typeof e.id === 'string' && e.id ? e.id.slice(0, 64) : randomUUID(),
+          showId: e.showId,
+          weekday: weekday as ScheduleEntry['weekday'],
+          part,
+        };
+      })
+      // A plan loaded before a podcast was deleted (retention) may still contain
+      // it; its slots are dropped instead of rejecting the whole save.
+      .filter((e) => shows.has(e.showId));
     const schedule = { entries, updatedAt: new Date().toISOString() };
     await this.store.putSchedule(schedule);
     return schedule;

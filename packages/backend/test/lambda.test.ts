@@ -1,7 +1,7 @@
 import { gunzipSync } from 'node:zlib';
 import { CreateTableCommand, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import dynalite from 'dynalite';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DynamoStore } from '../src/store/dynamo.js';
 
 let server: ReturnType<typeof dynalite>;
@@ -135,6 +135,20 @@ describe('lambda handler', () => {
     const startedAt = new Date().toISOString();
     expect(await store.acquireSyncLease({ status: 'running', startedAt, leaseId: 'lease-1' }, '2000-01-01')).toBe(true);
     await syncHandler({ leaseId: 'lease-1' });
+    const state = await store.getSyncState();
+    expect(state.status).toBe('idle');
+    expect(state.leaseId).toBeUndefined();
+  });
+
+  it('frees the lease even when retention fails while disconnected', async () => {
+    const startedAt = new Date().toISOString();
+    expect(await store.acquireSyncLease({ status: 'running', startedAt, leaseId: 'lease-2' }, '2000-01-01')).toBe(true);
+    const failing = vi.spyOn(DynamoStore.prototype, 'listShows').mockRejectedValueOnce(new Error('throttled'));
+    try {
+      await expect(syncHandler({ leaseId: 'lease-2' })).rejects.toThrow('throttled');
+    } finally {
+      failing.mockRestore();
+    }
     const state = await store.getSyncState();
     expect(state.status).toBe('idle');
     expect(state.leaseId).toBeUndefined();

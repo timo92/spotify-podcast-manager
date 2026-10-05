@@ -42,12 +42,16 @@ export async function syncHandler(event: SyncOptions & { source?: string }) {
   if (!config || !tokens) {
     // Not connected (yet, or access was revoked): there is nothing to sync, but
     // data of a revoked connection still has to expire.
-    const retention = await applyRetention(store);
-    console.log('Not connected – skipping sync', JSON.stringify(retention));
-    // Free a lease the API acquired for this run, so the UI doesn't show "running".
-    if (event.leaseId) {
-      const state = await store.getSyncState();
-      await store.releaseSyncLease(event.leaseId, { ...state, status: 'idle', leaseId: undefined, message: undefined });
+    try {
+      const retention = await applyRetention(store);
+      console.log('Not connected – skipping sync', JSON.stringify(retention));
+    } finally {
+      // Free a lease the API acquired for this run, so the UI doesn't show
+      // "running" – also when retention failed.
+      if (event.leaseId) {
+        const state = await store.getSyncState();
+        await store.releaseSyncLease(event.leaseId, { ...state, status: 'idle', leaseId: undefined, message: undefined });
+      }
     }
     return;
   }

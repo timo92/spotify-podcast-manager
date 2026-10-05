@@ -17,7 +17,8 @@ const ACCOUNTS = 'https://accounts.spotify.com';
 
 /**
  * Scopes we ask for:
- *  - user-library-read: list saved shows ("Your Library → Podcasts")
+ *  - user-library-read: list saved shows ("Your Library → Podcasts") and check
+ *    whether a show is still saved
  *  - user-read-playback-position: resume points / "fully played" of episodes
  *  - streaming, user-read-email, user-read-private: Web Playback SDK (Premium)
  *  - user-read-playback-state, user-modify-playback-state: start playback on
@@ -115,7 +116,7 @@ export class HttpSpotifyApi implements SpotifyApi {
           new URLSearchParams({ grant_type: 'refresh_token', refresh_token: this.tokens.refreshToken }),
         );
       } catch (e) {
-        if (e instanceof ApiError && e.code === 'spotify_reauth') await this.disconnect();
+        if (e instanceof ApiError && e.code === 'spotify_reauth') await this.disconnect(this.tokens.refreshToken);
         throw e;
       }
       this.tokens = {
@@ -136,14 +137,12 @@ export class HttpSpotifyApi implements SpotifyApi {
    * their data: drop the tokens now; the rest is deleted by the retention rules
    * unless the user logs in again (services/retention.ts).
    */
-  private async disconnect() {
+  private async disconnect(rejectedRefreshToken: string) {
     this.tokens = undefined;
-    await this.store.deleteTokens();
-    const config = await this.store.getConfig();
-    if (config && !config.disconnectedAt) {
-      const now = new Date().toISOString();
-      await this.store.putConfig({ ...config, disconnectedAt: now, updatedAt: now });
-    }
+    // Our cached tokens may be outdated: a refresh elsewhere or a new login may
+    // have stored valid ones meanwhile. Only revoke what Spotify actually rejected.
+    if (!(await this.store.deleteTokens(rejectedRefreshToken))) return;
+    await this.store.markDisconnected(new Date().toISOString());
   }
 
   private async request<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T | undefined> {
@@ -221,12 +220,27 @@ export class HttpSpotifyApi implements SpotifyApi {
     const shows: SpotifyShow[] = [];
     let url: string | null = '/me/shows?limit=50';
     while (url) {
-      const page: SpotifyPage<{ show: SpotifyShow }> | undefined = await this.request('GET', url);
+      const page: SpotifyPage<{ show: SpotifyShow | null }> | undefined = await this.request('GET', url);
       if (!page) break;
       for (const item of page.items) if (item?.show) shows.push(item.show);
       url = page.next;
     }
     return shows;
+  }
+
+  async libraryContains(showIds: string[]) {
+    const result = new Map<string, boolean>();
+    // The endpoint takes up to 40 Spotify URIs per call and answers with booleans in the same order.
+    for (let i = 0; i < showIds.length; i += 40) {
+      const ids = showIds.slice(i, i + 40);
+      const uris = ids.map((id) => `spotify:show:${id}`).join(',');
+      const saved = (await this.request<boolean[]>('GET', `/me/library/contains?uris=${encodeURIComponent(uris)}`)) ?? [];
+      if (saved.length !== ids.length) {
+        throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_error', 'Unerwartete Antwort von /me/library/contains');
+      }
+      ids.forEach((id, k) => result.set(id, saved[k] === true));
+    }
+    return result;
   }
 
   async getShowEpisodes(showId: string, stopAfterPage?: (page: SpotifyEpisode[]) => boolean) {

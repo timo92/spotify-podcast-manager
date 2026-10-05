@@ -23,6 +23,7 @@ describe('HttpSpotifyApi', () => {
       .mockResolvedValueOnce(response(200, { items: [{ show: { id: '1', name: 'A' } }], next: 'https://api.spotify.com/v1/me/shows?offset=1' }))
       .mockResolvedValueOnce(response(200, { items: [{ show: { id: '2', name: 'B' } }, null], next: null }));
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    // entries without show data (taken down) are skipped
     expect((await api.getSavedShows()).map((s) => s.id)).toEqual(['1', '2']);
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer old');
   });
@@ -61,6 +62,42 @@ describe('HttpSpotifyApi', () => {
     } finally {
       globalThis.fetch = realFetch;
     }
+  });
+
+  it('keeps tokens another process stored meanwhile when its own refresh token is rejected', async () => {
+    const store = await storeWithTokens(Date.now() - 1000);
+    await store.putConfig({ ownerId: 'owner', createdAt: '', updatedAt: '' });
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      // While this client refreshes with its cached (now outdated) token, a login
+      // or another Lambda stores new tokens.
+      await store.putTokens({ accessToken: 'new', refreshToken: 'rotated', expiresAt: Date.now() + 3600_000, scope: '' });
+      return response(400, { error: 'invalid_grant' });
+    }) as typeof fetch;
+    try {
+      const api = new HttpSpotifyApi(store, credentials, vi.fn() as typeof fetch);
+      await expect(api.getMe()).rejects.toMatchObject({ code: 'spotify_reauth' });
+      expect((await store.getTokens())?.refreshToken).toBe('rotated');
+      expect((await store.getConfig())!.disconnectedAt).toBeUndefined();
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  it('checks the library with show URIs, 40 per call', async () => {
+    const store = await storeWithTokens();
+    const ids = Array.from({ length: 41 }, (_, i) => `s${i}`);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, ids.slice(0, 40).map((_, i) => i % 2 === 0)))
+      .mockResolvedValueOnce(response(200, [true]));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    const saved = await api.libraryContains(ids);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const first = new URL(fetchMock.mock.calls[0][0]);
+    expect(first.pathname).toBe('/v1/me/library/contains');
+    expect(first.searchParams.get('uris')!.split(',')).toEqual(ids.slice(0, 40).map((id) => `spotify:show:${id}`));
+    expect([saved.get('s0'), saved.get('s1'), saved.get('s40')]).toEqual([true, false, true]);
   });
 
   it('retries after 429 using Retry-After', async () => {

@@ -122,11 +122,13 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.acquireSyncLease(running('a', '2026-01-01T00:10:00.000Z'), stale)).toBe(true);
       // held and not stale → refused, even for a second attempt at the same moment
       expect(await store.acquireSyncLease(running('b', '2026-01-01T00:11:00.000Z'), stale)).toBe(false);
-      // the owner may take its own lease over (API acquires, sync Lambda continues)
-      expect(await store.acquireSyncLease(running('a', '2026-01-01T00:12:00.000Z'), stale, 'a')).toBe(true);
+      // the API's lease is taken over by the sync run, switching to a new id …
+      expect(await store.acquireSyncLease(running('a2', '2026-01-01T00:12:00.000Z'), stale, 'a')).toBe(true);
+      // … so a duplicate delivery of the same invocation can't take it over again
+      expect(await store.acquireSyncLease(running('a3', '2026-01-01T00:12:01.000Z'), stale, 'a')).toBe(false);
       // only the holder may write the final state
-      expect(await store.releaseSyncLease('b', { status: 'idle' })).toBe(false);
-      expect(await store.releaseSyncLease('a', { status: 'idle' })).toBe(true);
+      expect(await store.releaseSyncLease('a', { status: 'idle' })).toBe(false);
+      expect(await store.releaseSyncLease('a2', { status: 'idle' })).toBe(true);
       expect((await store.getSyncState()).status).toBe('idle');
       // free again after release, and a stale lease counts as free
       expect(await store.acquireSyncLease(running('c', '2026-01-01T00:13:00.000Z'), stale)).toBe(true);
@@ -135,9 +137,38 @@ function contract(name: string, create: () => Promise<Store>) {
       await store.releaseSyncLease('d', { status: 'idle' });
     });
 
+    it('writes tokens, config and plan conditionally where races matter', async () => {
+      // tokens: only the rejected refresh token is deleted
+      await store.putTokens({ accessToken: 'a', refreshToken: 'fresh', expiresAt: 0, scope: '' });
+      expect(await store.deleteTokens('old')).toBe(false);
+      expect((await store.getTokens())?.refreshToken).toBe('fresh');
+      expect(await store.deleteTokens('fresh')).toBe(true);
+      expect(await store.getTokens()).toBeUndefined();
+      expect(await store.deleteTokens('fresh')).toBe(false); // already gone
+
+      // config: marked once; deleted only while the mark is unchanged
+      await store.putConfig({ ownerId: 'o', createdAt: 'c', updatedAt: 'u' });
+      await store.markDisconnected('2026-01-01T00:00:00.000Z');
+      await store.markDisconnected('2026-02-01T00:00:00.000Z');
+      expect((await store.getConfig())?.disconnectedAt).toBe('2026-01-01T00:00:00.000Z');
+      expect(await store.deleteConfigIfDisconnectedAt('2026-02-01T00:00:00.000Z')).toBe(false);
+      await store.putConfig({ ownerId: 'o', createdAt: 'c', updatedAt: 'u' }); // a login clears the mark
+      expect(await store.deleteConfigIfDisconnectedAt('2026-01-01T00:00:00.000Z')).toBe(false);
+      expect(await store.getConfig()).toBeDefined();
+      await store.markDisconnected('2026-03-01T00:00:00.000Z');
+      expect(await store.deleteConfigIfDisconnectedAt('2026-03-01T00:00:00.000Z')).toBe(true);
+      expect(await store.getConfig()).toBeUndefined();
+
+      // plan: written only if nobody saved in between
+      await store.putSchedule({ entries: [], updatedAt: 'v1' });
+      expect(await store.putSchedule({ entries: [], updatedAt: 'v2' }, 'v0')).toBe(false);
+      expect(await store.putSchedule({ entries: [], updatedAt: 'v2' }, 'v1')).toBe(true);
+      expect((await store.getSchedule()).updatedAt).toBe('v2');
+    });
+
     it('deletes tokens and a show with everything that belongs to it', async () => {
       await store.putTokens({ accessToken: 'a', refreshToken: 'r', expiresAt: 0, scope: '' });
-      await store.deleteTokens();
+      await store.deleteTokens('r');
       expect(await store.getTokens()).toBeUndefined();
 
       await store.putShow({ ...show, id: 'gone' });

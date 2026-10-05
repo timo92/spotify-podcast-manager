@@ -9,7 +9,7 @@ import { Icon } from '../components/Icon';
 import { ListenOnSpotify, SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, ProgressBar, Segmented, Spinner, Toggle } from '../components/ui';
 import { api } from '../lib/api';
-import { expiresAfterRetention, formatDate, formatDuration, formatRelative, formatReleaseDate, MODE_HINT } from '../lib/format';
+import { formatDeletionDate, formatDuration, formatRelative, formatReleaseDate, MODE_HINT } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { MODE_OPTIONS, progressText } from './Shows';
@@ -88,7 +88,7 @@ export function ShowDetailPage() {
             {!show.followed && (
               <Badge tone="warn">
                 Nicht mehr in deiner Spotify-Bibliothek
-                {show.unfollowedAt && ` – wird am ${formatDate(expiresAfterRetention(show.unfollowedAt))} entfernt`}
+                {show.unfollowedAt && ` – wird am ${formatDeletionDate(show.unfollowedAt)} entfernt`}
               </Badge>
             )}
             {show.paused && <Badge tone="muted">Pausiert</Badge>}

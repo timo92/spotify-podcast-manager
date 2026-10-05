@@ -1,6 +1,7 @@
-import type { EpisodeStatus, EpisodeView } from '@podcast/shared';
+import { useQueryClient } from '@tanstack/react-query';
+import type { EpisodeStatus, EpisodeView, ScheduleRule } from '@podcast/shared';
 import { api } from './api';
-import { useInvalidateLibrary } from './queries';
+import { qk, useInvalidateLibrary } from './queries';
 import { useToast } from './toast';
 
 const DONE_MESSAGE: Record<EpisodeStatus, string> = {
@@ -57,5 +58,22 @@ export function useEpisodeActions() {
         episodeId ? 'Als nächste Folge festgelegt' : 'Auswahl aufgehoben',
         () => api.updateShow(showId, { pinnedEpisodeId: previous ?? null }),
       ),
+  };
+}
+
+/** Saves the whole weekly plan, refreshes what depends on it and confirms with `message`. */
+export function useSaveSchedule() {
+  const qc = useQueryClient();
+  const invalidate = useInvalidateLibrary();
+  const toast = useToast();
+  return async (rules: ScheduleRule[], message: string) => {
+    try {
+      const saved = await api.saveSchedule({ rules });
+      qc.setQueryData(qk.schedule, saved);
+      await invalidate();
+      toast({ message, tone: 'success' });
+    } catch (e) {
+      toast({ message: (e as Error).message, tone: 'error' });
+    }
   };
 }

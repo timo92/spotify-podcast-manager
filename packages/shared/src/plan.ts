@@ -118,3 +118,20 @@ export function buildWeek(
   }
   return result;
 }
+
+/** Replaces the rule with the same id. */
+export function replaceRule(rules: ScheduleRule[], rule: ScheduleRule): ScheduleRule[] {
+  return rules.map((r) => (r.id === rule.id ? rule : r));
+}
+
+/** Removes the whole rule, i.e. all of its slots. */
+export function removeRule(rules: ScheduleRule[], ruleId: string): ScheduleRule[] {
+  return rules.filter((r) => r.id !== ruleId);
+}
+
+/** Removes one weekday from a rule, and the rule once it has no weekday left. */
+export function removeWeekday(rules: ScheduleRule[], ruleId: string, weekday: Weekday): ScheduleRule[] {
+  return rules
+    .map((r) => (r.id === ruleId ? { ...r, weekdays: r.weekdays.filter((d) => d !== weekday) } : r))
+    .filter((r) => r.weekdays.length > 0);
+}

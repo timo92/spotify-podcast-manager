@@ -6,6 +6,7 @@ import { PlayButton } from '../components/EpisodeCard';
 import { EpisodeRow } from '../components/EpisodeRow';
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { Icon } from '../components/Icon';
+import { ShowSchedule } from '../components/ShowSchedule';
 import { ListenOnSpotify, SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, ProgressBar, Segmented, Spinner, Toggle } from '../components/ui';
 import { api } from '../lib/api';
@@ -189,6 +190,8 @@ export function ShowDetailPage() {
           </button>
         )}
       </section>
+
+      <ShowSchedule showId={show.id} showName={show.name} />
 
       {s && s.total > 0 && (
         <section className="stack-sm">

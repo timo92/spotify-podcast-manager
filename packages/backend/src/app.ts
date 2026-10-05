@@ -21,6 +21,7 @@ import { StatusCodes } from 'http-status-codes';
 import { ApiError, badRequest, notFound, unauthorized } from './errors.js';
 import { LibraryService } from './services/library.js';
 import { NoteService } from './services/notes.js';
+import { PlaybackService } from './services/playback.js';
 import { PlanService, validTimeZone } from './services/plan.js';
 import { acquireSyncLease, releaseSyncLease, toEpisode, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
@@ -76,6 +77,7 @@ export function createApp(deps: AppDeps) {
   const library = new LibraryService(store);
   const planner = new PlanService(store, library);
   const notes = new NoteService(store, library, deps.spotify);
+  const playback = new PlaybackService(store, library, deps.spotify);
   const app = new Hono();
 
   const baseUrl = (c: Context) => {
@@ -308,6 +310,10 @@ export function createApp(deps: AppDeps) {
     c.json(await library.episode(c.req.param('id'), c.req.param('episodeId'))),
   );
 
+  app.post('/api/shows/:id/episodes/:episodeId/refresh', async (c) =>
+    c.json(await playback.refreshEpisode(c.req.param('id'), c.req.param('episodeId'))),
+  );
+
   app.put('/api/shows/:id/episodes/:episodeId/status', async (c) => {
     const { status } = await readBody<{ status: EpisodeStatus | null }>(c);
     return c.json(await library.setStatus(c.req.param('id'), [c.req.param('episodeId')], status ?? null));
@@ -400,6 +406,8 @@ export function createApp(deps: AppDeps) {
   // ---------------------------------------------------------------- player
 
   app.get('/api/player/token', async (c) => c.json(await deps.spotify().getAccessToken()));
+
+  app.get('/api/player/state', async (c) => c.json(await playback.state()));
 
   app.get('/api/player/devices', async (c) => {
     const devices: PlayerDevice[] = (await deps.spotify().getDevices())

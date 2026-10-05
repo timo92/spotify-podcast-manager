@@ -259,6 +259,15 @@ export interface ShowDetailResponse {
   episodes: EpisodeView[];
 }
 
+/** The episode Spotify is playing right now on any of the user's devices (GET /api/player/state). */
+export interface PlaybackState {
+  episodeId: string;
+  positionMs: number;
+  paused: boolean;
+  /** Name of the Spotify Connect device, if Spotify reports one. */
+  deviceName?: string;
+}
+
 export interface PlayerDevice {
   id: string;
   name: string;

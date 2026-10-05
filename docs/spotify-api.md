@@ -14,10 +14,10 @@ SDK in the browser.
 | Saved shows | `GET /v1/me/shows` (paged, 50) | `user-library-read` |
 | Is a show still saved? (shows missing from the listing, e.g. taken down) | `GET /v1/me/library/contains?uris=spotify:show:…` (up to 40 per call) | `user-library-read` |
 | Episodes of a show | `GET /v1/shows/{id}/episodes` (paged, 50, newest first) | `user-read-playback-position` for `resume_point` |
-| Single episode (resume point before playback, refresh of the "next" episode) | `GET /v1/episodes/{id}` | `user-read-playback-position` |
+| Single episode (resume point before playback, refresh of the "next" episode, refresh when an episode is opened or the user returns from the Spotify app) | `GET /v1/episodes/{id}` | `user-read-playback-position` |
 | Devices | `GET /v1/me/player/devices` | `user-read-playback-state` |
 | Start playback | `PUT /v1/me/player/play?device_id=…` with `uris` and `position_ms` | `user-modify-playback-state` |
-| Position for a new note (the playing episode on any device) | `GET /v1/me/player?additional_types=episode` | `user-read-playback-state` |
+| Position for a new note; following playback outside the browser (every 30 s while the web app is visible) | `GET /v1/me/player?additional_types=episode` | `user-read-playback-state` |
 | In-browser player | Web Playback SDK (`https://sdk.scdn.co/spotify-player.js`) | `streaming`, `user-read-email`, `user-read-private` |
 
 

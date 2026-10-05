@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import { useEpisodeActions } from '../lib/actions';
 import { formatDateTime, formatDuration, formatReleaseDate } from '../lib/format';
 import { usePlayer, type PlayableItem } from '../lib/player';
-import { qk } from '../lib/queries';
+import { qk, useRefreshFromSpotify } from '../lib/queries';
 import { PlayButton } from './EpisodeCard';
 import styles from './EpisodeSheet.module.css';
 import { Icon } from './Icon';
@@ -20,6 +20,7 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
   const actions = useEpisodeActions();
   const episode = useQuery({ queryKey: qk.episode(showId, episodeId), queryFn: () => api.episode(showId, episodeId) });
   const show = useQuery({ queryKey: qk.show(showId), queryFn: () => api.show(showId) });
+  useRefreshFromSpotify(showId, episodeId);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();

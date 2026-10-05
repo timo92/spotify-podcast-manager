@@ -104,11 +104,21 @@ describe('HttpSpotifyApi', () => {
     const store = await storeWithTokens();
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response(200, { progress_ms: 61_000, currently_playing_type: 'episode', item: { id: 'ep1' } }))
-      .mockResolvedValueOnce(response(200, { progress_ms: 5_000, currently_playing_type: 'track', item: { id: 't1' } }))
+      .mockResolvedValueOnce(
+        response(200, {
+          progress_ms: 61_000,
+          is_playing: false,
+          currently_playing_type: 'episode',
+          item: { id: 'ep1' },
+          device: { name: 'iPhone' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        response(200, { progress_ms: 5_000, is_playing: true, currently_playing_type: 'track', item: { id: 't1' } }),
+      )
       .mockResolvedValueOnce(response(204));
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
-    expect(await api.getPlayingEpisode()).toEqual({ episodeId: 'ep1', positionMs: 61_000 });
+    expect(await api.getPlayingEpisode()).toEqual({ episodeId: 'ep1', positionMs: 61_000, paused: true, deviceName: 'iPhone' });
     const url = new URL(fetchMock.mock.calls[0][0]);
     expect(url.pathname).toBe('/v1/me/player');
     expect(url.searchParams.get('additional_types')).toBe('episode');

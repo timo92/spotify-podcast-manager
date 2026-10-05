@@ -1,9 +1,9 @@
+import type { PlaybackState } from '@podcast/shared';
 import { StatusCodes } from 'http-status-codes';
 import { ApiError, deviceUnavailable } from '../errors.js';
 import type { SpotifyTokens, Store } from '../store/types.js';
 import type { SpotifyCredentials, SpotifyCredentialsProvider } from './credentials.js';
 import type {
-  PlayingEpisode,
   SpotifyApi,
   SpotifyDevice,
   SpotifyEpisode,
@@ -302,11 +302,16 @@ export class HttpSpotifyApi implements SpotifyApi {
     }
   }
 
-  async getPlayingEpisode(): Promise<PlayingEpisode | undefined> {
+  async getPlayingEpisode(): Promise<PlaybackState | undefined> {
     // GET /me/player needs user-read-playback-state, which playback already requires.
     const res = await this.request<SpotifyPlaybackState>('GET', '/me/player?additional_types=episode');
     if (res?.currently_playing_type !== 'episode' || !res.item || res.progress_ms === null) return undefined;
-    return { episodeId: res.item.id, positionMs: res.progress_ms };
+    return {
+      episodeId: res.item.id,
+      positionMs: res.progress_ms,
+      paused: !res.is_playing,
+      deviceName: res.device?.name || undefined,
+    };
   }
 
   async getAccessToken() {

@@ -1,4 +1,5 @@
 import type {
+  ApiErrorBody,
   AppStatus,
   EpisodeNote,
   Schedule,
@@ -14,7 +15,19 @@ import type {
   SyncState,
   TodayResponse,
 } from '@podcast/shared';
+import i18n from '../i18n';
+import type { resources } from '../i18n/resources';
 
+type ErrorCode = keyof (typeof resources)['de']['errors'];
+
+/** The error in the active language; codes the app doesn't know keep the server's (German) message. */
+export function errorMessage(body: Partial<ApiErrorBody> | undefined, status: number): string {
+  const code = body?.error;
+  if (code && i18n.exists(code, { ns: 'errors' })) return i18n.t(code as ErrorCode, { ns: 'errors', ...body?.params });
+  return body?.message ?? i18n.t('http', { ns: 'errors', status });
+}
+
+/** A failed API call; `message` is already translated (errorMessage). */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -35,7 +48,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const text = await res.text();
   const data = text ? JSON.parse(text) : undefined;
   if (!res.ok) {
-    throw new ApiError(res.status, data?.error ?? 'error', data?.message ?? `Fehler ${res.status}`);
+    const body = data as Partial<ApiErrorBody> | undefined;
+    throw new ApiError(res.status, body?.error ?? 'error', errorMessage(body, res.status));
   }
   return data as T;
 }

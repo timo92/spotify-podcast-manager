@@ -315,7 +315,7 @@ describe('library flow', () => {
     expect((await save({ rules: [{ showId: 'demo-dertag', weekdays: [] }] })).status).toBe(400);
     expect((await save({ rules: [{ showId: 'demo-dertag', weekdays: [8] }] })).status).toBe(400);
     expect((await save({ rules: 'x' })).status).toBe(400);
-    expect((await save({ entries: [null] })).status).toBe(400);
+    expect((await save({ rules: [null] })).status).toBe(400);
 
     const res = await save({
       rules: [
@@ -329,17 +329,10 @@ describe('library flow', () => {
     expect(second.id).not.toBe('same');
   });
 
-  it('accepts a plan in the legacy slot shape', async () => {
+  it('exports the plan as rules', async () => {
     const t = await ready();
-    const res = await t.call('PUT', '/api/schedule', {
-      entries: [
-        { id: 'a', showId: 'demo-dertag', weekday: 1, part: 'MORNING' },
-        { id: 'b', showId: 'demo-dertag', weekday: 3, part: 'MORNING' },
-      ],
-    });
-    expect(res.status).toBe(200);
     const rules = [{ id: 'a', showId: 'demo-dertag', weekdays: [1, 3], part: 'MORNING' }];
-    expect((await t.call('GET', '/api/schedule')).body).toMatchObject({ rules });
+    expect((await t.call('PUT', '/api/schedule', { rules })).status).toBe(200);
     expect(((await t.call('GET', '/api/export')).body as { schedule: Schedule }).schedule).toMatchObject({ rules });
   });
 

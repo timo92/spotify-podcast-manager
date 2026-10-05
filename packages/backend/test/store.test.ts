@@ -1,11 +1,7 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { CreateTableCommand, DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import dynalite from 'dynalite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Episode, LegacySchedule, Show } from '@podcast/shared';
+import type { Episode, Show } from '@podcast/shared';
 import { DynamoStore } from '../src/store/dynamo.js';
 import { MemoryStore } from '../src/store/memory.js';
 import type { Store } from '../src/store/types.js';
@@ -41,16 +37,8 @@ const episodes: Episode[] = Array.from({ length: 30 }, (_, i) => ({
   lastSyncedAt: 'l',
 }));
 
-/**
- * Runs the same behavioural checks against every Store implementation.
- * `withLegacySchedule` returns a store whose stored schedule is `legacy`
- * as written by an older version.
- */
-function contract(
-  name: string,
-  create: () => Promise<Store>,
-  withLegacySchedule: (legacy: LegacySchedule) => Promise<Store>,
-) {
+/** Runs the same behavioural checks against every Store implementation. */
+function contract(name: string, create: () => Promise<Store>) {
   describe(name, () => {
     let store: Store;
     beforeAll(async () => {
@@ -178,28 +166,6 @@ function contract(
       expect((await store.getSchedule()).updatedAt).toBe('v2');
     });
 
-    it('reads a schedule stored in the legacy slot shape as rules and replaces it on save', async () => {
-      const legacy = await withLegacySchedule({
-        entries: [
-          { id: 'a', showId: 's1', weekday: 1, part: 'MORNING' },
-          { id: 'b', showId: 's1', weekday: 3, part: 'MORNING' },
-          { id: 'c', showId: 's1', weekday: 3, part: 'EVENING' },
-        ],
-        updatedAt: 'legacy',
-      });
-      const schedule = await legacy.getSchedule();
-      expect(schedule).toEqual({
-        rules: [
-          { id: 'a', showId: 's1', weekdays: [1, 3], part: 'MORNING' },
-          { id: 'c', showId: 's1', weekdays: [3], part: 'EVENING' },
-        ],
-        updatedAt: 'legacy',
-      });
-      // A conditional save still sees the legacy item's version.
-      expect(await legacy.putSchedule({ rules: schedule.rules.slice(1), updatedAt: 'v3' }, 'legacy')).toBe(true);
-      expect(await legacy.getSchedule()).toEqual({ rules: [schedule.rules[1]], updatedAt: 'v3' });
-    });
-
     it('deletes tokens and a show with everything that belongs to it', async () => {
       await store.putTokens({ accessToken: 'a', refreshToken: 'r', expiresAt: 0, scope: '' });
       await store.deleteTokens('r');
@@ -228,63 +194,45 @@ function contract(
   });
 }
 
-contract(
-  'MemoryStore',
-  async () => new MemoryStore(),
-  async (legacy) => {
-    const file = join(mkdtempSync(join(tmpdir(), 'store-')), 'db.json');
-    writeFileSync(file, JSON.stringify({ schedule: legacy }));
-    return new MemoryStore(file);
-  },
-);
+contract('MemoryStore', async () => new MemoryStore());
 
 let server: ReturnType<typeof dynalite> | undefined;
 afterAll(() => new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve())));
 
-let dynamoClient: DynamoDBClient | undefined;
-
-contract(
-  'DynamoStore (dynalite)',
-  async () => {
-    server = dynalite({ createTableMs: 0, deleteTableMs: 0, updateTableMs: 0 });
-    await new Promise<void>((resolve) => server!.listen(0, resolve));
-    const port = (server.address() as { port: number }).port;
-    const client = (dynamoClient = new DynamoDBClient({
-      endpoint: `http://127.0.0.1:${port}`,
-      region: 'local',
-      credentials: { accessKeyId: 'x', secretAccessKey: 'x' },
-    }));
-    await client.send(
-      new CreateTableCommand({
-        TableName: 'test',
-        BillingMode: 'PAY_PER_REQUEST',
-        AttributeDefinitions: [
-          { AttributeName: 'PK', AttributeType: 'S' },
-          { AttributeName: 'SK', AttributeType: 'S' },
-          { AttributeName: 'GSI1PK', AttributeType: 'S' },
-          { AttributeName: 'GSI1SK', AttributeType: 'S' },
-        ],
-        KeySchema: [
-          { AttributeName: 'PK', KeyType: 'HASH' },
-          { AttributeName: 'SK', KeyType: 'RANGE' },
-        ],
-        GlobalSecondaryIndexes: [
-          {
-            IndexName: 'GSI1',
-            KeySchema: [
-              { AttributeName: 'GSI1PK', KeyType: 'HASH' },
-              { AttributeName: 'GSI1SK', KeyType: 'RANGE' },
-            ],
-            Projection: { ProjectionType: 'ALL' },
-          },
-        ],
-      }),
-    );
-    return new DynamoStore('test', client);
-  },
-  async (legacy) => {
-    const db = DynamoDBDocumentClient.from(dynamoClient!);
-    await db.send(new PutCommand({ TableName: 'test', Item: { PK: 'META', SK: 'SCHEDULE', ...legacy } }));
-    return new DynamoStore('test', dynamoClient);
-  },
-);
+contract('DynamoStore (dynalite)', async () => {
+  server = dynalite({ createTableMs: 0, deleteTableMs: 0, updateTableMs: 0 });
+  await new Promise<void>((resolve) => server!.listen(0, resolve));
+  const port = (server.address() as { port: number }).port;
+  const client = new DynamoDBClient({
+    endpoint: `http://127.0.0.1:${port}`,
+    region: 'local',
+    credentials: { accessKeyId: 'x', secretAccessKey: 'x' },
+  });
+  await client.send(
+    new CreateTableCommand({
+      TableName: 'test',
+      BillingMode: 'PAY_PER_REQUEST',
+      AttributeDefinitions: [
+        { AttributeName: 'PK', AttributeType: 'S' },
+        { AttributeName: 'SK', AttributeType: 'S' },
+        { AttributeName: 'GSI1PK', AttributeType: 'S' },
+        { AttributeName: 'GSI1SK', AttributeType: 'S' },
+      ],
+      KeySchema: [
+        { AttributeName: 'PK', KeyType: 'HASH' },
+        { AttributeName: 'SK', KeyType: 'RANGE' },
+      ],
+      GlobalSecondaryIndexes: [
+        {
+          IndexName: 'GSI1',
+          KeySchema: [
+            { AttributeName: 'GSI1PK', KeyType: 'HASH' },
+            { AttributeName: 'GSI1SK', KeyType: 'RANGE' },
+          ],
+          Projection: { ProjectionType: 'ALL' },
+        },
+      ],
+    }),
+  );
+  return new DynamoStore('test', client);
+});

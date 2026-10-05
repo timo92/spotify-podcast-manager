@@ -1,7 +1,6 @@
 import { isDone, plannedOpenMs, selectNextEpisode, toShowLite } from './logic.js';
 import {
   DAY_PARTS,
-  type DayPart,
   type EpisodeView,
   type PlanDay,
   type PlannedItem,
@@ -135,43 +134,4 @@ export function removeWeekday(rules: ScheduleRule[], ruleId: string, weekday: We
   return rules
     .map((r) => (r.id === ruleId ? { ...r, weekdays: r.weekdays.filter((d) => d !== weekday) } : r))
     .filter((r) => r.weekdays.length > 0);
-}
-
-/** One slot per weekday, the schedule shape before plan rules. */
-export interface LegacyScheduleEntry {
-  id: string;
-  showId: string;
-  weekday: Weekday;
-  part: DayPart;
-}
-
-export interface LegacySchedule {
-  entries: LegacyScheduleEntry[];
-  updatedAt?: string;
-}
-
-export function isLegacySchedule(value: unknown): value is LegacySchedule {
-  if (typeof value !== 'object' || value === null || 'rules' in value) return false;
-  const entries = (value as { entries?: unknown }).entries;
-  return Array.isArray(entries) && entries.every((e) => typeof e === 'object' && e !== null);
-}
-
-/**
- * Converts a schedule in the legacy shape into rules: one rule per podcast and
- * part of day, holding all its weekdays, with the id of its first slot.
- * Duplicate slots (same podcast, weekday and part of day) collapse into one.
- * Rules keep the order of their first slot. A schedule already made of rules
- * is returned unchanged.
- */
-export function migrateSchedule(schedule: Schedule | LegacySchedule): Schedule {
-  if (!isLegacySchedule(schedule)) return schedule;
-  const rules = new Map<string, ScheduleRule>();
-  for (const entry of schedule.entries) {
-    const key = `${entry.showId} ${entry.part}`;
-    const rule = rules.get(key);
-    if (!rule) rules.set(key, { id: entry.id, showId: entry.showId, weekdays: [entry.weekday], part: entry.part });
-    else if (!rule.weekdays.includes(entry.weekday)) rule.weekdays.push(entry.weekday);
-  }
-  for (const rule of rules.values()) rule.weekdays.sort((a, b) => a - b);
-  return { rules: [...rules.values()], ...(schedule.updatedAt ? { updatedAt: schedule.updatedAt } : {}) };
 }

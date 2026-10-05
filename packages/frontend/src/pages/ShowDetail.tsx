@@ -11,11 +11,11 @@ import { ListenOnSpotify, SpotifyAttribution } from '../components/SpotifyAttrib
 import { Badge, Chip, Cover, Empty, ErrorBox, ProgressBar, Segmented, Spinner, Toggle } from '../components/ui';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatDeletionDate, formatDuration, formatRelative, formatReleaseDate, MODE_HINT } from '../lib/format';
+import { formatDeletionDate, formatDuration, formatRelative, formatReleaseDate, modeHint } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import styles from './ShowDetail.module.css';
-import { MODE_OPTIONS, progressText } from './Shows';
+import { modeOptions, progressText } from './Shows';
 
 type Filter = 'alle' | 'ungehoert' | 'gehoert' | 'uebersprungen' | 'neu' | 'begonnen';
 
@@ -142,8 +142,8 @@ export function ShowDetailPage() {
 
       <section className="card settings-card">
         <h2 className="h3">Einordnung</h2>
-        <Segmented label="Modus" value={show.mode} options={MODE_OPTIONS} onChange={(mode) => void update({ mode })} />
-        <p className="muted small">{MODE_HINT[show.mode]}</p>
+        <Segmented label="Modus" value={show.mode} options={modeOptions()} onChange={(mode) => void update({ mode })} />
+        <p className="muted small">{modeHint(show.mode)}</p>
         <div className="chips">
           {categories.map((c) => (
             <Chip

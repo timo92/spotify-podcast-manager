@@ -1,11 +1,27 @@
 import { retentionExpiry, type ConsumptionMode, type DayPart, type EpisodeStatus, type TodayLabel, type Weekday } from '@podcast/shared';
+import i18n, { formatLocale } from '../i18n';
+
+const t = i18n.t.bind(i18n);
+
+/** Intl.DateTimeFormat for the active locale (cached per locale and options). */
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function dateFormat(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const locale = formatLocale();
+  const key = `${locale} ${JSON.stringify(options)}`;
+  let fmt = formatters.get(key);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(locale, options);
+    formatters.set(key, fmt);
+  }
+  return fmt;
+}
 
 export function formatDuration(ms: number): string {
   const totalMin = Math.max(1, Math.round(ms / 60_000));
-  if (totalMin < 60) return `${totalMin} min`;
-  const h = Math.floor(totalMin / 60);
+  if (totalMin < 60) return t('duration.minutes', { minutes: totalMin });
+  const hours = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  return m ? `${h} h ${String(m).padStart(2, '0')} min` : `${h} h`;
+  return m ? t('duration.hoursMinutes', { hours, minutes: String(m).padStart(2, '0') }) : t('duration.hours', { hours });
 }
 
 export function formatClock(ms: number): string {
@@ -15,9 +31,6 @@ export function formatClock(ms: number): string {
   const sec = s % 60;
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
 }
-
-const dayFmt = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
-const fullFmt = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short', year: 'numeric' });
 
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -29,80 +42,44 @@ export function formatReleaseDate(date: string, now = new Date()): string {
   const [y, m = '1', d = '1'] = date.split('-');
   const value = new Date(Number(y), Number(m) - 1, Number(d));
   const days = Math.round((startOfDay(now) - value.getTime()) / 86_400_000);
-  if (days === 0) return 'Heute';
-  if (days === 1) return 'Gestern';
-  if (days > 1 && days < 7) return dayFmt.format(value);
-  if (value.getFullYear() === now.getFullYear()) return dayFmt.format(value);
-  return fullFmt.format(value);
+  if (days === 0) return t('time.today');
+  if (days === 1) return t('time.yesterday');
+  if ((days > 1 && days < 7) || value.getFullYear() === now.getFullYear()) {
+    return dateFormat({ weekday: 'short', day: 'numeric', month: 'short' }).format(value);
+  }
+  return dateFormat({ day: 'numeric', month: 'short', year: 'numeric' }).format(value);
 }
 
 export function formatRelative(iso: string | undefined, now = Date.now()): string {
-  if (!iso) return 'nie';
+  if (!iso) return t('time.never');
   const diff = Math.round((now - Date.parse(iso)) / 1000);
-  if (diff < 60) return 'gerade eben';
-  if (diff < 3600) return `vor ${Math.floor(diff / 60)} min`;
-  if (diff < 86_400) return `vor ${Math.floor(diff / 3600)} h`;
+  if (diff < 60) return t('time.justNow');
+  if (diff < 3600) return t('time.minutesAgo', { count: Math.floor(diff / 60) });
+  if (diff < 86_400) return t('time.hoursAgo', { count: Math.floor(diff / 3600) });
   const days = Math.floor(diff / 86_400);
-  return days === 1 ? 'gestern' : `vor ${days} Tagen`;
+  return days === 1 ? t('time.yesterdayInline') : t('time.daysAgo', { count: days });
 }
 
 export function formatDateTime(iso: string | undefined): string {
   if (!iso) return '';
-  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+  return dateFormat({ dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 }
 
-export const MODE_LABEL: Record<ConsumptionMode, string> = {
-  LATEST: 'Aktualität',
-  SEQUENTIAL: 'Reihenfolge',
-  MANUAL: 'Frei',
-};
-
-export const MODE_HINT: Record<ConsumptionMode, string> = {
-  LATEST: 'Immer die neueste Folge',
-  SEQUENTIAL: 'Von vorne durcharbeiten',
-  MANUAL: 'Du wählst die nächste Folge',
-};
-
-export const STATUS_LABEL: Record<EpisodeStatus, string> = {
-  UNSEEN: 'Ungehört',
-  IN_PROGRESS: 'Begonnen',
-  COMPLETED: 'Gehört',
-  SKIPPED: 'Übersprungen',
-};
-
-export const TODAY_LABEL: Record<TodayLabel, string> = {
-  NEU: 'Neu',
-  WEITER: 'Weiter',
-  NAECHSTE: 'Nächste',
-  GEWAEHLT: 'Gewählt',
-};
+export const modeLabel = (mode: ConsumptionMode) => t(`mode.${mode}`);
+export const modeHint = (mode: ConsumptionMode) => t(`modeHint.${mode}`);
+export const statusLabel = (status: EpisodeStatus) => t(`status.${status}`);
+export const todayLabel = (label: TodayLabel) => t(`todayLabel.${label}`);
+export const dayPartLabel = (part: DayPart) => t(`dayPart.${part}`);
+export const weekdayShort = (day: Weekday) => t(`weekdayShort.${day}`);
+export const weekdayLong = (day: Weekday) => t(`weekdayLong.${day}`);
 
 export function greeting(now = new Date()): string {
   const h = now.getHours();
-  if (h < 5) return 'Gute Nacht';
-  if (h < 11) return 'Guten Morgen';
-  if (h < 18) return 'Guten Tag';
-  return 'Guten Abend';
+  if (h < 5) return t('greeting.night');
+  if (h < 11) return t('greeting.morning');
+  if (h < 18) return t('greeting.day');
+  return t('greeting.evening');
 }
-
-export const DAY_PART_LABEL: Record<DayPart, string> = {
-  MORNING: 'Morgens',
-  MIDDAY: 'Mittags',
-  EVENING: 'Abends',
-  ANYTIME: 'Jederzeit',
-};
-
-export const WEEKDAY_SHORT: Record<Weekday, string> = { 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 7: 'So' };
-
-export const WEEKDAY_LONG: Record<Weekday, string> = {
-  1: 'Montag',
-  2: 'Dienstag',
-  3: 'Mittwoch',
-  4: 'Donnerstag',
-  5: 'Freitag',
-  6: 'Samstag',
-  7: 'Sonntag',
-};
 
 /** "Mo–Fr", "Mo, Mi, Fr", "Mo–Mi, Sa": runs of three or more days become a range. */
 export function formatWeekdays(days: Weekday[]): string {
@@ -116,16 +93,16 @@ export function formatWeekdays(days: Weekday[]): string {
   return runs
     .flatMap((run) =>
       run.length >= 3
-        ? [`${WEEKDAY_SHORT[run[0]]}–${WEEKDAY_SHORT[run[run.length - 1]]}`]
-        : run.map((d) => WEEKDAY_SHORT[d]),
+        ? [`${weekdayShort(run[0])}–${weekdayShort(run[run.length - 1])}`]
+        : run.map((d) => weekdayShort(d)),
     )
     .join(', ');
 }
 
-/** "5. Okt." for a YYYY-MM-DD calendar date. */
+/** "5. Okt." / "5 Oct" for a YYYY-MM-DD calendar date. */
 export function formatDayMonth(date: string): string {
   const [y, m, d] = date.split('-').map(Number);
-  return new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'short' }).format(new Date(y, m - 1, d));
+  return dateFormat({ day: 'numeric', month: 'short' }).format(new Date(y, m - 1, d));
 }
 
 const TIMESTAMP_RE = /\[(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\]/g;
@@ -144,9 +121,7 @@ export function splitTimestamps(text: string): ({ text: string } | { label: stri
   return parts;
 }
 
-const longDateFmt = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
-
 /** The day on which data marked at `since` (unfollowed, disconnected) is deleted. */
 export function formatDeletionDate(since: string): string {
-  return longDateFmt.format(retentionExpiry(since));
+  return dateFormat({ day: 'numeric', month: 'long', year: 'numeric' }).format(retentionExpiry(since));
 }

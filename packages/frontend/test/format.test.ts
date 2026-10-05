@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formatClock, formatDuration, formatReleaseDate, formatWeekdays } from '../src/lib/format';
+import i18n from '../src/i18n';
+import { formatClock, formatDayMonth, formatDuration, formatRelative, formatReleaseDate, formatWeekdays } from '../src/lib/format';
 
 describe('format', () => {
   it('formats durations', () => {
@@ -14,6 +15,18 @@ describe('format', () => {
     expect(formatReleaseDate('2026-10-05', now)).toBe('Heute');
     expect(formatReleaseDate('2026-10-04', now)).toBe('Gestern');
     expect(formatReleaseDate('2024-03-01', now)).toContain('2024');
+  });
+
+  it('formats in the active language', async () => {
+    const now = Date.parse('2026-10-05T12:00:00Z');
+    expect(formatRelative('2026-10-05T11:55:00Z', now)).toBe('vor 5 min');
+    expect(formatDayMonth('2026-10-05')).toBe('5. Okt.');
+    await i18n.changeLanguage('en');
+    expect(formatRelative('2026-10-05T11:55:00Z', now)).toBe('5 min ago');
+    expect(formatRelative('2026-10-02T12:00:00Z', now)).toBe('3 days ago');
+    expect(formatReleaseDate('2026-10-05', new Date(now))).toBe('Today');
+    expect(formatDayMonth('2026-10-05')).toMatch(/Oct/);
+    expect(formatWeekdays([1, 2, 3, 4, 5])).toBe('Mon–Fri');
   });
 });
 

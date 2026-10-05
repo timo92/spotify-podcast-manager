@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { EpisodeStatus } from '@podcast/shared';
-import { STATUS_LABEL } from '../lib/format';
+import { statusLabel } from '../lib/format';
 import { Icon, type IconName } from './Icon';
 
 export function Cover({ src, alt, size = 56 }: { src?: string; alt: string; size?: number }) {
@@ -28,7 +28,7 @@ const STATUS_TONE: Record<EpisodeStatus, BadgeTone> = {
 
 export function StatusBadge({ status, isNew }: { status: EpisodeStatus; isNew?: boolean }) {
   if (isNew && status === 'UNSEEN') return <Badge tone="new">Neu</Badge>;
-  return <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>;
+  return <Badge tone={STATUS_TONE[status]}>{statusLabel(status)}</Badge>;
 }
 
 export function IconButton({

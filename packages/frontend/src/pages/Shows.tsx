@@ -7,14 +7,15 @@ import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, IconButton, ProgressBar, Segmented, Spinner } from '../components/ui';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatRelative, MODE_HINT, MODE_LABEL } from '../lib/format';
+import { formatRelative, modeHint, modeLabel } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import styles from './Shows.module.css';
 
-export const MODE_OPTIONS: { value: ConsumptionMode; label: string; hint: string }[] = (
-  ['LATEST', 'SEQUENTIAL', 'MANUAL'] as ConsumptionMode[]
-).map((m) => ({ value: m, label: MODE_LABEL[m], hint: MODE_HINT[m] }));
+const MODES: ConsumptionMode[] = ['LATEST', 'SEQUENTIAL', 'MANUAL'];
+
+/** The modes as options of a Segmented control, in the active language. */
+export const modeOptions = () => MODES.map((m) => ({ value: m, label: modeLabel(m), hint: modeHint(m) }));
 
 export function progressText(show: Show): { text: string; tone?: 'new' | 'muted' } {
   const s = show.summary;
@@ -202,7 +203,7 @@ function ShowCard({ show, rank }: { show: Show; rank?: number }) {
           {show.needsReview && <Badge tone="warn">Prüfen</Badge>}
         </div>
         <div className="muted small">
-          {MODE_LABEL[show.mode]}
+          {modeLabel(show.mode)}
           {show.categories.length > 0 && ` · ${show.categories.join(', ')}`}
         </div>
         <div className={`small ${progress.tone === 'new' ? 'text-new' : progress.tone === 'muted' ? 'muted' : ''}`}>
@@ -259,13 +260,13 @@ function ReviewCard({ show, categories }: { show: Show; categories: string[] }) 
       <Segmented
         label="Modus"
         value={mode}
-        options={MODE_OPTIONS}
+        options={modeOptions()}
         onChange={(m) => {
           setMode(m);
           void save({ mode: m });
         }}
       />
-      <div className="muted small">{MODE_HINT[mode]}</div>
+      <div className="muted small">{modeHint(mode)}</div>
       <div className="chips">
         {categories.map((c) => (
           <Chip

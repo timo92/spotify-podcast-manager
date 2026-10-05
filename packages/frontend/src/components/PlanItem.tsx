@@ -3,7 +3,7 @@ import type { PlannedItem } from '@podcast/shared';
 import { Link } from 'react-router-dom';
 import { useEpisodeActions } from '../lib/actions';
 import { cx } from '../lib/cx';
-import { DAY_PART_LABEL, formatDuration } from '../lib/format';
+import { dayPartLabel, formatDuration } from '../lib/format';
 import { PlayButton } from './EpisodeCard';
 import { EpisodePickerSheet } from './EpisodePicker';
 import { Icon } from './Icon';
@@ -47,7 +47,7 @@ export function PlanItemRow({
 
   return (
     <li className={cx(styles.item, done && styles.isDone)}>
-      <span className={styles.part}>{DAY_PART_LABEL[item.part]}</span>
+      <span className={styles.part}>{dayPartLabel(item.part)}</span>
       {/* Same target as the name; hidden from assistive tech and the tab order to avoid a duplicate link. */}
       <Link to={showPath} className={styles.cover} tabIndex={-1} aria-hidden>
         <Cover src={ep?.imageUrl ?? item.show.imageUrl} alt={item.show.name} size={44} />

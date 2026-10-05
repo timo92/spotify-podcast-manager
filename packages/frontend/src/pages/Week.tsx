@@ -9,7 +9,7 @@ import { ScheduleRuleSheet } from '../components/ScheduleRuleSheet';
 import { Empty, ErrorBox, IconButton, Spinner } from '../components/ui';
 import { useSaveSchedule } from '../lib/actions';
 import { api } from '../lib/api';
-import { DAY_PART_LABEL, formatDayMonth, formatDuration, formatWeekdays, WEEKDAY_LONG, WEEKDAY_SHORT } from '../lib/format';
+import { dayPartLabel, formatDayMonth, formatDuration, formatWeekdays, weekdayLong, weekdayShort } from '../lib/format';
 import { cx } from '../lib/cx';
 import { qk } from '../lib/queries';
 import styles from './Week.module.css';
@@ -34,7 +34,7 @@ export function WeekPage() {
     const rule = ruleOf(item);
     if (!rule) return;
     if (rule.weekdays.length > 1) setRemoving({ rule, item, weekday });
-    else void save(removeRule(rules, rule.id), `${item.show.name} am ${WEEKDAY_LONG[weekday]} entfernt`);
+    else void save(removeRule(rules, rule.id), `${item.show.name} am ${weekdayLong(weekday)} entfernt`);
   }
 
   const weekMinutes = (week.data?.days ?? []).reduce((sum, d) => sum + d.openMs, 0);
@@ -79,12 +79,12 @@ export function WeekPage() {
             <section key={day.date} className={cx('card', styles.day, day.isToday && styles.isToday)}>
               <div className={styles.dayHead}>
                 <h2 className="h3">
-                  {day.isToday ? 'Heute' : WEEKDAY_LONG[day.weekday]}
-                  <span className="muted small"> · {day.isToday ? WEEKDAY_SHORT[day.weekday] + ', ' : ''}{formatDayMonth(day.date)}</span>
+                  {day.isToday ? 'Heute' : weekdayLong(day.weekday)}
+                  <span className="muted small"> · {day.isToday ? weekdayShort(day.weekday) + ', ' : ''}{formatDayMonth(day.date)}</span>
                 </h2>
                 {day.openMs > 0 && <span className="muted small">{formatDuration(day.openMs)}</span>}
                 {editing && (
-                  <IconButton icon="plus" label={`Termin am ${WEEKDAY_LONG[day.weekday]} hinzufügen`} onClick={() => setAdding([day.weekday])} />
+                  <IconButton icon="plus" label={`Termin am ${weekdayLong(day.weekday)} hinzufügen`} onClick={() => setAdding([day.weekday])} />
                 )}
               </div>
               {day.items.length === 0 ? (
@@ -133,7 +133,7 @@ export function WeekPage() {
             setEditingRule(null);
             void save(
               replaceRule(rules, rule),
-              `${showName}: ${formatWeekdays(rule.weekdays)} · ${DAY_PART_LABEL[rule.part]}`,
+              `${showName}: ${formatWeekdays(rule.weekdays)} · ${dayPartLabel(rule.part)}`,
             );
           }}
           onDelete={() => {
@@ -150,7 +150,7 @@ export function WeekPage() {
             setRemoving(null);
             void save(
               removeWeekday(rules, removing.rule.id, removing.weekday),
-              `${removing.item.show.name} am ${WEEKDAY_LONG[removing.weekday]} entfernt`,
+              `${removing.item.show.name} am ${weekdayLong(removing.weekday)} entfernt`,
             );
           }}
           onRemoveRule={() => {
@@ -187,10 +187,10 @@ function RemoveSlotSheet({
           <IconButton icon="close" label="Schließen" onClick={onClose} />
         </div>
         <p>
-          {item.show.name} ist für {formatWeekdays(rule.weekdays)} · {DAY_PART_LABEL[rule.part]} geplant.
+          {item.show.name} ist für {formatWeekdays(rule.weekdays)} · {dayPartLabel(rule.part)} geplant.
         </p>
         <button className="btn btn-block" onClick={onRemoveDay}>
-          Nur am {WEEKDAY_LONG[weekday]}
+          Nur am {weekdayLong(weekday)}
         </button>
         <button className="btn btn-danger btn-block" onClick={onRemoveRule}>
           Ganze Regel ({formatWeekdays(rule.weekdays)})

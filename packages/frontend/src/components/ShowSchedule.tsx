@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { useSaveSchedule } from '../lib/actions';
 import { cx } from '../lib/cx';
 import { api } from '../lib/api';
-import { DAY_PART_LABEL, formatWeekdays } from '../lib/format';
+import { dayPartLabel, formatWeekdays } from '../lib/format';
 import { qk } from '../lib/queries';
 import { Icon } from './Icon';
 import { ScheduleRuleSheet } from './ScheduleRuleSheet';
@@ -20,7 +20,7 @@ export function ShowSchedule({ showId, showName }: { showId: string; showName: s
 
   const rules = schedule.data?.rules ?? [];
   const own = rules.filter((r) => r.showId === showId);
-  const label = (r: ScheduleRule) => `${formatWeekdays(r.weekdays)} · ${DAY_PART_LABEL[r.part]}`;
+  const label = (r: ScheduleRule) => `${formatWeekdays(r.weekdays)} · ${dayPartLabel(r.part)}`;
 
   return (
     <section className="card settings-card">

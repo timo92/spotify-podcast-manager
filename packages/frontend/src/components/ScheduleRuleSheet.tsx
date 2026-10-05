@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DAY_PARTS, type DayPart, type ScheduleRule, type Weekday } from '@podcast/shared';
 import { api } from '../lib/api';
-import { DAY_PART_LABEL, formatWeekdays, WEEKDAY_SHORT } from '../lib/format';
+import { dayPartLabel, formatWeekdays, weekdayShort } from '../lib/format';
 import { qk } from '../lib/queries';
 import { Chip, Cover, IconButton, Segmented, Spinner } from './ui';
 
@@ -98,7 +98,7 @@ export function ScheduleRuleSheet({
           <div className="chips">
             {ALL_DAYS.map((d) => (
               <Chip key={d} active={days.includes(d)} onClick={() => toggle(d)}>
-                {WEEKDAY_SHORT[d]}
+                {weekdayShort(d)}
               </Chip>
             ))}
           </div>
@@ -117,12 +117,12 @@ export function ScheduleRuleSheet({
             label="Tageszeit"
             value={part}
             onChange={setPart}
-            options={DAY_PARTS.map((p) => ({ value: p, label: DAY_PART_LABEL[p] }))}
+            options={DAY_PARTS.map((p) => ({ value: p, label: dayPartLabel(p) }))}
           />
         </div>
 
         <p className="muted small">
-          {days.length ? `Gilt für ${formatWeekdays(days)} · ${DAY_PART_LABEL[part]}` : 'Wähle mindestens einen Tag.'}
+          {days.length ? `Gilt für ${formatWeekdays(days)} · ${dayPartLabel(part)}` : 'Wähle mindestens einen Tag.'}
         </p>
 
         <button

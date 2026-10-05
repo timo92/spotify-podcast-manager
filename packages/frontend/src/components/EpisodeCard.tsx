@@ -1,7 +1,7 @@
 import type { TodayItem } from '@podcast/shared';
 import { useEpisodeActions } from '../lib/actions';
 import { cx } from '../lib/cx';
-import { formatDuration, formatReleaseDate, TODAY_LABEL } from '../lib/format';
+import { formatDuration, formatReleaseDate, todayLabel } from '../lib/format';
 import { usePlayer, type PlayableItem } from '../lib/player';
 import styles from './EpisodeCard.module.css';
 import { Icon } from './Icon';
@@ -72,7 +72,7 @@ export function EpisodeCard({ item, onOpen }: { item: TodayItem; onOpen: (showId
       <div className={styles.body}>
         <div className={styles.meta}>
           <span className="show-name">{show.name}</span>
-          <Badge tone={LABEL_TONE[item.label]}>{TODAY_LABEL[item.label]}</Badge>
+          <Badge tone={LABEL_TONE[item.label]}>{todayLabel(item.label)}</Badge>
           {position && <span className="muted small">{position}</span>}
         </div>
         <button type="button" className="episode-title linklike" onClick={() => onOpen(show.id, episode.id)}>

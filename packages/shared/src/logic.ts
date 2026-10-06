@@ -31,10 +31,16 @@ export function releaseTime(releaseDate: string): number {
   return Date.UTC(y, m, d);
 }
 
-/** Chronological order (oldest first); same-day episodes are ordered by id to stay stable. */
+/**
+ * Chronological order (oldest first). Same-day episodes follow Spotify's
+ * listing; by id where that is unknown, so the order is at least stable.
+ */
 export function compareEpisodesAsc(a: Episode, b: Episode): number {
   const diff = releaseTime(a.releaseDate) - releaseTime(b.releaseDate);
   if (diff !== 0) return diff;
+  if (a.listingOrder !== undefined && b.listingOrder !== undefined && a.listingOrder !== b.listingOrder) {
+    return a.listingOrder - b.listingOrder;
+  }
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
@@ -208,6 +214,18 @@ export function plannedOpenMs(items: PlannedItem[]): number {
   return [...open.values()].reduce((sum, ms) => sum + ms, 0);
 }
 
+/** A history entry as Today lists it: when it was heard, or last changed. */
+export function toHistoryItem(p: EpisodeProgress): HistoryItem {
+  return {
+    showId: p.showId,
+    episodeId: p.episodeId,
+    showName: p.showName,
+    episodeName: p.episodeName,
+    status: p.status,
+    at: p.listenedAt ?? p.updatedAt,
+  };
+}
+
 /**
  * Builds the "Heute" view from the shows' denormalised summaries.
  *
@@ -219,7 +237,7 @@ export function plannedOpenMs(items: PlannedItem[]): number {
 export function buildToday(
   shows: Show[],
   settings: Settings,
-  recent: HistoryItem[] = [],
+  history: EpisodeProgress[] = [],
   slots: PlannedItem[] = [],
 ): TodayResponse {
   // Paused podcasts keep their slots in the week, but Today leaves them out.
@@ -273,7 +291,7 @@ export function buildToday(
     recommended,
     more,
     noNewEpisode,
-    recent,
+    recent: history.map(toHistoryItem),
     needsReviewCount: shows.filter((s) => s.needsReview).length,
     // An unfollowed show's summary is no longer updated, so its count would stay frozen.
     newCount: shows.filter((s) => s.followed && !s.paused).reduce((n, s) => n + (s.summary?.newCount ?? 0), 0),

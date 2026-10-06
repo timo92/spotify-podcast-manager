@@ -20,6 +20,7 @@ import {
   type Schedule,
   type Settings,
   type Show,
+  type ShowSummary,
   type SyncState,
 } from '@podcast/shared';
 import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
@@ -138,6 +139,18 @@ export class DynamoStore implements Store {
   putConfig(config: AppConfig) {
     return this.put('META', 'CONFIG', config);
   }
+  claimConfig(config: AppConfig) {
+    return this.conditionally(
+      this.db.send(
+        new PutCommand({
+          TableName: this.table,
+          Item: { ...config, PK: 'META', SK: 'CONFIG' },
+          ConditionExpression: 'attribute_not_exists(PK) OR ownerId = :owner',
+          ExpressionAttributeValues: { ':owner': config.ownerId },
+        }),
+      ),
+    );
+  }
   async markDisconnected(at: string) {
     await this.conditionally(
       this.db.send(
@@ -166,8 +179,21 @@ export class DynamoStore implements Store {
   getTokens() {
     return this.get<SpotifyTokens>('META', 'TOKENS');
   }
-  putTokens(tokens: SpotifyTokens) {
-    return this.put('META', 'TOKENS', tokens);
+  async putTokens(tokens: SpotifyTokens, replacing?: string) {
+    if (replacing === undefined) {
+      await this.put('META', 'TOKENS', tokens);
+      return true;
+    }
+    return this.conditionally(
+      this.db.send(
+        new PutCommand({
+          TableName: this.table,
+          Item: { ...tokens, PK: 'META', SK: 'TOKENS' },
+          ConditionExpression: 'refreshToken = :rt',
+          ExpressionAttributeValues: { ':rt': replacing },
+        }),
+      ),
+    );
   }
   deleteTokens(refreshToken: string) {
     return this.conditionally(
@@ -291,6 +317,26 @@ export class DynamoStore implements Store {
     );
   }
 
+  putSummary(showId: string, summary: ShowSummary, basedOn: number | undefined) {
+    return this.conditionally(
+      this.db.send(
+        new UpdateCommand({
+          TableName: this.table,
+          Key: { PK: 'SHOW', SK: showId },
+          UpdateExpression: 'SET summary = :summary, summaryRevision = :next',
+          ConditionExpression:
+            basedOn === undefined
+              ? 'attribute_exists(PK) AND attribute_not_exists(summaryRevision)'
+              : 'summaryRevision = :basedOn',
+          ExpressionAttributeValues: {
+            ':summary': summary,
+            ':next': (basedOn ?? 0) + 1,
+            ...(basedOn === undefined ? {} : { ':basedOn': basedOn }),
+          },
+        }),
+      ),
+    );
+  }
   async listEpisodes(showId: string) {
     const items = await this.partition(`EP#${showId}`);
     return items.map((i) => strip(i) as Episode);
@@ -395,9 +441,12 @@ export class DynamoStore implements Store {
       const res = await this.db.send(
         new ScanCommand({ TableName: this.table, ProjectionExpression: 'PK, SK', ExclusiveStartKey }),
       );
-      await this.batchWrite((res.Items ?? []).map((i) => ({ DeleteRequest: { Key: { PK: i.PK, SK: i.SK } } })));
+      const items = (res.Items ?? []).filter((i) => !(i.PK === 'META' && i.SK === 'SYNC'));
+      await this.batchWrite(items.map((i) => ({ DeleteRequest: { Key: { PK: i.PK, SK: i.SK } } })));
       ExclusiveStartKey = res.LastEvaluatedKey;
     } while (ExclusiveStartKey);
+    // The sync state goes last: it holds the lease that keeps a sync from writing while the rest is deleted.
+    await this.db.send(new DeleteCommand({ TableName: this.table, Key: { PK: 'META', SK: 'SYNC' } }));
   }
 }
 

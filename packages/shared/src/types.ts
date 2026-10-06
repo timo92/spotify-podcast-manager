@@ -40,6 +40,18 @@ export interface Episode {
   isPlayable?: boolean;
   /** Spotify's own resume point (needs scope user-read-playback-position). */
   resumePoint?: ResumePoint;
+  /**
+   * Place in Spotify's listing of the show, counted up from the oldest
+   * episode; orders episodes released on the same day. Kept across syncs, so
+   * only episodes new to the app get one.
+   */
+  listingOrder?: number;
+  /**
+   * When the app first saw Spotify report the episode as fully played. Only
+   * set when it saw the change itself, not for episodes already finished
+   * when they were first imported.
+   */
+  fullyPlayedSeenAt?: string;
   firstSeenAt: string;
   lastSyncedAt: string;
 }
@@ -135,6 +147,8 @@ export interface Show {
 
   /** Denormalised summary, recomputed after every change. */
   summary?: ShowSummary;
+  /** Counts summary writes, so one computed from older data can't replace a newer one. */
+  summaryRevision?: number;
 }
 
 /** Fields of a show the user may change. */

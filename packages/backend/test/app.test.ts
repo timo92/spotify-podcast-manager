@@ -55,6 +55,7 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
     },
   });
   let cookies: Record<string, string> = {};
+  /** `body` is sent as JSON; a string is sent as it is, to test malformed input. */
   async function call(
     method: string,
     path: string,
@@ -71,7 +72,7 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
           .join('; '),
         ...headers,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: typeof body === 'string' ? body : body !== undefined ? JSON.stringify(body) : undefined,
     });
     for (const c of res.headers.getSetCookie()) {
       const [pair = ''] = c.split(';');
@@ -149,6 +150,20 @@ describe('configuration and auth', () => {
     t.setUser('intruder');
     const bad = await login(t);
     expect(bad.headers.Location).toBe('/login?error=wrong_account');
+    expect((await t.call('GET', '/api/today')).status).toBe(401);
+  });
+
+  it('lets only one of two accounts logging in at the same time become the owner', async () => {
+    const t = setup();
+    // Both logins read the config before either has written it.
+    const getConfig = t.store.getConfig.bind(t.store);
+    t.store.getConfig = async () => undefined;
+    expect((await login(t)).headers.Location).toBe('/?welcome=1');
+    t.clearCookies();
+    t.setUser('intruder');
+    expect((await login(t)).headers.Location).toBe('/login?error=wrong_account');
+    t.store.getConfig = getConfig;
+    expect((await t.store.getConfig())?.ownerId).toBe('owner');
     expect((await t.call('GET', '/api/today')).status).toBe(401);
   });
 
@@ -284,6 +299,30 @@ describe('library flow', () => {
     return t;
   }
 
+  it('rejects request fields of the wrong type instead of storing them', async () => {
+    const t = await ready();
+    const path = '/api/shows/demo-dertag';
+    const invalid = async (body: unknown, field: string) => {
+      const res = await t.call('PATCH', path, body);
+      expect(res.status, JSON.stringify(body)).toBe(400);
+      expect(res.body).toMatchObject({ error: 'invalid_field', params: { field } });
+    };
+    await invalid('{"priority":1e400}', 'priority');
+    await invalid({ pinnedEpisodeId: { id: 'x' } }, 'pinnedEpisodeId');
+    await invalid({ paused: 'yes' }, 'paused');
+    await invalid({ categories: 'Politik' }, 'categories');
+    const show = (await t.call('GET', path)).body as ShowDetailResponse;
+    expect(show.show).toMatchObject({ paused: false, pinnedEpisodeId: null });
+
+    expect((await t.call('POST', '/api/shows/reorder', ['demo-dertag'])).body).toMatchObject({ error: 'invalid_body' });
+    const play = await t.call('POST', '/api/player/play', {
+      showId: 'demo-dertag',
+      episodeId: 'demo-dertag-1',
+      positionMs: '100',
+    });
+    expect(play.body).toMatchObject({ error: 'invalid_field', params: { field: 'positionMs' } });
+  });
+
   it('imports shows with guessed modes and builds today', async () => {
     const t = await ready();
     const shows = (await t.call('GET', '/api/shows')).body as Show[];
@@ -412,6 +451,36 @@ describe('library flow', () => {
     expect([slot.state, slot.episode?.id]).toEqual(['done', 'demo-wissensreise-1']);
     const nextWeek = (await t.call('GET', `/api/week?tz=${tz}`)).body as WeekResponse;
     expect(nextWeek.days[1]!.items[0]!.episode?.id).toBe('demo-wissensreise-2');
+  });
+
+  it('ticks off a planned slot for an episode finished in the Spotify app', async () => {
+    const t = await ready();
+    const tz = 'Europe/Berlin';
+    const weekday = weekdayOf(localDate(Date.now(), tz));
+    await t.call('PUT', '/api/schedule', {
+      rules: [
+        { showId: 'demo-wissensreise', weekdays: [weekday], part: 'MORNING' },
+        { showId: 'demo-seinundstreit', weekdays: [weekday], part: 'EVENING' },
+      ],
+    });
+    const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1';
+    await t.call('POST', '/api/player/play', {
+      showId: 'demo-wissensreise',
+      episodeId: 'demo-wissensreise-1',
+      deviceId: 'demo-phone',
+      fromStart: true,
+    });
+    const { durationMs } = (await t.call('GET', path)).body as EpisodeView;
+    t.spotify.controlPlayback('pause');
+    t.spotify.controlPlayback('seek', durationMs);
+    await t.call('POST', `${path}/refresh`);
+
+    const today = (await t.call('GET', `/api/today?tz=${tz}`)).body as TodayResponse;
+    expect(today.plan.map((p) => [p.show.id, p.state, p.episode?.id])).toEqual([
+      ['demo-wissensreise', 'done', 'demo-wissensreise-1'],
+      // Finished in Spotify before the first import: not heard today.
+      ['demo-seinundstreit', 'next', 'demo-seinundstreit-3'],
+    ]);
   });
 
   it('validates plan rules', async () => {
@@ -661,5 +730,18 @@ describe('library flow', () => {
     expect((await t.call('DELETE', '/api/data')).status).toBe(200);
     expect(await t.store.listShows()).toHaveLength(0);
     expect(await t.store.getConfig()).toBeUndefined();
+  });
+
+  it('refuses to delete all data while a sync runs, which could write it back', async () => {
+    const t = await ready();
+    await t.call('POST', '/api/sync', { full: true });
+    const refused = await t.call('DELETE', '/api/data');
+    expect(refused.status).toBe(409);
+    expect(refused.body).toMatchObject({ error: 'sync_running' });
+    expect(await t.store.listShows()).toHaveLength(5);
+
+    await t.sync(); // the running sync finishes
+    expect((await t.call('DELETE', '/api/data')).status).toBe(200);
+    expect(await t.store.listShows()).toHaveLength(0);
   });
 });

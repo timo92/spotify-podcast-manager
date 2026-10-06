@@ -199,6 +199,41 @@ function contract(name: string, create: () => Promise<Store>) {
       expect((await store.getSchedule()).updatedAt).toBe('v2');
     });
 
+    it('replaces tokens, claims the owner and writes summaries only on top of what they were based on', async () => {
+      // tokens: a refresh replaces only the tokens it refreshed, not a newer login's
+      await store.putTokens({ accessToken: 'a', refreshToken: 'login', expiresAt: 0, scope: 'new' });
+      const refreshed = { accessToken: 'b', refreshToken: 'r2', expiresAt: 0, scope: 'old' };
+      expect(await store.putTokens(refreshed, 'stale')).toBe(false);
+      expect((await store.getTokens())?.scope).toBe('new');
+      expect(await store.putTokens({ ...refreshed, scope: 'new' }, 'login')).toBe(true);
+      expect((await store.getTokens())?.refreshToken).toBe('r2');
+
+      // owner: claimed once, afterwards only by the same account
+      expect(await store.getConfig()).toBeUndefined();
+      expect(await store.claimConfig({ ownerId: 'a', createdAt: 'c', updatedAt: 'u' })).toBe(true);
+      expect(await store.claimConfig({ ownerId: 'b', createdAt: 'c', updatedAt: 'u' })).toBe(false);
+      expect(await store.claimConfig({ ownerId: 'a', ownerName: 'A', createdAt: 'c', updatedAt: 'u2' })).toBe(true);
+      expect(await store.getConfig()).toMatchObject({ ownerId: 'a', ownerName: 'A' });
+
+      // summary: written only on top of the revision it was computed from
+      const summary = (completed: number) => ({
+        total: 2,
+        completed,
+        skipped: 0,
+        inProgress: 0,
+        unseen: 2 - completed,
+        newCount: 0,
+        nextEpisode: null,
+        computedAt: 'now',
+      });
+      await store.putShow({ ...show, id: 'rev' });
+      expect(await store.putSummary('rev', summary(0), undefined)).toBe(true);
+      expect(await store.putSummary('rev', summary(1), undefined)).toBe(false);
+      expect(await store.putSummary('rev', summary(1), 1)).toBe(true);
+      expect(await store.getShow('rev')).toMatchObject({ summary: summary(1), summaryRevision: 2 });
+      await store.deleteShow('rev');
+    });
+
     it('deletes tokens and a show with everything that belongs to it', async () => {
       await store.putTokens({ accessToken: 'a', refreshToken: 'r', expiresAt: 0, scope: '' });
       await store.deleteTokens('r');
@@ -228,8 +263,11 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.getShow('s1')).toBeDefined();
     });
 
-    it('deletes everything', async () => {
+    it('deletes everything, including a held sync lease', async () => {
+      const lease = { status: 'running' as const, startedAt: '2026-01-01T00:10:00.000Z', leaseId: 'a' };
+      await store.acquireSyncLease(lease, '2026-01-01T00:00:00.000Z');
       await store.deleteAll();
+      expect(await store.getSyncState()).toEqual({ status: 'idle' });
       expect(await store.getConfig()).toBeUndefined();
       expect(await store.listShows()).toHaveLength(0);
       expect(await store.listEpisodes('s1')).toHaveLength(0);

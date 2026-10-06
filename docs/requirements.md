@@ -42,7 +42,8 @@ Each podcast has exactly one mode.
   (the "new" window). Older episodes are not suggested.
 - **M2** **Sequential** (series): a started episode comes first; otherwise the
   first unheard episode after the last finished one. Unheard episodes before
-  that point only come back once the end is reached.
+  that point only come back once the end is reached. Episodes released on the
+  same day keep the order in which Spotify lists them.
 - **M3** **Manual:** only the episode the user picked is suggested. Where a
   planned slot has no episode yet, the user can pick one right there.
 - **M4** In every mode the user can pin an episode as "next"; the pin wins
@@ -72,7 +73,7 @@ Each podcast has exactly one mode.
 ## Views
 
 - **V1** **Today:** today's slots from the weekly plan (finished ones ticked
-  off), then the next episodes of the other podcasts that fit into the daily
+  off, also when the episode was finished in the Spotify app), then the next episodes of the other podcasts that fit into the daily
   budget, then further suggestions, podcasts without a new episode, and
   recently heard episodes.
 - **V2** **Week:** a recurring weekly plan made of rules: a podcast on some
@@ -138,7 +139,7 @@ Each podcast has exactly one mode.
 - **D2** All personal data (settings, progress, plan, notes) can be exported
   as JSON.
 - **D3** All data, including credentials and tokens, can be deleted from
-  within the app.
+  within the app (once a running sync has finished).
 - **D4** Personal data is backed up continuously (point-in-time recovery) and
   survives the removal of the stack.
 - **D5** Podcasts removed from the Spotify library are deleted, with their

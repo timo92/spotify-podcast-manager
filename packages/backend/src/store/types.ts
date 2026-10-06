@@ -1,4 +1,13 @@
-import type { Episode, EpisodeNote, EpisodeProgress, Schedule, Settings, Show, SyncState } from '@podcast/shared';
+import type {
+  Episode,
+  EpisodeNote,
+  EpisodeProgress,
+  Schedule,
+  Settings,
+  Show,
+  ShowSummary,
+  SyncState,
+} from '@podcast/shared';
 
 /**
  * The app's owner, bound on the first successful login. The Spotify app
@@ -38,6 +47,12 @@ export interface Session {
 export interface Store {
   getConfig(): Promise<AppConfig | undefined>;
   putConfig(config: AppConfig): Promise<void>;
+  /**
+   * Writes the config only if none is stored yet or it belongs to the same
+   * owner, so two accounts logging in at once can't both become the owner.
+   * Returns whether it wrote.
+   */
+  claimConfig(config: AppConfig): Promise<boolean>;
   /** Sets `disconnectedAt` on an existing config unless it is already set (atomic). */
   markDisconnected(at: string): Promise<void>;
   /**
@@ -47,7 +62,12 @@ export interface Store {
   deleteConfigIfDisconnectedAt(disconnectedAt: string): Promise<boolean>;
 
   getTokens(): Promise<SpotifyTokens | undefined>;
-  putTokens(tokens: SpotifyTokens): Promise<void>;
+  /**
+   * Stores tokens. With `replacing`, only if the stored tokens still hold that
+   * refresh token: a refresh must not overwrite tokens a login stored meanwhile.
+   * Returns whether it wrote.
+   */
+  putTokens(tokens: SpotifyTokens, replacing?: string): Promise<boolean>;
   /**
    * Deletes the tokens only if they still hold `refreshToken` (so tokens a
    * concurrent refresh or login just stored survive). Returns whether it deleted.
@@ -77,6 +97,11 @@ export interface Store {
   putShow(show: Show): Promise<void>;
   /** Sets only the given attributes. */
   updateShow(id: string, fields: Partial<Show>): Promise<void>;
+  /**
+   * Sets a show's summary only if its `summaryRevision` is still `basedOn`
+   * (undefined: never written), and counts the revision up. Returns whether it wrote.
+   */
+  putSummary(showId: string, summary: ShowSummary, basedOn: number | undefined): Promise<boolean>;
 
   listEpisodes(showId: string): Promise<Episode[]>;
   getEpisode(showId: string, episodeId: string): Promise<Episode | undefined>;

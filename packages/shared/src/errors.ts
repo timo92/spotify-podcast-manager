@@ -6,6 +6,8 @@
 export interface ErrorParams {
   internal: undefined;
   invalid_json: undefined;
+  invalid_body: undefined;
+  invalid_field: { field: string };
   unsupported_media_type: undefined;
   unauthorized: undefined;
   not_found: undefined;
@@ -23,12 +25,11 @@ export interface ErrorParams {
   invalid_note_position: undefined;
   note_not_found: undefined;
   invalid_mode: undefined;
-  invalid_categories: undefined;
-  invalid_order: undefined;
   invalid_status: undefined;
   not_configured: { detail: string };
   sync_start_failed: undefined;
   sync_interrupted: undefined;
+  sync_running: undefined;
   no_active_device: undefined;
   device_unavailable: undefined;
   spotify_user_not_allowed: undefined;
@@ -51,6 +52,8 @@ type ParamKeys<C extends ErrorCode> = ErrorParams[C] extends undefined ? never :
 export const ERROR_PARAMS = {
   internal: [],
   invalid_json: [],
+  invalid_body: [],
+  invalid_field: ['field'],
   unsupported_media_type: [],
   unauthorized: [],
   not_found: [],
@@ -68,12 +71,11 @@ export const ERROR_PARAMS = {
   invalid_note_position: [],
   note_not_found: [],
   invalid_mode: [],
-  invalid_categories: [],
-  invalid_order: [],
   invalid_status: [],
   not_configured: ['detail'],
   sync_start_failed: [],
   sync_interrupted: [],
+  sync_running: [],
   no_active_device: [],
   device_unavailable: [],
   spotify_user_not_allowed: [],

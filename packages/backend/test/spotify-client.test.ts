@@ -66,6 +66,30 @@ describe('HttpSpotifyApi', () => {
     }
   });
 
+  it('keeps tokens a login stored while its own refresh was running', async () => {
+    const store = await storeWithTokens(Date.now() - 1000);
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      // the user logs in again (e.g. to grant missing scopes) while the refresh runs
+      await store.putTokens({
+        accessToken: 'login',
+        refreshToken: 'login-rt',
+        expiresAt: Date.now() + 3600_000,
+        scope: 'all',
+      });
+      return response(200, { access_token: 'refreshed', expires_in: 3600, refresh_token: 'rt2', scope: 'old' });
+    }) as typeof fetch;
+    try {
+      const apiFetch = vi.fn().mockImplementation(async () => response(200, { id: 'me' }));
+      const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
+      await api.getMe();
+      expect(await store.getTokens()).toMatchObject({ refreshToken: 'login-rt', scope: 'all' });
+      expect(apiFetch.mock.calls[0]![1].headers.Authorization).toBe('Bearer login');
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
   it('refreshes an expired token once for parallel requests', async () => {
     const store = await storeWithTokens(Date.now() - 1000);
     const realFetch = globalThis.fetch;

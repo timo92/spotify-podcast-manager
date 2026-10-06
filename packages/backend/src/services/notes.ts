@@ -7,6 +7,9 @@ import type { LibraryService } from './library.js';
 
 const MAX_NOTE_LENGTH = 50_000;
 
+/** A request body as received: its fields are checked by the service (validText, validPosition). */
+type Unchecked<T> = { [K in keyof T]?: unknown };
+
 /** Notes on episodes: any number per episode, each with its own position (or none). */
 export class NoteService {
   constructor(
@@ -24,7 +27,7 @@ export class NoteService {
    * Creates a note. Without `positionMs` in the body, the note gets the
    * position Spotify is playing this episode at, on any device, or none.
    */
-  async create(showId: string, episodeId: string, body: Partial<NoteCreate>): Promise<EpisodeNote> {
+  async create(showId: string, episodeId: string, body: Unchecked<NoteCreate>): Promise<EpisodeNote> {
     const text = validText(body.text);
     const [show, episode] = await Promise.all([
       this.library.requireShow(showId),
@@ -51,7 +54,7 @@ export class NoteService {
   }
 
   /** Changes the text and/or position of a note. */
-  async update(showId: string, episodeId: string, noteId: string, patch: Partial<NotePatch>): Promise<EpisodeNote> {
+  async update(showId: string, episodeId: string, noteId: string, patch: Unchecked<NotePatch>): Promise<EpisodeNote> {
     const [note, episode] = await Promise.all([
       this.store.getNote(showId, episodeId, noteId),
       this.store.getEpisode(showId, episodeId),

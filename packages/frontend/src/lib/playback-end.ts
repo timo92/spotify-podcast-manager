@@ -1,4 +1,4 @@
-import type { NowPlaying } from './player';
+import type { NowPlaying } from './player/now-playing';
 
 /** A position this close to the start counts as "back at the beginning" (Spotify resets to 0 when an episode ends). */
 const RESTART_MS = 5_000;

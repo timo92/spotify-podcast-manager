@@ -176,10 +176,11 @@ export class HttpSpotifyApi implements SpotifyApi {
       if (e instanceof ApiError && e.code === 'spotify_reauth') await this.disconnect(tokens.refreshToken);
       throw e;
     }
-    // Spotify may rotate the refresh token; the new one replaces the old.
+    // Spotify may rotate the refresh token; the new one replaces the old. A login
+    // that stored tokens meanwhile wins: they are newer (and may have more scopes).
     const refreshed = toTokens(json, tokens);
-    await this.store.putTokens(refreshed);
-    return refreshed;
+    if (await this.store.putTokens(refreshed, tokens.refreshToken)) return refreshed;
+    return (await this.store.getTokens()) ?? refreshed;
   }
 
   /**

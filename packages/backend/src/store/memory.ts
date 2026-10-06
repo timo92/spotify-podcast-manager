@@ -8,6 +8,7 @@ import {
   type Schedule,
   type Settings,
   type Show,
+  type ShowSummary,
   type SyncState,
 } from '@podcast/shared';
 import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
@@ -57,6 +58,11 @@ export class MemoryStore implements Store {
     this.data.config = clone(config);
     this.save();
   }
+  async claimConfig(config: AppConfig) {
+    if (this.data.config && this.data.config.ownerId !== config.ownerId) return false;
+    await this.putConfig(config);
+    return true;
+  }
   async markDisconnected(at: string) {
     if (!this.data.config || this.data.config.disconnectedAt) return;
     this.data.config = { ...this.data.config, disconnectedAt: at, updatedAt: at };
@@ -71,9 +77,11 @@ export class MemoryStore implements Store {
   async getTokens() {
     return clone(this.data.tokens);
   }
-  async putTokens(tokens: SpotifyTokens) {
+  async putTokens(tokens: SpotifyTokens, replacing?: string) {
+    if (replacing !== undefined && this.data.tokens?.refreshToken !== replacing) return false;
     this.data.tokens = clone(tokens);
     this.save();
+    return true;
   }
   async deleteTokens(refreshToken: string) {
     if (this.data.tokens?.refreshToken !== refreshToken) return false;
@@ -138,6 +146,13 @@ export class MemoryStore implements Store {
     if (!existing) throw new Error(`Show ${id} not found`);
     this.data.shows[id] = { ...existing, ...clone(fields) };
     this.save();
+  }
+  async putSummary(showId: string, summary: ShowSummary, basedOn: number | undefined) {
+    const existing = this.data.shows[showId];
+    if (!existing || existing.summaryRevision !== basedOn) return false;
+    this.data.shows[showId] = { ...existing, summary: clone(summary), summaryRevision: (basedOn ?? 0) + 1 };
+    this.save();
+    return true;
   }
   async listEpisodes(showId: string) {
     return Object.values(this.data.episodes[showId] ?? {}).map(clone);

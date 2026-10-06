@@ -1,31 +1,26 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-import {
-  buildToday,
-  type ApiErrorBody,
-  type AppStatus,
-  type ErrorCode,
-  type EpisodeStatus,
-  type HistoryItem,
-  type LoginErrorCode,
-  type NoteCreate,
-  type NotePatch,
-  type PlayerDevice,
-  type Settings,
-  type ShowSettingsPatch,
-} from '@podcast/shared';
-import { Hono, type Context } from 'hono';
+import type { ApiErrorBody } from '@podcast/shared';
+import { Hono } from 'hono';
 import { compress } from 'hono/compress';
-import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+import { getCookie } from 'hono/cookie';
 import { StatusCodes } from 'http-status-codes';
-import { ApiError, badRequest, unauthorized } from './errors.js';
+import { ApiError, unauthorized } from './errors.js';
+import { authRoutes } from './routes/auth.js';
+import { SESSION_COOKIE, web, type RouteContext } from './routes/context.js';
+import { dataRoutes } from './routes/data.js';
+import { isJsonRequest } from './routes/http.js';
+import { libraryRoutes } from './routes/library.js';
+import { noteRoutes } from './routes/notes.js';
+import { planRoutes } from './routes/plan.js';
+import { playerRoutes } from './routes/player.js';
+import { AuthService } from './services/auth.js';
+import { DataService } from './services/data.js';
 import { LibraryService } from './services/library.js';
 import { NoteService } from './services/notes.js';
+import { PlanService } from './services/plan.js';
 import { PlaybackService } from './services/playback.js';
 import { SettingsService } from './services/settings.js';
-import { PlanService, validTimeZone } from './services/plan.js';
-import { acquireSyncLease, releaseSyncLease, visibleSyncState, type SyncOptions } from './services/sync.js';
+import { SyncLauncher, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
-import { SCOPES } from './spotify/client.js';
 import type { SpotifyCredentialsProvider } from './spotify/credentials.js';
 import type { SpotifyApi } from './spotify/types.js';
 import type { Store } from './store/types.js';
@@ -44,103 +39,30 @@ export interface AppDeps {
   publicUrl?: string;
 }
 
-type SpotifyLogin = Awaited<ReturnType<SpotifyAuth['login']>>;
-
-const SESSION_COOKIE = 'pm_session';
-const STATE_COOKIE = 'pm_oauth_state';
-const SESSION_DAYS = 90;
-const SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60;
-
 /** Endpoints reachable without a session. */
 const PUBLIC_PATHS = new Set(['/api/status', '/api/auth/login', '/api/auth/callback', '/api/auth/logout']);
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-/**
- * Whether the request body is declared as JSON. Compares the media type itself:
- * browsers send `text/plain` with arbitrary parameters cross-site without a
- * preflight, so a substring match would let such a request through.
- */
-function isJsonRequest(c: Context): boolean {
-  const mediaType = (c.req.header('content-type') ?? '').split(';')[0] ?? '';
-  return mediaType.trim().toLowerCase() === 'application/json';
-}
-
-/** Back to the login page, which explains the error codes it knows. */
-const toLogin = (c: Context, error: string) => c.redirect(`/login?error=${encodeURIComponent(error)}`);
-
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
-}
-
-/** JSON body of the request; `{}` when empty. */
-async function readBody<T>(c: Context): Promise<Partial<T>> {
-  const text = await c.req.text();
-  if (!text) return {};
-  try {
-    const parsed: unknown = JSON.parse(text);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    throw badRequest('invalid_json', 'Ungültiges JSON');
-  }
-}
-
+/** The API: guards for every request, then the route modules under /api. */
 export function createApp(deps: AppDeps) {
   const { store } = deps;
-  const auth = deps.auth ?? spotifyAuth;
   const library = new LibraryService(store);
-  const planner = new PlanService(store, library);
-  const notes = new NoteService(store, library, deps.spotify);
-  const playback = new PlaybackService(store, library, deps.spotify);
-  const settingsService = new SettingsService(store, library);
-  const app = new Hono();
-
-  const baseUrl = (c: Context) => {
-    if (deps.publicUrl) return deps.publicUrl.replace(/\/$/, '');
-    // CloudFront sets x-public-host to the viewer's host (see infra ForwardHost function).
-    const host =
-      c.req.header('x-public-host') ?? c.req.header('x-forwarded-host') ?? c.req.header('host') ?? 'localhost';
-    const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
-    return `${local ? 'http' : 'https'}://${host}`;
+  const ctx: RouteContext = {
+    store,
+    auth: new AuthService(store, deps.credentials),
+    oauth: deps.auth ?? spotifyAuth,
+    credentials: deps.credentials,
+    data: new DataService(store),
+    library,
+    notes: new NoteService(store, library, deps.spotify),
+    planner: new PlanService(store, library),
+    playback: new PlaybackService(store, library, deps.spotify),
+    settings: new SettingsService(store, library),
+    sync: new SyncLauncher(store, deps.triggerSync),
+    web: web(deps.publicUrl),
   };
-  const redirectUri = (c: Context) => `${baseUrl(c)}/api/auth/callback`;
-  const cookieOptions = (c: Context, opts: { path?: string; sameSite?: 'Strict' | 'Lax' } = {}) =>
-    ({
-      path: opts.path ?? '/',
-      httpOnly: true,
-      sameSite: opts.sameSite ?? 'Strict',
-      secure: baseUrl(c).startsWith('https://'),
-    }) as const;
-  // The OAuth state cookie must be Lax: Spotify's redirect back to the callback is a
-  // cross-site navigation, and browsers drop Strict cookies on those.
-  const stateCookieOptions = (c: Context) => cookieOptions(c, { path: '/api/auth', sameSite: 'Lax' });
 
-  async function isAuthenticated(c: Context): Promise<boolean> {
-    const id = getCookie(c, SESSION_COOKIE);
-    return !!id && !!(await store.getSession(id));
-  }
-
-  /**
-   * Acquires the sync lease here, so the UI shows "running" immediately and a
-   * second click can't start a parallel sync, then hands it to the sync run.
-   */
-  async function startSync(opts: SyncOptions) {
-    const lease = await acquireSyncLease(store, { message: 'Gestartet…', showId: opts.showId });
-    if (!lease) return store.getSyncState();
-    try {
-      await deps.triggerSync({ ...opts, leaseId: lease.leaseId });
-    } catch (e) {
-      console.error('Sync could not be started', e);
-      // Nothing will run under this lease, so free it instead of blocking syncs.
-      const failure = new ApiError(StatusCodes.BAD_GATEWAY, 'sync_start_failed', 'Sync konnte nicht gestartet werden.');
-      await releaseSyncLease(store, lease, failure);
-      throw failure;
-    }
-    return lease;
-  }
-
-  // ------------------------------------------------------------ middleware
+  const app = new Hono();
 
   app.use('/api/*', compress());
 
@@ -154,7 +76,9 @@ export function createApp(deps: AppDeps) {
         'Content-Type application/json erforderlich',
       );
     }
-    if (!PUBLIC_PATHS.has(c.req.path) && !(await isAuthenticated(c))) throw unauthorized();
+    if (!PUBLIC_PATHS.has(c.req.path) && !(await ctx.auth.isAuthenticated(getCookie(c, SESSION_COOKIE)))) {
+      throw unauthorized();
+    }
     await next();
   });
 
@@ -174,305 +98,9 @@ export function createApp(deps: AppDeps) {
     return c.json(body, StatusCodes.NOT_FOUND);
   });
 
-  // ---------------------------------------------------------------- status
-
-  app.get('/api/status', async (c) => {
-    const [config, authenticated, configured] = await Promise.all([
-      store.getConfig(),
-      isAuthenticated(c),
-      deps.credentials.ready(),
-    ]);
-    const status: AppStatus = {
-      configured,
-      authenticated,
-      redirectUri: redirectUri(c),
-      claimed: !!config,
-    };
-    if (authenticated) {
-      const [tokens, sync] = await Promise.all([store.getTokens(), store.getSyncState()]);
-      const granted = (tokens?.scope ?? '').split(' ').filter(Boolean);
-      status.spotifyConnected = !!tokens;
-      status.disconnectedAt = config?.disconnectedAt;
-      status.user = config?.ownerId ? { id: config.ownerId, displayName: config.ownerName } : undefined;
-      status.sync = visibleSyncState(sync);
-      status.grantedScopes = granted;
-      status.missingScopes = tokens ? SCOPES.filter((s) => !granted.includes(s)) : [];
-    }
-    return c.json(status);
-  });
-
-  // ------------------------------------------------------------------ auth
-
-  app.get('/api/auth/login', async (c) => {
-    if (!deps.credentials.clientId) return c.redirect(`/login?error=${'not_configured' satisfies LoginErrorCode}`);
-    const state = randomBytes(16).toString('base64url');
-    setCookie(c, STATE_COOKIE, state, { ...stateCookieOptions(c), maxAge: 600 });
-    return c.redirect(auth.authorizeUrl(deps.credentials.clientId, redirectUri(c), state));
-  });
-
-  app.get('/api/auth/callback', async (c) => {
-    const expected = getCookie(c, STATE_COOKIE);
-    deleteCookie(c, STATE_COOKIE, stateCookieOptions(c));
-    const fail = (code: LoginErrorCode | ErrorCode) => toLogin(c, code);
-    const { error, state, code } = c.req.query();
-    // Spotify's own OAuth error is passed on as it is; the login page explains the ones it knows.
-    if (error) return toLogin(c, error);
-    if (!expected || !state || !safeEqual(expected, state)) return fail('state_mismatch');
-    if (!code) return fail('token_exchange_failed');
-
-    let login: SpotifyLogin;
-    try {
-      login = await auth.login(await deps.credentials.get(), code, redirectUri(c));
-    } catch (e) {
-      console.error('OAuth callback failed', e);
-      return fail(e instanceof ApiError ? e.code : 'token_exchange_failed');
-    }
-    // The callback is a page navigation: a failure must land on the login page, not show JSON.
-    try {
-      return await completeLogin(c, login);
-    } catch (e) {
-      console.error('Login could not be stored', e);
-      return fail('login_failed');
-    }
-  });
-
-  /** Binds the owner, stores the tokens, opens a session and starts the first import. */
-  async function completeLogin(c: Context, { tokens, user }: SpotifyLogin) {
-    // The first account that logs in becomes the owner. Only accounts listed under
-    // "User Management" of the Spotify app can log in at all (development mode).
-    const config = await store.getConfig();
-    if (config && config.ownerId !== user.id) return toLogin(c, 'wrong_account' satisfies LoginErrorCode);
-    // Writing the config without `disconnectedAt` also ends a revoked state, so
-    // the retention rules no longer delete the data.
-    if (!config || config.disconnectedAt || config.ownerName !== (user.display_name ?? undefined)) {
-      const now = new Date().toISOString();
-      await store.putConfig({
-        ownerId: user.id,
-        ownerName: user.display_name ?? undefined,
-        createdAt: config?.createdAt ?? now,
-        updatedAt: now,
-      });
-    }
-    const previous = await store.getTokens();
-    await store.putTokens({ ...tokens, refreshToken: tokens.refreshToken || previous?.refreshToken || '' });
-
-    const sessionId = randomBytes(32).toString('base64url');
-    await store.putSession({
-      id: sessionId,
-      createdAt: new Date().toISOString(),
-      expiresAt: Math.floor(Date.now() / 1000) + SESSION_SECONDS,
-    });
-    // Strict: the session is only ever needed by the SPA's same-origin fetches.
-    setCookie(c, SESSION_COOKIE, sessionId, { ...cookieOptions(c), maxAge: SESSION_SECONDS });
-
-    const firstRun = (await store.listShows()).length === 0;
-    // A failed start must not fail the login; the sync state shows the error and
-    // the user can start the import again.
-    if (firstRun) await startSync({}).catch((e: unknown) => console.error('Initial sync could not start', e));
-    return c.redirect(firstRun ? '/?welcome=1' : '/');
+  for (const routes of [authRoutes, libraryRoutes, planRoutes, noteRoutes, playerRoutes, dataRoutes]) {
+    app.route('/api', routes(ctx));
   }
-
-  app.post('/api/auth/logout', async (c) => {
-    const id = getCookie(c, SESSION_COOKIE);
-    if (id) await store.deleteSession(id);
-    deleteCookie(c, SESSION_COOKIE, cookieOptions(c));
-    return c.json({ ok: true });
-  });
-
-  // ----------------------------------------------------------------- today
-
-  app.get('/api/today', async (c) => {
-    const tz = validTimeZone(c.req.query('tz'));
-    const [shows, settings, history, [today]] = await Promise.all([
-      store.listShows(),
-      store.getSettings(),
-      store.listHistory(5),
-      planner.week(tz, 1),
-    ]);
-    const recent: HistoryItem[] = history.map((p) => ({
-      showId: p.showId,
-      episodeId: p.episodeId,
-      showName: p.showName,
-      episodeName: p.episodeName,
-      status: p.status,
-      at: p.listenedAt ?? p.updatedAt,
-    }));
-    return c.json(buildToday(shows, settings, recent, today?.items ?? []));
-  });
-
-  app.get('/api/history', async (c) => {
-    const limit = Math.min(200, Math.max(1, Number(c.req.query('limit')) || 50));
-    return c.json(await store.listHistory(limit));
-  });
-
-  // ----------------------------------------------------------------- shows
-
-  app.get('/api/shows', async (c) => {
-    const shows = await store.listShows();
-    shows.sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
-    return c.json(shows);
-  });
-
-  app.post('/api/shows/reorder', async (c) => {
-    await library.reorder((await readBody<{ ids: string[] }>(c)).ids ?? []);
-    return c.json({ ok: true });
-  });
-
-  app.get('/api/shows/:id', async (c) => c.json(await library.detail(c.req.param('id'))));
-
-  app.patch('/api/shows/:id', async (c) =>
-    c.json(await library.updateSettings(c.req.param('id'), await readBody<ShowSettingsPatch>(c))),
-  );
-
-  app.post('/api/shows/:id/sync', async (c) => {
-    const id = c.req.param('id');
-    await library.requireShow(id);
-    return c.json(await startSync({ showId: id }), StatusCodes.ACCEPTED);
-  });
-
-  app.get('/api/shows/:id/episodes/:episodeId', async (c) =>
-    c.json(await library.episode(c.req.param('id'), c.req.param('episodeId'))),
-  );
-
-  app.post('/api/shows/:id/episodes/:episodeId/refresh', async (c) =>
-    c.json(await playback.refreshEpisode(c.req.param('id'), c.req.param('episodeId'))),
-  );
-
-  app.put('/api/shows/:id/episodes/:episodeId/status', async (c) => {
-    const { status } = await readBody<{ status: EpisodeStatus | null }>(c);
-    return c.json(await library.setStatus(c.req.param('id'), [c.req.param('episodeId')], status ?? null));
-  });
-
-  app.post('/api/shows/:id/episodes/:episodeId/complete-before', async (c) =>
-    c.json(await library.completeBefore(c.req.param('id'), c.req.param('episodeId'))),
-  );
-
-  // ------------------------------------------------------------ weekly plan
-
-  app.get('/api/schedule', async (c) => c.json(await store.getSchedule()));
-
-  app.put('/api/schedule', async (c) => c.json(await planner.saveSchedule(await readBody(c))));
-
-  app.get('/api/week', async (c) => {
-    const days = await planner.week(
-      validTimeZone(c.req.query('tz')),
-      Number(c.req.query('days')) || 7,
-      c.req.query('start'),
-    );
-    return c.json({ days });
-  });
-
-  // ----------------------------------------------------------------- notes
-
-  app.get('/api/notes', async (c) => {
-    const limit = Math.min(5000, Math.max(1, Number(c.req.query('limit')) || 2000));
-    return c.json(await store.listNotes(limit));
-  });
-
-  app.get('/api/shows/:id/episodes/:episodeId/notes', async (c) =>
-    c.json(await notes.list(c.req.param('id'), c.req.param('episodeId'))),
-  );
-
-  app.post('/api/shows/:id/episodes/:episodeId/notes', async (c) =>
-    c.json(
-      await notes.create(c.req.param('id'), c.req.param('episodeId'), await readBody<NoteCreate>(c)),
-      StatusCodes.CREATED,
-    ),
-  );
-
-  app.patch('/api/shows/:id/episodes/:episodeId/notes/:noteId', async (c) =>
-    c.json(
-      await notes.update(
-        c.req.param('id'),
-        c.req.param('episodeId'),
-        c.req.param('noteId'),
-        await readBody<NotePatch>(c),
-      ),
-    ),
-  );
-
-  app.delete('/api/shows/:id/episodes/:episodeId/notes/:noteId', async (c) => {
-    await notes.delete(c.req.param('id'), c.req.param('episodeId'), c.req.param('noteId'));
-    return c.json({ ok: true });
-  });
-
-  // ------------------------------------------------------------------ sync
-
-  app.post('/api/sync', async (c) => {
-    const { full } = await readBody<{ full: boolean }>(c);
-    return c.json(await startSync({ full: !!full }), StatusCodes.ACCEPTED);
-  });
-
-  // -------------------------------------------------------------- settings
-
-  app.get('/api/settings', async (c) => c.json(await store.getSettings()));
-
-  app.put('/api/settings', async (c) => c.json(await settingsService.save(await readBody<Settings>(c))));
-
-  // ---------------------------------------------------------------- player
-
-  app.get('/api/player/token', async (c) => c.json(await deps.spotify().getAccessToken()));
-
-  app.get('/api/player/state', async (c) => c.json(await playback.state()));
-
-  app.get('/api/player/devices', async (c) => {
-    const devices: PlayerDevice[] = (await deps.spotify().getDevices()).flatMap((d) =>
-      d.id && !d.is_restricted ? [{ id: d.id, name: d.name, type: d.type, isActive: d.is_active }] : [],
-    );
-    return c.json(devices);
-  });
-
-  app.post('/api/player/play', async (c) => {
-    const {
-      showId,
-      episodeId,
-      deviceId,
-      fromStart,
-      positionMs: requested,
-    } = await readBody<{
-      showId: string;
-      episodeId: string;
-      deviceId?: string;
-      fromStart?: boolean;
-      /** Explicit start position, e.g. from a timestamp in a note. */
-      positionMs?: number;
-    }>(c);
-    if (!showId || !episodeId) throw badRequest('episode_required', 'showId und episodeId sind erforderlich');
-    const started = await playback.play(showId, episodeId, {
-      deviceId: typeof deviceId === 'string' && deviceId ? deviceId : undefined,
-      fromStart: fromStart === true,
-      positionMs: typeof requested === 'number' ? requested : undefined,
-    });
-    return c.json({ ok: true, ...started });
-  });
-
-  // ------------------------------------------------------------------ data
-
-  app.get('/api/export', async (c) => {
-    const [shows, settings, schedule, allNotes] = await Promise.all([
-      store.listShows(),
-      store.getSettings(),
-      store.getSchedule(),
-      store.listNotes(10_000),
-    ]);
-    const progress = await Promise.all(shows.map(async (s) => [...(await store.listProgress(s.id)).values()]));
-    c.header('Content-Disposition', 'attachment; filename="podcast-manager-export.json"');
-    return c.json({
-      exportedAt: new Date().toISOString(),
-      settings,
-      shows: shows.map(({ summary: _summary, ...s }) => s),
-      progress: progress.flat(),
-      schedule,
-      notes: allNotes,
-    });
-  });
-
-  app.delete('/api/data', async (c) => {
-    await store.deleteAll();
-    deleteCookie(c, SESSION_COOKIE, cookieOptions(c));
-    return c.json({ ok: true });
-  });
-
   return app;
 }
 

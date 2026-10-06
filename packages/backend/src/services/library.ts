@@ -12,6 +12,19 @@ import {
   type Show,
   type ShowSettingsPatch,
 } from '@podcast/shared';
+
+/** Rounds a recompute may lose to concurrent ones before it keeps the stored summary. */
+const RECOMPUTE_ATTEMPTS = 3;
+
+/** A show settings change as the API receives it; the mode is checked against the known modes here. */
+export type ShowSettingsInput = Omit<ShowSettingsPatch, 'mode'> & { mode?: string };
+
+/** The episode status a client names; `invalid_status` for an unknown one. */
+export function episodeStatus(value: string): EpisodeStatus {
+  const status = EPISODE_STATUSES.find((s) => s === value);
+  if (!status) throw badRequest('invalid_status', 'Ungültiger Status');
+  return status;
+}
 import { badRequest, notFound } from '../errors.js';
 import type { Store } from '../store/types.js';
 
@@ -32,12 +45,22 @@ export class LibraryService {
     return buildEpisodeViews(episodes, progress, s);
   }
 
+  /**
+   * Refreshes the show's summary from its episodes and progress. The sync and a
+   * user change can recompute at the same time; a summary is only stored on top
+   * of the one this computation started from, otherwise it is computed again
+   * from the newer data.
+   */
   async recompute(showId: string, settings?: Settings): Promise<Show> {
-    const show = await this.requireShow(showId);
-    const views = await this.loadViews(show, settings);
-    const summary = summarizeShow(show, views);
-    await this.store.updateShow(show.id, { summary });
-    return { ...show, summary };
+    for (let attempt = 1; ; attempt++) {
+      const show = await this.requireShow(showId);
+      const summary = summarizeShow(show, await this.loadViews(show, settings));
+      if (await this.store.putSummary(showId, summary, show.summaryRevision)) {
+        return { ...show, summary, summaryRevision: (show.summaryRevision ?? 0) + 1 };
+      }
+      // Still losing after a few rounds: the stored summary is at least as new as ours.
+      if (attempt >= RECOMPUTE_ATTEMPTS) return this.requireShow(showId);
+    }
   }
 
   async recomputeAll(): Promise<void> {
@@ -68,28 +91,28 @@ export class LibraryService {
     return view;
   }
 
-  async updateSettings(showId: string, patch: ShowSettingsPatch): Promise<Show> {
+  async updateSettings(showId: string, patch: ShowSettingsInput): Promise<Show> {
     await this.requireShow(showId);
+    // Only fields that are set change; an undefined one would remove the stored value.
     const clean: ShowSettingsPatch = {};
     if (patch.mode !== undefined) {
-      if (!CONSUMPTION_MODES.includes(patch.mode)) throw badRequest('invalid_mode', 'Ungültiger Modus');
-      clean.mode = patch.mode;
+      clean.mode = CONSUMPTION_MODES.find((m) => m === patch.mode);
+      if (!clean.mode) throw badRequest('invalid_mode', 'Ungültiger Modus');
     }
     if (patch.categories !== undefined) {
-      if (!Array.isArray(patch.categories)) throw badRequest('invalid_categories', 'categories muss eine Liste sein');
-      clean.categories = [...new Set(patch.categories.map((c) => String(c).trim()).filter(Boolean))].slice(0, 10);
+      clean.categories = [...new Set(patch.categories.map((c) => c.trim()).filter(Boolean))].slice(0, 10);
     }
     for (const key of ['paused', 'hiddenFromToday', 'reofferSkipped', 'needsReview'] as const) {
-      if (patch[key] !== undefined) clean[key] = Boolean(patch[key]);
+      const value = patch[key];
+      if (value !== undefined) clean[key] = value;
     }
-    if (patch.priority !== undefined) clean.priority = Number(patch.priority) || 0;
+    if (patch.priority !== undefined) clean.priority = patch.priority;
     if (patch.pinnedEpisodeId !== undefined) clean.pinnedEpisodeId = patch.pinnedEpisodeId || null;
     await this.store.updateShow(showId, { ...clean, updatedAt: new Date().toISOString() });
     return this.recompute(showId);
   }
 
   async reorder(ids: string[]): Promise<void> {
-    if (!Array.isArray(ids)) throw badRequest('invalid_order', 'ids muss eine Liste sein');
     const existing = new Set((await this.store.listShows()).map((s) => s.id));
     await mapLimit(
       ids.filter((id) => existing.has(id)),
@@ -103,9 +126,6 @@ export class LibraryService {
    * the episode falls back to Spotify's state.
    */
   async setStatus(showId: string, episodeIds: string[], status: EpisodeStatus | null): Promise<Show> {
-    if (status !== null && !EPISODE_STATUSES.includes(status)) {
-      throw badRequest('invalid_status', 'Ungültiger Status');
-    }
     const show = await this.requireShow(showId);
     const episodes = new Map((await this.store.listEpisodes(showId)).map((e) => [e.id, e]));
     const selected = episodeIds.flatMap((id) => episodes.get(id) ?? []);

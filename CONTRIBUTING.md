@@ -61,6 +61,7 @@ README).
 
 Formatting is done by oxfmt (`pnpm format`, configured in `.oxfmtrc.json`,
 D25); CI rejects unformatted code. Markdown is not formatted automatically.
+A commit that only reformats goes into `.git-blame-ignore-revs`.
 Beyond what the formatter covers:
 
 - TypeScript in strict mode everywhere. No `any`. Prefer narrowing and type

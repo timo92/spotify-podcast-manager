@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../src/i18n';
-import { api, ApiError, errorMessage, TIME_ZONE } from '../src/lib/api';
+import { api, ApiError, errorMessage, NetworkError, TIME_ZONE } from '../src/lib/api';
 
 describe('errorMessage', () => {
   it('translates known codes with their parameters', async () => {
@@ -58,7 +58,7 @@ describe('request', () => {
     await expect(api.settings()).rejects.toMatchObject({ status: 500, code: 'error', message: 'Fehler 500' });
   });
 
-  it('passes a network failure on as it is, so it is retried like a server error', async () => {
+  it('reports a server that cannot be reached in the active language, not as an API error', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -66,7 +66,11 @@ describe('request', () => {
       }),
     );
     const error: unknown = await api.status().catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(TypeError);
+    expect(error).toBeInstanceOf(NetworkError);
+    expect(error).toMatchObject({ message: 'Keine Verbindung zum Server' });
+    await i18n.changeLanguage('en');
+    await expect(api.status()).rejects.toThrow('No connection to the server');
+    // main.tsx retries everything except client errors from the API
     expect(error).not.toBeInstanceOf(ApiError);
   });
 

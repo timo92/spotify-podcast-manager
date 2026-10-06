@@ -41,6 +41,18 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('HistoryPage', () => {
+  it('explains that the server cannot be reached instead of showing the browser message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    );
+    renderWithProviders(<HistoryPage />);
+    expect(await screen.findByText('Keine Verbindung zum Server')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+  });
+
   it('groups the heard episodes into today, yesterday and older dates', async () => {
     const { load } = renderHistory([
       heard('Heute früh', new Date(2026, 9, 6, 7), 20 * MIN),

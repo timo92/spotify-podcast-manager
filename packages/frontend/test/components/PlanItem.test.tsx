@@ -27,6 +27,15 @@ describe('PlanItemRow', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/podcasts/wissen');
   });
 
+  it('shows the slot of a paused podcast as paused, without playing or marking it', () => {
+    renderSlot(plannedItem({ paused: true }));
+    const slot = screen.getByRole('listitem');
+    expect(within(slot).getByText('Pausiert')).toBeInTheDocument();
+    expect(within(slot).getByRole('button', { name: 'Reise: Teil 1' })).toBeInTheDocument();
+    expect(within(slot).queryByRole('button', { name: 'Abspielen' })).not.toBeInTheDocument();
+    expect(within(slot).queryByRole('button', { name: 'Als gehört markieren' })).not.toBeInTheDocument();
+  });
+
   it('shows when the episode was released', () => {
     const yesterday = new Date(Date.now() - 86_400_000);
     const releaseDate = [

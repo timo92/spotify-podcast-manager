@@ -199,12 +199,13 @@ function labelFor(show: Show, ep: EpisodeView): TodayLabel {
 
 /**
  * Remaining listening time of the open planned items. An episode planned in
- * several slots is listened to once, so it counts once.
+ * several slots is listened to once, so it counts once; slots of paused
+ * podcasts don't count.
  */
 export function plannedOpenMs(items: PlannedItem[]): number {
   const open = new Map<string, number>();
-  for (const { episode, state } of items) {
-    if (episode && (state === 'next' || state === 'upcoming')) open.set(episode.id, episode.remainingMs);
+  for (const { episode, state, paused } of items) {
+    if (episode && !paused && (state === 'next' || state === 'upcoming')) open.set(episode.id, episode.remainingMs);
   }
   return [...open.values()].reduce((sum, ms) => sum + ms, 0);
 }
@@ -221,8 +222,10 @@ export function buildToday(
   shows: Show[],
   settings: Settings,
   recent: HistoryItem[] = [],
-  plan: PlannedItem[] = [],
+  slots: PlannedItem[] = [],
 ): TodayResponse {
+  // Paused podcasts keep their slots in the week, but Today leaves them out.
+  const plan = slots.filter((p) => !p.paused);
   // Shows planned for today are listed in the plan, not again below.
   const planned = new Set(plan.map((p) => p.show.id));
   const eligible = shows

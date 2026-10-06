@@ -156,6 +156,11 @@ export class LibraryService {
   }
 }
 
+/**
+ * Runs `fn` over `items`, at most `limit` at a time. After the first failure
+ * no further item is started; the promise rejects with that failure once the
+ * running calls have settled, so nothing keeps writing after it returned.
+ */
 export async function mapLimit<T, R>(
   items: T[],
   limit: number,
@@ -164,9 +169,20 @@ export async function mapLimit<T, R>(
   const results: R[] = [];
   // One iterator shared by all workers: each takes the next item when it is free.
   const queue = items.entries();
+  let failed = false;
   async function worker() {
-    for (const [i, item] of queue) results[i] = await fn(item, i);
+    for (const [i, item] of queue) {
+      if (failed) return;
+      try {
+        results[i] = await fn(item, i);
+      } catch (e) {
+        failed = true;
+        throw e;
+      }
+    }
   }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  const outcomes = await Promise.allSettled(Array.from({ length: Math.min(limit, items.length) }, worker));
+  const failure = outcomes.find((o) => o.status === 'rejected');
+  if (failure) throw failure.reason;
   return results;
 }

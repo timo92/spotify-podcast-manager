@@ -46,6 +46,12 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The server couldn't be reached (offline, DNS, dropped connection); `message`
+ * is translated. Unlike an `ApiError`, queries retry it like a server error.
+ */
+export class NetworkError extends Error {}
+
 type NoteRef = Pick<EpisodeNote, 'showId' | 'episodeId' | 'id'>;
 
 function notesPath(showId: string, episodeId: string) {
@@ -62,12 +68,19 @@ function parseJson(text: string): unknown {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
-    method,
-    credentials: 'same-origin',
-    headers: method === 'GET' ? {} : { 'Content-Type': 'application/json' },
-    body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method,
+      credentials: 'same-origin',
+      headers: method === 'GET' ? {} : { 'Content-Type': 'application/json' },
+      body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
+    });
+  } catch (e) {
+    // fetch rejects with a TypeError when no response arrives; its text is the browser's own, in English.
+    if (e instanceof TypeError) throw new NetworkError(i18n.t('ui.noConnection'), { cause: e });
+    throw e;
+  }
   const text = await res.text();
   const data = parseJson(text);
   if (!res.ok) {

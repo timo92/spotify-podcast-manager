@@ -280,6 +280,87 @@ describe('HttpSpotifyApi', () => {
     }
   });
 
+  it('retries a server error and then succeeds', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = await storeWithTokens();
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(response(503))
+        .mockResolvedValueOnce(response(502))
+        .mockResolvedValueOnce(response(200, { id: 'me' }));
+      const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+      const me = api.getMe();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect((await me).id).toBe('me');
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reports a server error that persists after the retries', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = await storeWithTokens();
+      const fetchMock = vi.fn().mockResolvedValue(response(500, { error: { status: 500, message: 'Server error' } }));
+      const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+      const result = api.getMe().catch((e: unknown) => e);
+      await vi.runAllTimersAsync();
+      expect(await result).toMatchObject({
+        status: 502,
+        code: 'spotify_error',
+        params: { status: 500, detail: 'Server error' },
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refreshes the token once when Spotify rejects it and repeats the request', async () => {
+    const store = await storeWithTokens();
+    const tokenFetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(response(200, { access_token: 'new', expires_in: 3600, token_type: 'Bearer' }));
+    try {
+      const apiFetch = vi
+        .fn()
+        .mockResolvedValueOnce(response(401, { error: { status: 401, message: 'The access token expired' } }))
+        .mockResolvedValueOnce(response(200, { id: 'me' }));
+      const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
+      expect((await api.getMe()).id).toBe('me');
+      expect(tokenFetch).toHaveBeenCalledTimes(1);
+      expect(apiFetch.mock.calls.map((c) => c[1].headers.Authorization)).toEqual(['Bearer old', 'Bearer new']);
+      // Spotify sent no new refresh token, so the old one stays valid
+      expect(await store.getTokens()).toMatchObject({ accessToken: 'new', refreshToken: 'refresh' });
+    } finally {
+      tokenFetch.mockRestore();
+    }
+  });
+
+  it('asks for a new login when Spotify rejects the refreshed token too', async () => {
+    const store = await storeWithTokens();
+    const tokenFetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(response(200, { access_token: 'new', expires_in: 3600, token_type: 'Bearer' }));
+    try {
+      const apiFetch = vi.fn().mockResolvedValue(response(401, { error: { status: 401, message: 'Invalid token' } }));
+      const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
+      await expect(api.getMe()).rejects.toMatchObject({
+        status: 401,
+        code: 'spotify_reauth',
+        params: { detail: 'Invalid token' },
+      });
+      expect(tokenFetch).toHaveBeenCalledTimes(1);
+      expect(apiFetch).toHaveBeenCalledTimes(2);
+    } finally {
+      tokenFetch.mockRestore();
+    }
+  });
+
   it('aborts a request Spotify does not answer and reports Spotify as unavailable', async () => {
     vi.useFakeTimers();
     try {

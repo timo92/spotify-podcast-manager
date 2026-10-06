@@ -6,50 +6,9 @@ import { api } from '../../src/lib/api';
 import { loadRemoteEpisodes, rememberRemoteEpisode } from '../../src/lib/remote-episodes';
 import { episode, settings, show } from '../support/fixtures';
 import { renderWithProviders } from '../support/render';
+import { FakePlayer, installFakeSdk, sdkState } from '../support/spotify-sdk';
 
 const MIN = 60_000;
-type Listener = (payload: unknown) => void;
-
-/** Stand-in for the Web Playback SDK's player; `nextConnect` decides how connecting ends. */
-class FakePlayer {
-  static instances: FakePlayer[] = [];
-  static nextConnect: 'ready' | 'account_error' = 'ready';
-  readonly listeners = new Map<string, Listener[]>();
-  state: Spotify.PlaybackState | null = null;
-  disconnect = vi.fn();
-  constructor() {
-    FakePlayer.instances.push(this);
-  }
-  addListener(event: string, cb: Listener) {
-    this.listeners.set(event, [...(this.listeners.get(event) ?? []), cb]);
-    return true;
-  }
-  emit(event: string, payload: unknown) {
-    for (const cb of this.listeners.get(event) ?? []) cb(payload);
-  }
-  async connect() {
-    const outcome = FakePlayer.nextConnect;
-    setTimeout(() =>
-      outcome === 'ready' ? this.emit('ready', { device_id: 'web' }) : this.emit(outcome, { message: 'no premium' }),
-    );
-    return true;
-  }
-  getCurrentState = async () => this.state;
-  togglePlay = async () => {};
-  pause = async () => {};
-  seek = async () => {};
-  activateElement = async () => {};
-}
-
-function sdkState(episodeId: string, positionMs: number, paused = false): Spotify.PlaybackState {
-  const uri = `spotify:episode:${episodeId}`;
-  return {
-    paused,
-    position: positionMs,
-    duration: 20 * MIN,
-    track_window: { current_track: { id: episodeId, uri, name: '', type: 'episode' } },
-  };
-}
 
 function renderPlayer() {
   vi.spyOn(api, 'settings').mockResolvedValue(settings);
@@ -69,11 +28,8 @@ const playerBar = () => screen.findByRole('region', { name: 'Player' });
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  FakePlayer.instances = [];
-  FakePlayer.nextConnect = 'ready';
+  installFakeSdk();
   localStorage.setItem('pm.playTarget', JSON.stringify({ kind: 'browser' }));
-  vi.stubGlobal('MediaKeys', function MediaKeys() {});
-  vi.stubGlobal('Spotify', { Player: FakePlayer });
 });
 afterEach(() => {
   vi.useRealTimers();

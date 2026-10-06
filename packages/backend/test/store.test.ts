@@ -1,6 +1,6 @@
 import { CreateTableCommand, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import dynalite from 'dynalite';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Episode, EpisodeNote, Show } from '@podcast/shared';
 import { DynamoStore } from '../src/store/dynamo.js';
 import { MemoryStore } from '../src/store/memory.js';
@@ -272,17 +272,27 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.listShows()).toHaveLength(0);
       expect(await store.listEpisodes('s1')).toHaveLength(0);
     });
+
+    it('saves a first plan conditionally only while no plan is stored', async () => {
+      expect(await store.putSchedule({ rules: [], updatedAt: 'v1' }, null)).toBe(true);
+      expect((await store.getSchedule()).updatedAt).toBe('v1');
+      // another tab saved its first plan meanwhile
+      expect(await store.putSchedule({ rules: [], updatedAt: 'v2' }, null)).toBe(false);
+      expect((await store.getSchedule()).updatedAt).toBe('v1');
+    });
   });
 }
 
 contract('MemoryStore', async () => new MemoryStore());
 
-let server: ReturnType<typeof dynalite> | undefined;
-afterAll(() => new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve())));
+const servers: ReturnType<typeof dynalite>[] = [];
+afterAll(() => Promise.all(servers.map((server) => new Promise<void>((resolve) => server.close(() => resolve())))));
 
-contract('DynamoStore (dynalite)', async () => {
-  server = dynalite({ createTableMs: 0, deleteTableMs: 0, updateTableMs: 0 });
-  await new Promise<void>((resolve) => server!.listen(0, resolve));
+/** A client for a new dynalite server that holds the app's table, named `test`. */
+async function dynaliteClient(): Promise<DynamoDBClient> {
+  const server = dynalite({ createTableMs: 0, deleteTableMs: 0, updateTableMs: 0 });
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, resolve));
   const port = (server.address() as { port: number }).port;
   const client = new DynamoDBClient({
     endpoint: `http://127.0.0.1:${port}`,
@@ -315,29 +325,127 @@ contract('DynamoStore (dynalite)', async () => {
       ],
     }),
   );
-  return new DynamoStore('test', client);
-});
+  return client;
+}
+
+contract('DynamoStore (dynalite)', async () => new DynamoStore('test', await dynaliteClient()));
+
+/** Calls `onRequest` with the input of every request the client sends. */
+function observeRequests(client: DynamoDBClient, onRequest: (input: Record<string, unknown>) => void) {
+  client.middlewareStack.add(
+    (next) => async (args) => {
+      onRequest(args.input as Record<string, unknown>);
+      return next(args);
+    },
+    { step: 'initialize' },
+  );
+}
+
+/**
+ * A client that never reaches DynamoDB: `answer` gets the input of each
+ * request (in the document client's form) and returns its output.
+ */
+function offlineClient(answer: (input: Record<string, unknown>) => Record<string, unknown>) {
+  const client = new DynamoDBClient({
+    endpoint: 'http://127.0.0.1:1',
+    region: 'local',
+    credentials: { accessKeyId: 'x', secretAccessKey: 'x' },
+  });
+  client.middlewareStack.add(
+    () => async (args) => ({
+      output: { ...answer(args.input as Record<string, unknown>), $metadata: {} } as never,
+      response: {},
+    }),
+    { step: 'initialize' },
+  );
+  return client;
+}
 
 describe('DynamoStore reads', () => {
   it('read their own writes: base-table reads are strongly consistent', async () => {
-    const client = new DynamoDBClient({
-      endpoint: 'http://127.0.0.1:1',
-      region: 'local',
-      credentials: { accessKeyId: 'x', secretAccessKey: 'x' },
-    });
     const reads: Record<string, unknown>[] = [];
-    client.middlewareStack.add(
-      () => async (args) => {
-        reads.push(args.input as Record<string, unknown>);
-        return { output: { Items: [], $metadata: {} } as never, response: {} };
-      },
-      { step: 'initialize' },
+    const store = new DynamoStore(
+      'test',
+      offlineClient((input) => {
+        reads.push(input);
+        return { Items: [] };
+      }),
     );
-    const store = new DynamoStore('test', client);
     await store.getShow('s');
     await store.listEpisodes('s');
     await store.listProgress('s');
     expect(reads).toHaveLength(3);
     for (const input of reads) expect(input).toMatchObject({ ConsistentRead: true });
+  });
+
+  it('reads every item of a query that DynamoDB answers in several pages', async () => {
+    const client = await dynaliteClient();
+    const store = new DynamoStore('test', client);
+    // DynamoDB ends a page after 1 MB; these episodes take about 1.2 MB.
+    const large = Array.from({ length: 300 }, (_, i) => ({
+      ...episodes[0]!,
+      id: `p${String(i).padStart(3, '0')}`,
+      description: 'x'.repeat(4000),
+    }));
+    await store.putEpisodes(large);
+    let queries = 0;
+    observeRequests(client, (input) => {
+      if ('KeyConditionExpression' in input) queries++;
+    });
+    const listed = await store.listEpisodes('s1');
+    expect(queries).toBeGreaterThan(1);
+    expect(listed.map((e) => e.id)).toEqual(large.map((e) => e.id));
+  });
+});
+
+describe('DynamoStore batch writes', () => {
+  const batchRequests = (input: Record<string, unknown>) =>
+    (input.RequestItems as Record<string, { PutRequest: { Item: { SK: string } } }[]>).test!;
+
+  it('writes the items DynamoDB left unprocessed again after a pause', async () => {
+    vi.useFakeTimers();
+    try {
+      const batches: string[][] = [];
+      const store = new DynamoStore(
+        'test',
+        offlineClient((input) => {
+          const requests = batchRequests(input);
+          batches.push(requests.map((r) => r.PutRequest.Item.SK));
+          // throttled: the first batch writes only its first item
+          return batches.length === 1 ? { UnprocessedItems: { test: requests.slice(1) } } : {};
+        }),
+      );
+      const written = store.putEpisodes(episodes.slice(0, 3));
+      await vi.advanceTimersByTimeAsync(49);
+      expect(batches).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await written;
+      expect(batches).toEqual([
+        ['e0', 'e1', 'e2'],
+        ['e1', 'e2'],
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('fails when DynamoDB keeps leaving items unprocessed', async () => {
+    vi.useFakeTimers();
+    try {
+      let attempts = 0;
+      const store = new DynamoStore(
+        'test',
+        offlineClient((input) => {
+          attempts++;
+          return { UnprocessedItems: { test: batchRequests(input) } };
+        }),
+      );
+      const result = store.putEpisodes(episodes.slice(0, 1)).catch((e: unknown) => e);
+      await vi.runAllTimersAsync();
+      expect(await result).toMatchObject({ message: 'DynamoDB batch write did not complete' });
+      expect(attempts).toBe(8);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

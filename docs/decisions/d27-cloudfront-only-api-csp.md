@@ -14,6 +14,8 @@
 - The CSP is sent as `Content-Security-Policy-Report-Only` until a deployment
   has played an episode with the real Web Playback SDK without violations.
   Enforcing it then means moving it into the policy's security headers.
+- *Update:* a deployment played an episode without violations, so the CSP
+  is now enforced (`Content-Security-Policy`, #98).
 
 **Why.**
 - Called directly, the API skips CloudFront's headers and would trust a

@@ -81,12 +81,11 @@ describe('PodcastStack', () => {
           ContentTypeOptions: Match.anyValue(),
           FrameOptions: Match.objectLike({ FrameOption: 'SAMEORIGIN' }),
           ReferrerPolicy: Match.objectLike({ ReferrerPolicy: 'strict-origin-when-cross-origin' }),
+          // enforced, not only reported
+          ContentSecurityPolicy: { ContentSecurityPolicy: CONTENT_SECURITY_POLICY, Override: true },
         }),
         CustomHeadersConfig: {
-          Items: [
-            { Header: 'Content-Security-Policy-Report-Only', Value: CONTENT_SECURITY_POLICY, Override: true },
-            { Header: 'Permissions-Policy', Value: PERMISSIONS_POLICY, Override: true },
-          ],
+          Items: [{ Header: 'Permissions-Policy', Value: PERMISSIONS_POLICY, Override: true }],
         },
       }),
     });

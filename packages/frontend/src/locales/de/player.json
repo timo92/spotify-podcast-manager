@@ -19,7 +19,8 @@
     "connect": "Spotify Connect",
     "searching": "Suche Geräte…",
     "noDevices": "Keine Geräte. Öffne Spotify auf einem Gerät.",
-    "refresh": "Geräte aktualisieren"
+    "refresh": "Geräte aktualisieren",
+    "unavailable": "„{{device}}“ ist gerade nicht erreichbar. Öffne Spotify dort und versuche es erneut – oder öffne die Folge direkt in Spotify."
   },
   "sdk": {
     "loadFailed": "Spotify-Player konnte nicht geladen werden.",

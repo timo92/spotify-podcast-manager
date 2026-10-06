@@ -1,3 +1,4 @@
+import { deviceUnavailable } from '../../src/errors.js';
 import type { SpotifyAuth } from '../../src/spotify/auth.js';
 import { SCOPES } from '../../src/spotify/client.js';
 import type { SpotifyApi, SpotifyDevice, SpotifyEpisode, SpotifyShow } from '../../src/spotify/types.js';
@@ -84,6 +85,9 @@ function rand(seed: number): number {
   const x = Math.sin(seed) * 10000;
   return x - Math.floor(x);
 }
+
+/** Listed like a phone whose Spotify app iOS suspended: Spotify can't start playback there. */
+const SLEEPING_DEVICE = 'demo-sleeping-phone';
 
 /** Speed-up of the fake playback clock, so episodes "finish" within a minute or two. */
 const FAKE_PLAYBACK_SPEED = 30;
@@ -180,12 +184,16 @@ export class FakeSpotifyApi implements SpotifyApi {
   }
 
   async getDevices(): Promise<SpotifyDevice[]> {
-    return [{ id: 'demo-phone', name: 'Handy (Demo)', type: 'Smartphone', is_active: false }];
+    return [
+      { id: 'demo-phone', name: 'Handy (Demo)', type: 'Smartphone', is_active: false },
+      { id: SLEEPING_DEVICE, name: 'iPhone im Standby (Demo)', type: 'Smartphone', is_active: false },
+    ];
   }
 
   private playback = { episodeId: null as string | null, durationMs: 0, positionMs: 0, paused: true, since: Date.now() };
 
-  async play(episodeId: string, _deviceId: string | undefined, positionMs: number) {
+  async play(episodeId: string, deviceId: string | undefined, positionMs: number) {
+    if (deviceId === SLEEPING_DEVICE) throw deviceUnavailable();
     const ep = await this.getEpisode(episodeId);
     this.playback = { episodeId, durationMs: ep?.duration_ms ?? 0, positionMs, paused: false, since: Date.now() };
   }

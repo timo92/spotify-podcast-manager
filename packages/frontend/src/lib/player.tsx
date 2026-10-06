@@ -3,6 +3,7 @@ import type { EpisodeView } from '@podcast/shared';
 import i18n from '../i18n';
 import { api, ApiError } from './api';
 import { useInvalidateLibrary, useSettings } from './queries';
+import { LISTEN_ON_SPOTIFY } from '../components/SpotifyAttribution';
 import { useToast } from './toast';
 
 /** Where "Abspielen" sends an episode. */
@@ -235,7 +236,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         });
         if (t.kind === 'device') toast({ message: i18n.t('playingOn', { ns: 'player', device: t.name }) });
       } catch (e) {
-        toast({ message: (e as Error).message, tone: 'error' });
+        if (t.kind === 'device' && e instanceof ApiError && e.code === 'device_unavailable') {
+          toast({
+            message: i18n.t('target.unavailable', { ns: 'player', device: t.name }),
+            tone: 'error',
+            action: { label: LISTEN_ON_SPOTIFY, onClick: () => window.open(item.episode.spotifyUrl, '_blank', 'noopener') },
+          });
+        } else {
+          toast({ message: (e as Error).message, tone: 'error' });
+        }
       } finally {
         setBusy(false);
       }

@@ -47,14 +47,17 @@ export function SpotifyAttribution({ href, on = 'surface' }: { href?: string; on
 }
 
 /**
- * Link button back to Spotify, with one of the labels the guidelines allow
- * ("OPEN SPOTIFY", "PLAY ON SPOTIFY", "LISTEN ON SPOTIFY"); kept in English
- * as given there.
+ * Label of links back to Spotify, one of those the guidelines allow ("OPEN
+ * SPOTIFY", "PLAY ON SPOTIFY", "LISTEN ON SPOTIFY"); kept in English as given
+ * there.
  */
+export const LISTEN_ON_SPOTIFY = 'LISTEN ON SPOTIFY';
+
+/** Link button back to Spotify. */
 export function ListenOnSpotify({ href, small }: { href: string; small?: boolean }) {
   return (
     <a className={`btn${small ? ' btn-small' : ''}`} href={href} target="_blank" rel="noopener noreferrer">
-      LISTEN ON SPOTIFY
+      {LISTEN_ON_SPOTIFY}
     </a>
   );
 }

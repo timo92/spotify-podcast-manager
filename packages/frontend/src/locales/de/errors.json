@@ -25,6 +25,7 @@
   "not_configured": "Spotify-Zugangsdaten fehlen: {{detail}}",
   "sync_start_failed": "Der Sync konnte nicht gestartet werden.",
   "no_active_device": "Kein aktives Spotify-Gerät gefunden. Öffne Spotify auf einem Gerät.",
+  "device_unavailable": "Das Gerät ist bei Spotify gerade nicht erreichbar. Öffne Spotify dort und versuche es erneut.",
   "spotify_user_not_allowed": "Dieser Spotify-Account ist nicht in der User-Liste der Spotify-App.",
   "spotify_not_connected": "Spotify ist nicht verbunden.",
   "spotify_reauth": "Spotify-Anmeldung abgelaufen, bitte neu anmelden ({{detail}}).",

@@ -116,6 +116,22 @@ describe('HttpSpotifyApi', () => {
     expect(await api.getPlayingEpisode()).toBeUndefined();
   });
 
+  it('reports a listed device that Spotify cannot reach as device_unavailable', async () => {
+    const store = await storeWithTokens();
+    const notFound = (reason?: string) => response(404, { error: { status: 404, message: 'Device not found', reason } });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(notFound())
+      .mockResolvedValueOnce(notFound())
+      .mockResolvedValueOnce(notFound('NO_ACTIVE_DEVICE'));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    await expect(api.play('ep1', 'phone', 0)).rejects.toMatchObject({ status: 404, code: 'device_unavailable' });
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('device_id')).toBe('phone');
+    // Without a device id, a 404 is not about a device.
+    await expect(api.play('ep1', undefined, 0)).rejects.toMatchObject({ code: 'spotify_error' });
+    await expect(api.play('ep1', undefined, 0)).rejects.toMatchObject({ code: 'no_active_device' });
+  });
+
   it('retries after 429 using Retry-After', async () => {
     const store = await storeWithTokens();
     const fetchMock = vi

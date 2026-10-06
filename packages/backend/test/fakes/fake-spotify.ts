@@ -219,8 +219,8 @@ export class FakeSpotifyApi implements SpotifyApi {
   }
 
   async getPlayingEpisode(): Promise<PlaybackState | undefined> {
-    const { episodeId, positionMs, paused } = this.playbackState();
-    return episodeId ? { episodeId, positionMs, paused, deviceName: this.deviceName } : undefined;
+    const { episodeId, positionMs, durationMs, paused } = this.playbackState();
+    return episodeId ? { episodeId, positionMs, durationMs, paused, deviceName: this.deviceName } : undefined;
   }
 
   /** Current fake playback state (position advances while not paused). */

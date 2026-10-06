@@ -70,6 +70,17 @@ function remoteEpisode(item: PlayableItem, target: PlayTarget): RemoteEpisode {
   };
 }
 
+/**
+ * The browser player's state applied to the shown episode. A state of another
+ * episode (Spotify autoplays the next one, or starts one the app is about to
+ * show) means the shown one stopped; its position is never taken over.
+ */
+function applySdkState(cur: NowPlaying, state: Spotify.PlaybackState): NowPlaying {
+  const track = state.track_window.current_track;
+  if (track && track.uri !== `spotify:episode:${cur.episodeId}`) return cur.paused ? cur : { ...cur, paused: true };
+  return { ...cur, paused: state.paused, positionMs: state.position, durationMs: state.duration || cur.durationMs };
+}
+
 interface PlayerApi {
   target: PlayTarget;
   setTarget: (t: PlayTarget) => void;
@@ -80,6 +91,8 @@ interface PlayerApi {
   togglePause: () => void;
   seekBy: (deltaMs: number) => void;
   seekTo: (ms: number) => void;
+  /** Records that the user marked the shown episode as heard, so it isn't marked again when it ends. */
+  markCompleted: (episodeId: string) => void;
   close: () => void;
 }
 
@@ -241,13 +254,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const still = moved ? 0 : (prev?.still ?? 0) + 1;
       followRef.current = { entry, lastPositionMs: state.positionMs, still };
       const { positionMs, paused, deviceName } = state;
+      // An episode started without a known length (e.g. from a note) gets Spotify's.
+      const durationMs = state.durationMs || entry.durationMs;
       setNowPlaying((shown) => ({
         showId: entry.showId,
         episodeId: entry.episodeId,
         name: entry.name,
         showName: entry.showName,
         imageUrl: entry.imageUrl,
-        durationMs: entry.durationMs,
+        durationMs,
         positionMs,
         paused,
         target: entry.target,
@@ -271,6 +286,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
+  }, []);
+
+  const discardPlayer = useCallback((player: Spotify.Player) => {
+    player.disconnect();
+    if (playerRef.current === player) playerRef.current = null;
+    deviceRef.current = null;
   }, []);
 
   /** Creates the in-browser Spotify device once and resolves with its id. */
@@ -310,26 +331,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       player.addListener('autoplay_failed', () =>
         toast({ message: i18n.t('sdk.autoplayBlocked', { ns: 'player' }), tone: 'error' }),
       );
-      player.addListener('not_ready', () => {
-        deviceRef.current = null;
-      });
+      // An offline device is replaced by a new player on the next play; two
+      // connected players would show up as two devices and report twice.
+      player.addListener('not_ready', () => discardPlayer(player));
       player.addListener('player_state_changed', (state) => {
         const cur = nowRef.current;
         if (!state || !cur || cur.target.kind !== 'browser') return;
-        setNowPlaying({
-          ...cur,
-          paused: state.paused,
-          positionMs: state.position,
-          durationMs: state.duration || cur.durationMs,
-        });
+        setNowPlaying(applySdkState(cur, state));
       });
       return deviceId;
     })();
     deviceRef.current.catch(() => {
+      if (playerRef.current) discardPlayer(playerRef.current);
       deviceRef.current = null;
     });
     return deviceRef.current;
-  }, [toast]);
+  }, [toast, discardPlayer]);
 
   const play = useCallback(
     async (item: PlayableItem, opts: PlayOptions = {}) => {
@@ -375,6 +392,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           target: t,
           completed: item.episode.status === 'COMPLETED',
         });
+        // Played here, it is no longer playback outside the browser to follow.
+        if (t.kind === 'browser') forgetRemoteEpisode(item.episode.id);
         if (t.kind === 'device') {
           rememberRemoteEpisode(remoteEpisode(item, t));
           startFollowing();
@@ -408,17 +427,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const timer = setInterval(() => {
       void playerRef.current?.getCurrentState().then(
         (state) => {
-          if (!state) return;
-          setNowPlaying((cur) =>
-            cur
-              ? {
-                  ...cur,
-                  positionMs: state.position,
-                  paused: state.paused,
-                  durationMs: state.duration || cur.durationMs,
-                }
-              : cur,
-          );
+          if (state) setNowPlaying((cur) => (cur ? applySdkState(cur, state) : cur));
         },
         () => undefined,
       );
@@ -474,6 +483,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const seekBy = useCallback((delta: number) => seekTo((nowRef.current?.positionMs ?? 0) + delta), [seekTo]);
 
+  const markCompleted = useCallback((episodeId: string) => {
+    setNowPlaying((cur) => (cur?.episodeId === episodeId ? { ...cur, completed: true } : cur));
+    forgetRemoteEpisode(episodeId);
+  }, []);
+
   /** Closes the player bar; for playback outside the browser it also stops following that episode. */
   const close = useCallback(() => {
     const cur = nowRef.current;
@@ -487,8 +501,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ target, setTarget, browserSupported, nowPlaying, busy, play, togglePause, seekBy, seekTo, close }),
-    [target, setTarget, browserSupported, nowPlaying, busy, play, togglePause, seekBy, seekTo, close],
+    () => ({
+      target,
+      setTarget,
+      browserSupported,
+      nowPlaying,
+      busy,
+      play,
+      togglePause,
+      seekBy,
+      seekTo,
+      markCompleted,
+      close,
+    }),
+    [target, setTarget, browserSupported, nowPlaying, busy, play, togglePause, seekBy, seekTo, markCompleted, close],
   );
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }

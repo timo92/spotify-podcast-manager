@@ -59,6 +59,7 @@ describe('PlayButton for an episode playing outside the browser', () => {
     vi.spyOn(api, 'playerState').mockResolvedValue({
       episodeId: 'ep-1',
       positionMs: 60_000,
+      durationMs: 20 * 60_000,
       paused,
       deviceName: 'iPhone',
     });

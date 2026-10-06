@@ -12,16 +12,16 @@ const ITEM = { show: show(), episode: episode(1) }; // 20 min
 const MIN = 60_000;
 
 function playing(positionMs: number, paused = false): PlaybackState {
-  return { episodeId: 'ep-1', positionMs, paused, deviceName: 'iPhone' };
+  return { episodeId: 'ep-1', positionMs, durationMs: 20 * MIN, paused, deviceName: 'iPhone' };
 }
 
-function renderPlayer() {
+function renderPlayer(item = ITEM) {
   vi.spyOn(api, 'settings').mockResolvedValue(settings);
   vi.spyOn(api, 'today').mockRejectedValue(new Error('not needed'));
   vi.spyOn(api, 'shows').mockRejectedValue(new Error('not needed'));
   return renderWithProviders(
     <>
-      <PlayButton item={ITEM} />
+      <PlayButton item={item} />
       <PlayerBar />
     </>,
   );
@@ -49,6 +49,16 @@ describe('playback outside the browser', () => {
     state.mockResolvedValue(playing(10.5 * MIN));
     await nextPoll();
     expect(within(await playerBar()).getByText(/10:30 \/ 20:00 · auf iPhone/)).toBeInTheDocument();
+  });
+
+  it('shows the duration Spotify reports for an episode started without one, e.g. from a note', async () => {
+    localStorage.setItem('pm.playTarget', JSON.stringify({ kind: 'app' }));
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    vi.spyOn(api, 'playerState').mockResolvedValue(playing(10 * MIN));
+    renderPlayer({ show: show(), episode: episode(1, { durationMs: 0 }) });
+
+    fireEvent.click(screen.getByRole('button', { name: 'PLAY ON SPOTIFY' }));
+    expect(within(await playerBar()).getByText(/10:00 \/ 20:00 · auf iPhone/)).toBeInTheDocument();
   });
 
   it('stops polling once the position no longer moves, then reads the episode back', async () => {

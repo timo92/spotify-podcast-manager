@@ -280,6 +280,8 @@ export interface ShowDetailResponse {
 export interface PlaybackState {
   episodeId: string;
   positionMs: number;
+  /** Length of the episode as Spotify reports it. */
+  durationMs: number;
   paused: boolean;
   /** Name of the Spotify Connect device, if Spotify reports one. */
   deviceName?: string;

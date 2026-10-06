@@ -162,18 +162,24 @@ describe('HttpSpotifyApi', () => {
           progress_ms: 61_000,
           is_playing: false,
           currently_playing_type: 'episode',
-          item: { id: 'ep1' },
+          item: { id: 'ep1', duration_ms: 1_800_000 },
           device: { name: 'iPhone' },
         }),
       )
       .mockResolvedValueOnce(
-        response(200, { progress_ms: 5_000, is_playing: true, currently_playing_type: 'track', item: { id: 't1' } }),
+        response(200, {
+          progress_ms: 5_000,
+          is_playing: true,
+          currently_playing_type: 'track',
+          item: { id: 't1', duration_ms: 1 },
+        }),
       )
       .mockResolvedValueOnce(response(204));
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     expect(await api.getPlayingEpisode()).toEqual({
       episodeId: 'ep1',
       positionMs: 61_000,
+      durationMs: 1_800_000,
       paused: true,
       deviceName: 'iPhone',
     });

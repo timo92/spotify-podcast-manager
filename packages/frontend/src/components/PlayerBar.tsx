@@ -103,6 +103,7 @@ export function PlayerBar() {
               api
                 .setStatus(np.showId, np.episodeId, 'COMPLETED')
                 .then(() => {
+                  player.markCompleted(np.episodeId);
                   void invalidate();
                   toast({ message: t('episode.done.COMPLETED', { ns: 'common' }), tone: 'success' });
                 })

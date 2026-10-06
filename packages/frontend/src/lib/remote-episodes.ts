@@ -1,4 +1,4 @@
-import type { PlayTarget } from './player';
+import type { PlayTarget } from './player/now-playing';
 import { readStoredJson, writeStored } from './storage';
 
 /**

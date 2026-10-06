@@ -2,7 +2,7 @@ import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
 import { handle } from '@hono/aws-lambda';
 import { createApp } from './app.js';
 import { applyRetention } from './services/retention.js';
-import { SyncService, type SyncOptions } from './services/sync.js';
+import { releaseSyncLease, SyncService, type SyncOptions } from './services/sync.js';
 import { HttpSpotifyApi } from './spotify/client.js';
 import { credentialsFromEnv } from './spotify/credentials.js';
 import { DynamoStore } from './store/dynamo.js';
@@ -55,16 +55,7 @@ export async function syncHandler(event: SyncOptions & { source?: string }) {
     } finally {
       // Free a lease the API acquired for this run, so the UI doesn't show
       // "running" – also when retention failed.
-      if (event.leaseId) {
-        const state = await store.getSyncState();
-        await store.releaseSyncLease(event.leaseId, {
-          ...state,
-          status: 'idle',
-          leaseId: undefined,
-          showId: undefined,
-          message: undefined,
-        });
-      }
+      if (event.leaseId) await releaseSyncLease(store, { ...(await store.getSyncState()), leaseId: event.leaseId });
     }
     return;
   }

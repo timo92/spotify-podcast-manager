@@ -5,6 +5,15 @@ on:
     branches: [main]
   pull_request:
 
+# The checks only read the repository.
+permissions:
+  contents: read
+
+# A new push to a pull request supersedes the run for the previous one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     # Windows too: local development happens there.

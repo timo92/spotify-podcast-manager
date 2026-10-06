@@ -159,6 +159,25 @@ describe('configuration and auth', () => {
     expect(res.headers.Location).toBe('/login?error=state_mismatch');
   });
 
+  it('rejects a callback without an authorization code', async () => {
+    const t = setup();
+    const start = await t.call('GET', '/api/auth/login');
+    const state = new URL(start.headers.Location!).searchParams.get('state');
+    const res = await t.call('GET', `/api/auth/callback?state=${state}`);
+    expect(res.headers.Location).toBe('/login?error=token_exchange_failed');
+    expect(await t.store.getTokens()).toBeUndefined();
+  });
+
+  it('sends the user back to the login page when the login cannot be stored', async () => {
+    const t = setup();
+    t.store.putTokens = async () => {
+      throw new Error('table unavailable');
+    };
+    const res = await login(t);
+    expect(res.status).toBe(302);
+    expect(res.headers.Location).toBe('/login?error=login_failed');
+  });
+
   it('frees the lease when the sync cannot be started, without failing the login', async () => {
     const t = setup({ triggerFails: true });
     const res = await login(t); // first login tries to start the initial import
@@ -168,7 +187,9 @@ describe('configuration and auth', () => {
     expect(state.errorCode).toBe('sync_start_failed');
     expect(state.leaseId).toBeUndefined();
     // the button reports the failure, and nothing stays blocked
-    expect((await t.call('POST', '/api/sync', {})).status).toBe(500);
+    const retry = await t.call('POST', '/api/sync', {});
+    expect(retry.status).toBe(502);
+    expect(retry.body).toMatchObject({ error: 'sync_start_failed' });
     expect((await t.store.getSyncState()).leaseId).toBeUndefined();
   });
 
@@ -226,6 +247,19 @@ describe('configuration and auth', () => {
     const t = setup();
     const res = await t.call('POST', '/api/auth/logout', undefined, { 'content-type': 'text/plain' });
     expect(res.status).toBe(415);
+  });
+
+  it('accepts only the JSON media type itself, not a simple type that mentions it', async () => {
+    const t = setup();
+    // Browsers send text/plain with any parameters without a CORS preflight.
+    const sneaky = await t.call('POST', '/api/auth/logout', undefined, {
+      'content-type': 'text/plain;x=application/json',
+    });
+    expect(sneaky.status).toBe(415);
+    const json = await t.call('POST', '/api/auth/logout', undefined, {
+      'content-type': 'Application/JSON; charset=utf-8',
+    });
+    expect(json.status).not.toBe(415);
   });
 });
 
@@ -291,6 +325,21 @@ describe('library flow', () => {
 
     const history = (await t.call('GET', '/api/history')).body as unknown[];
     expect(history).toHaveLength(8);
+  });
+
+  it('keeps a setting when its new value is invalid', async () => {
+    const t = await ready();
+    await t.call('PUT', '/api/settings', { budgetTolerancePercent: 25, autoCompleteInPlayer: false });
+    const saved = await t.call('PUT', '/api/settings', {
+      budgetTolerancePercent: 'viel',
+      autoCompleteInPlayer: 'false',
+      audioBudgetMinutes: 1000,
+    });
+    expect(saved.body).toMatchObject({
+      budgetTolerancePercent: 25,
+      autoCompleteInPlayer: false,
+      audioBudgetMinutes: 600,
+    });
   });
 
   it('respects the Spotify played-state setting', async () => {
@@ -566,6 +615,23 @@ describe('library flow', () => {
     expect(shows.find((s) => s.id === 'demo-wissensreise')!.summary?.nextEpisode?.id).not.toBe('demo-wissensreise-1');
 
     expect((await t.call('POST', '/api/shows/demo-wissensreise/episodes/nope/refresh')).status).toBe(404);
+  });
+
+  it('updates the show when playing an episode Spotify reports as finished', async () => {
+    const t = await ready();
+    const play = { showId: 'demo-wissensreise', episodeId: 'demo-wissensreise-1', deviceId: 'demo-phone' };
+    const next = async () =>
+      ((await t.call('GET', '/api/shows')).body as Show[]).find((s) => s.id === 'demo-wissensreise')!.summary
+        ?.nextEpisode?.id;
+    await t.call('POST', '/api/player/play', { ...play, fromStart: true });
+    expect(await next()).toBe('demo-wissensreise-1');
+
+    // finished in the Spotify app; playing it here again picks that up
+    const { durationMs } = (await t.call('GET', '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1'))
+      .body as EpisodeView;
+    t.spotify.controlPlayback('seek', durationMs);
+    expect((await t.call('POST', '/api/player/play', play)).body).toMatchObject({ positionMs: 0 });
+    expect(await next()).not.toBe('demo-wissensreise-1');
   });
 
   it('deletes all data', async () => {

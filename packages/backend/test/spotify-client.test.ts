@@ -33,6 +33,16 @@ describe('HttpSpotifyApi', () => {
     expect(fetchMock.mock.calls[0]![1].headers.Authorization).toBe('Bearer old');
   });
 
+  it('never sends the access token to a host other than the Spotify API', async () => {
+    const store = await storeWithTokens();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, { items: [], next: 'https://elsewhere.example/v1/me/shows?offset=1' }));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    await expect(api.getSavedShows()).rejects.toMatchObject({ code: 'spotify_unexpected_response' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes an expired token and keeps a rotated refresh token', async () => {
     const store = await storeWithTokens(Date.now() - 1000);
     const realFetch = globalThis.fetch;
@@ -180,6 +190,63 @@ describe('HttpSpotifyApi', () => {
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     expect((await api.getMe()).id).toBe('me');
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up on rate limits that would outlast the request deadline', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = await storeWithTokens();
+      const fetchMock = vi.fn().mockResolvedValue(response(429, undefined, { 'retry-after': '15' }));
+      const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+      const result = api.getMe().catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(16_000);
+      expect(await result).toMatchObject({
+        code: 'spotify_rate_limited',
+        params: { minutes: 1 },
+      });
+      // one wait of 15 s fits, a second one would not
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits a second when Retry-After is not a number of seconds', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = await storeWithTokens();
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(response(429, undefined, { 'retry-after': 'Wed, 21 Oct 2026 07:28:00 GMT' }))
+        .mockResolvedValueOnce(response(200, { id: 'me' }));
+      const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+      const me = api.getMe();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(600);
+      expect((await me).id).toBe('me');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('aborts a request Spotify does not answer and reports Spotify as unavailable', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = await storeWithTokens();
+      const fetchMock = vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+          }),
+      );
+      const api = new HttpSpotifyApi(store, credentials, fetchMock as unknown as typeof fetch);
+      const result = api.getMe().catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await result).toMatchObject({ code: 'spotify_unavailable' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('stops paging episodes once a known episode shows up', async () => {

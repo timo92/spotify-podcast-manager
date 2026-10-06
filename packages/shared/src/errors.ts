@@ -103,4 +103,5 @@ export type LoginErrorCode =
   | 'invalid_client'
   | 'state_mismatch'
   | 'wrong_account'
-  | 'token_exchange_failed';
+  | 'token_exchange_failed'
+  | 'login_failed';

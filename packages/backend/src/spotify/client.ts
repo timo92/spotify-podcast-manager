@@ -105,6 +105,26 @@ export async function exchangeCode(
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * Time one API call may take, retries and rate-limit waits included. It keeps
+ * a request well inside the API Lambda's 29 s, so the UI gets a translated
+ * error instead of API Gateway's bare 503.
+ */
+const REQUEST_DEADLINE_MS = 20_000;
+
+/** Seconds from a Retry-After header; Spotify sends seconds, anything else counts as 1. */
+function retryAfterSeconds(header: string | null): number {
+  const seconds = Number(header ?? '1');
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : 1;
+}
+
+const unavailable = () =>
+  new ApiError(
+    StatusCodes.BAD_GATEWAY,
+    'spotify_unavailable',
+    'Spotify antwortet nicht – bitte später erneut versuchen.',
+  );
+
+/**
  * Thin, typed wrapper around the Spotify Web API.
  *
  * Only documented, non-deprecated endpoints are used. Notes on the February
@@ -165,10 +185,17 @@ export class HttpSpotifyApi implements SpotifyApi {
 
   private async request<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T | undefined> {
     const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${API}${pathOrUrl}`;
+    // Paging links come from responses; the bearer token must not follow one elsewhere.
+    if (!url.startsWith(`${API}/`)) {
+      throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', `Unerwartete URL: ${url}`, {
+        detail: url,
+      });
+    }
+    const deadline = Date.now() + REQUEST_DEADLINE_MS;
     let refreshed = false;
     for (let attempt = 0; attempt < 5; attempt++) {
       const token = await this.validToken();
-      const res = await this.fetchImpl(url, {
+      const res = await this.fetchUntil(deadline, url, {
         method,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -189,8 +216,9 @@ export class HttpSpotifyApi implements SpotifyApi {
         continue;
       }
       if (res.status === StatusCodes.TOO_MANY_REQUESTS) {
-        const retryAfter = Number(res.headers.get('retry-after') ?? '1');
-        if (retryAfter > 20) {
+        const retryAfter = retryAfterSeconds(res.headers.get('retry-after'));
+        const waitMs = (retryAfter + 0.5) * 1000;
+        if (Date.now() + waitMs > deadline) {
           throw new ApiError(
             StatusCodes.TOO_MANY_REQUESTS,
             'spotify_rate_limited',
@@ -198,7 +226,7 @@ export class HttpSpotifyApi implements SpotifyApi {
             { minutes: Math.ceil(retryAfter / 60) },
           );
         }
-        await sleep((retryAfter + 0.5) * 1000);
+        await sleep(waitMs);
         continue;
       }
       if (res.status >= StatusCodes.INTERNAL_SERVER_ERROR && attempt < 2) {
@@ -241,11 +269,21 @@ export class HttpSpotifyApi implements SpotifyApi {
         { status: res.status, detail: message },
       );
     }
-    throw new ApiError(
-      StatusCodes.BAD_GATEWAY,
-      'spotify_unavailable',
-      'Spotify antwortet nicht – bitte später erneut versuchen.',
-    );
+    throw unavailable();
+  }
+
+  /** `fetch` that is aborted at `deadline`; a request Spotify doesn't answer counts as Spotify being unavailable. */
+  private async fetchUntil(deadline: number, url: string, init: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(0, deadline - Date.now()));
+    try {
+      return await this.fetchImpl(url, { ...init, signal: controller.signal });
+    } catch (e) {
+      if (controller.signal.aborted) throw unavailable();
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async getMe() {

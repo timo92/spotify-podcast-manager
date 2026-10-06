@@ -1,7 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   buildToday,
-  DEFAULT_SETTINGS,
   type ApiErrorBody,
   type AppStatus,
   type ErrorCode,
@@ -18,17 +17,18 @@ import { Hono, type Context } from 'hono';
 import { compress } from 'hono/compress';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { StatusCodes } from 'http-status-codes';
-import { ApiError, badRequest, notFound, unauthorized } from './errors.js';
+import { ApiError, badRequest, unauthorized } from './errors.js';
 import { LibraryService } from './services/library.js';
 import { NoteService } from './services/notes.js';
 import { PlaybackService } from './services/playback.js';
+import { SettingsService } from './services/settings.js';
 import { PlanService, validTimeZone } from './services/plan.js';
-import { acquireSyncLease, releaseSyncLease, toEpisode, type SyncOptions } from './services/sync.js';
+import { acquireSyncLease, releaseSyncLease, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
 import { SCOPES } from './spotify/client.js';
 import type { SpotifyCredentialsProvider } from './spotify/credentials.js';
 import type { SpotifyApi } from './spotify/types.js';
-import type { SpotifyTokens, Store } from './store/types.js';
+import type { Store } from './store/types.js';
 
 export interface AppDeps {
   store: Store;
@@ -44,6 +44,8 @@ export interface AppDeps {
   publicUrl?: string;
 }
 
+type SpotifyLogin = Awaited<ReturnType<SpotifyAuth['login']>>;
+
 const SESSION_COOKIE = 'pm_session';
 const STATE_COOKIE = 'pm_oauth_state';
 const SESSION_DAYS = 90;
@@ -52,6 +54,16 @@ const SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60;
 /** Endpoints reachable without a session. */
 const PUBLIC_PATHS = new Set(['/api/status', '/api/auth/login', '/api/auth/callback', '/api/auth/logout']);
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * Whether the request body is declared as JSON. Compares the media type itself:
+ * browsers send `text/plain` with arbitrary parameters cross-site without a
+ * preflight, so a substring match would let such a request through.
+ */
+function isJsonRequest(c: Context): boolean {
+  const mediaType = (c.req.header('content-type') ?? '').split(';')[0] ?? '';
+  return mediaType.trim().toLowerCase() === 'application/json';
+}
 
 function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);
@@ -78,6 +90,7 @@ export function createApp(deps: AppDeps) {
   const planner = new PlanService(store, library);
   const notes = new NoteService(store, library, deps.spotify);
   const playback = new PlaybackService(store, library, deps.spotify);
+  const settingsService = new SettingsService(store, library);
   const app = new Hono();
 
   const baseUrl = (c: Context) => {
@@ -115,13 +128,11 @@ export function createApp(deps: AppDeps) {
     try {
       await deps.triggerSync({ ...opts, leaseId: lease.leaseId });
     } catch (e) {
+      console.error('Sync could not be started', e);
       // Nothing will run under this lease, so free it instead of blocking syncs.
-      await releaseSyncLease(
-        store,
-        lease,
-        new ApiError(StatusCodes.BAD_GATEWAY, 'sync_start_failed', 'Sync konnte nicht gestartet werden.'),
-      );
-      throw e;
+      const failure = new ApiError(StatusCodes.BAD_GATEWAY, 'sync_start_failed', 'Sync konnte nicht gestartet werden.');
+      await releaseSyncLease(store, lease, failure);
+      throw failure;
     }
     return lease;
   }
@@ -133,7 +144,7 @@ export function createApp(deps: AppDeps) {
   app.use('/api/*', async (c, next) => {
     c.header('Cache-Control', 'no-store');
     // Simple CSRF guard: cross-site forms cannot send JSON without a CORS preflight.
-    if (MUTATING_METHODS.has(c.req.method) && !(c.req.header('content-type') ?? '').includes('application/json')) {
+    if (MUTATING_METHODS.has(c.req.method) && !isJsonRequest(c)) {
       throw new ApiError(
         StatusCodes.UNSUPPORTED_MEDIA_TYPE,
         'unsupported_media_type',
@@ -205,15 +216,27 @@ export function createApp(deps: AppDeps) {
     // Spotify's own OAuth error is passed on as it is; the login page explains the ones it knows.
     if (error) return redirectError(error);
     if (!expected || !state || !safeEqual(expected, state)) return fail('state_mismatch');
+    if (!code) return fail('token_exchange_failed');
 
-    let login: { tokens: SpotifyTokens; user: { id: string; display_name?: string | null } };
+    let login: SpotifyLogin;
     try {
-      login = await auth.login(await deps.credentials.get(), code ?? '', redirectUri(c));
+      login = await auth.login(await deps.credentials.get(), code, redirectUri(c));
     } catch (e) {
       console.error('OAuth callback failed', e);
       return fail(e instanceof ApiError ? e.code : 'token_exchange_failed');
     }
-    const { tokens, user } = login;
+    // The callback is a page navigation: a failure must land on the login page, not show JSON.
+    try {
+      return await completeLogin(c, login);
+    } catch (e) {
+      console.error('Login could not be stored', e);
+      return fail('login_failed');
+    }
+  });
+
+  /** Binds the owner, stores the tokens, opens a session and starts the first import. */
+  async function completeLogin(c: Context, { tokens, user }: SpotifyLogin) {
+    const fail = (code: LoginErrorCode) => c.redirect(`/login?error=${code}`);
 
     // The first account that logs in becomes the owner. Only accounts listed under
     // "User Management" of the Spotify app can log in at all (development mode).
@@ -247,7 +270,7 @@ export function createApp(deps: AppDeps) {
     // the user can start the import again.
     if (firstRun) await startSync({}).catch((e: unknown) => console.error('Initial sync could not start', e));
     return c.redirect(firstRun ? '/?welcome=1' : '/');
-  });
+  }
 
   app.post('/api/auth/logout', async (c) => {
     const id = getCookie(c, SESSION_COOKIE);
@@ -384,35 +407,7 @@ export function createApp(deps: AppDeps) {
 
   app.get('/api/settings', async (c) => c.json(await store.getSettings()));
 
-  app.put('/api/settings', async (c) => {
-    const input = await readBody<Settings>(c);
-    const current = await store.getSettings();
-    const num = (v: unknown, min: number, max: number, fallback: number) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
-    };
-    const next: Settings = {
-      audioBudgetMinutes: num(
-        input.audioBudgetMinutes ?? current.audioBudgetMinutes,
-        0,
-        600,
-        current.audioBudgetMinutes,
-      ),
-      budgetTolerancePercent: num(input.budgetTolerancePercent ?? current.budgetTolerancePercent, 0, 100, 10),
-      newWindowDays: num(input.newWindowDays ?? current.newWindowDays, 1, 90, current.newWindowDays),
-      useSpotifyPlayedState: Boolean(input.useSpotifyPlayedState ?? current.useSpotifyPlayedState),
-      autoCompleteInPlayer: Boolean(input.autoCompleteInPlayer ?? current.autoCompleteInPlayer),
-      categories: Array.isArray(input.categories)
-        ? [...new Set(input.categories.map((cat) => String(cat).trim()).filter(Boolean))].slice(0, 50)
-        : current.categories,
-    };
-    if (!next.categories.length) next.categories = DEFAULT_SETTINGS.categories;
-    await store.putSettings(next);
-    if (next.newWindowDays !== current.newWindowDays || next.useSpotifyPlayedState !== current.useSpotifyPlayedState) {
-      await library.recomputeAll();
-    }
-    return c.json(next);
-  });
+  app.put('/api/settings', async (c) => c.json(await settingsService.save(await readBody<Settings>(c))));
 
   // ---------------------------------------------------------------- player
 
@@ -443,23 +438,12 @@ export function createApp(deps: AppDeps) {
       positionMs?: number;
     }>(c);
     if (!showId || !episodeId) throw badRequest('episode_required', 'showId und episodeId sind erforderlich');
-    const cached = await store.getEpisode(showId, episodeId);
-    if (!cached) throw notFound('episode_not_found', 'Folge nicht gefunden');
-
-    // Fetch the episode fresh so we resume where Spotify left off.
-    const spotify = deps.spotify();
-    const fresh = await spotify.getEpisode(episodeId);
-    let positionMs = 0;
-    if (fresh) {
-      const ep = toEpisode(fresh, showId, cached.firstSeenAt, new Date().toISOString());
-      await store.putEpisodes([ep]);
-      if (!fromStart && ep.resumePoint && !ep.resumePoint.fullyPlayed) positionMs = ep.resumePoint.resumePositionMs;
-    }
-    if (typeof requested === 'number' && Number.isFinite(requested) && requested >= 0) {
-      positionMs = Math.min(requested, Math.max(0, cached.durationMs - 1000));
-    }
-    await spotify.play(episodeId, deviceId || undefined, positionMs);
-    return c.json({ ok: true, positionMs, durationMs: cached.durationMs });
+    const started = await playback.play(showId, episodeId, {
+      deviceId: typeof deviceId === 'string' && deviceId ? deviceId : undefined,
+      fromStart: fromStart === true,
+      positionMs: typeof requested === 'number' ? requested : undefined,
+    });
+    return c.json({ ok: true, ...started });
   });
 
   // ------------------------------------------------------------------ data

@@ -44,7 +44,8 @@ async function triggerSync(opts: SyncOptions) {
   // Fire and forget, like the async Lambda invocation in AWS.
   void new SyncService(store, spotify())
     .run(opts)
-    .then((s) => console.log('[sync]', s.status, s.message ?? s.error ?? ''));
+    .then((s) => console.log('[sync]', s.status, s.message ?? s.error ?? ''))
+    .catch((e: unknown) => console.error('[sync] failed', e));
 }
 
 const app = createApp({

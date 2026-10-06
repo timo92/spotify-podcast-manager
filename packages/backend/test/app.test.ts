@@ -168,7 +168,9 @@ describe('configuration and auth', () => {
     expect(state.errorCode).toBe('sync_start_failed');
     expect(state.leaseId).toBeUndefined();
     // the button reports the failure, and nothing stays blocked
-    expect((await t.call('POST', '/api/sync', {})).status).toBe(500);
+    const retry = await t.call('POST', '/api/sync', {});
+    expect(retry.status).toBe(502);
+    expect(retry.body).toMatchObject({ error: 'sync_start_failed' });
     expect((await t.store.getSyncState()).leaseId).toBeUndefined();
   });
 

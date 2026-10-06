@@ -125,13 +125,11 @@ export function createApp(deps: AppDeps) {
     try {
       await deps.triggerSync({ ...opts, leaseId: lease.leaseId });
     } catch (e) {
+      console.error('Sync could not be started', e);
       // Nothing will run under this lease, so free it instead of blocking syncs.
-      await releaseSyncLease(
-        store,
-        lease,
-        new ApiError(StatusCodes.BAD_GATEWAY, 'sync_start_failed', 'Sync konnte nicht gestartet werden.'),
-      );
-      throw e;
+      const failure = new ApiError(StatusCodes.BAD_GATEWAY, 'sync_start_failed', 'Sync konnte nicht gestartet werden.');
+      await releaseSyncLease(store, lease, failure);
+      throw failure;
     }
     return lease;
   }

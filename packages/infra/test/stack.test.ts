@@ -130,6 +130,18 @@ describe('PodcastStack', () => {
     expect(create).toContain('/PodcastCockpit/test/spotify-client-secret');
     // CloudFormation never manages the value itself.
     template.resourceCountIs('AWS::SSM::Parameter', 0);
+    // Stack tags don't reach a resource created by an SDK call, so it is tagged there.
+    const call = JSON.parse(Object.values(resources)[0]!.Properties.Create) as { parameters: { Tags: unknown } };
+    expect(call.parameters.Tags).toEqual([
+      { Key: 'app', Value: 'podcast-cockpit' },
+      { Key: 'stage', Value: 'test' },
+      { Key: 'managed-by', Value: 'cdk' },
+    ]);
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([Match.objectLike({ Action: Match.arrayWith(['ssm:AddTagsToResource']) })]),
+      },
+    });
     const reads = Object.values(template.findResources('AWS::IAM::Policy')).filter((p) => {
       const json = JSON.stringify(p);
       return json.includes(':parameter/PodcastCockpit/test/spotify-client-secret') && json.includes('ssm:GetParameter');

@@ -7,6 +7,7 @@ import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction, OutputFormat, type NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -18,6 +19,7 @@ import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import { SPOTIFY_CLIENT_SECRET_PLACEHOLDER } from '@podcast/shared';
+import { resourceTags } from './config.js';
 import type { Construct } from 'constructs';
 
 const ROOT = join(import.meta.dirname, '../../..');
@@ -114,6 +116,8 @@ export class PodcastStack extends Stack {
           Type: 'SecureString',
           Value: SPOTIFY_CLIENT_SECRET_PLACEHOLDER,
           Description: 'Client secret of the Spotify developer app (set it with `pnpm run secret:put`)',
+          // Stack tags don't reach a resource created by an SDK call.
+          Tags: Object.entries(resourceTags(props)).map(([Key, Value]) => ({ Key, Value })),
         },
         physicalResourceId: cr.PhysicalResourceId.of(clientSecretParameter),
         // Keep an existing value, e.g. when the stack is recreated.
@@ -125,7 +129,13 @@ export class PodcastStack extends Stack {
         parameters: { Name: clientSecretParameter },
         ignoreErrorCodesMatching: 'ParameterNotFound',
       },
-      policy: cr.AwsCustomResourcePolicy.fromSdkCalls({ resources: [clientSecretArn] }),
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          // Creating a parameter with tags also needs the tagging permission.
+          actions: ['ssm:PutParameter', 'ssm:AddTagsToResource', 'ssm:DeleteParameter'],
+          resources: [clientSecretArn],
+        }),
+      ]),
       installLatestAwsSdk: false,
       logGroup: helperLogs,
     });

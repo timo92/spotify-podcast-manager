@@ -90,8 +90,13 @@ describe('PodcastStack', () => {
 
   it("keeps the functions' logs for a month", () => {
     const groups = Object.values(template.findResources('AWS::Logs::LogGroup'));
-    expect(groups.length).toBeGreaterThanOrEqual(2);
+    expect(groups.length).toBeGreaterThanOrEqual(3);
     for (const group of groups) expect(group.Properties.RetentionInDays).toBe(30);
+    // Every function, CDK's deployment helpers included, logs into one of them –
+    // except the bucket's auto-delete handler, which CDK offers no setting for.
+    const functions = template.findResources('AWS::Lambda::Function');
+    const withoutGroup = Object.keys(functions).filter((id) => !functions[id]?.Properties.LoggingConfig?.LogGroup);
+    expect(withoutGroup).toEqual([expect.stringMatching(/^CustomS3AutoDeleteObjects/)]);
   });
 
   it('wires the API and sync Lambdas', () => {

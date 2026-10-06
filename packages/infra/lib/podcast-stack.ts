@@ -86,6 +86,13 @@ export class PodcastStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
+    // Logs of CDK's helper functions (parameter creation, site deployment);
+    // without a group of their own they would be kept forever.
+    const helperLogs = new logs.LogGroup(this, 'DeploymentHelperLogs', {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
     // ------------------------------------------------------ spotify secret
 
     // CloudFormation cannot create SecureString parameters, so a custom resource
@@ -120,6 +127,7 @@ export class PodcastStack extends Stack {
       },
       policy: cr.AwsCustomResourcePolicy.fromSdkCalls({ resources: [clientSecretArn] }),
       installLatestAwsSdk: false,
+      logGroup: helperLogs,
     });
 
     // ------------------------------------------------------------ lambdas
@@ -292,6 +300,7 @@ function handler(event) {
       cacheControl: [s3deploy.CacheControl.fromString('public, max-age=31536000, immutable')],
       prune: false,
       memoryLimit: 512,
+      logGroup: helperLogs,
     });
     new s3deploy.BucketDeployment(this, 'DeploySite', {
       sources: [s3deploy.Source.asset(frontendDir, { exclude: ['assets/*'] })],
@@ -301,6 +310,7 @@ function handler(event) {
       distribution,
       distributionPaths: ['/*'],
       memoryLimit: 512,
+      logGroup: helperLogs,
     });
 
     // ---------------------------------------------------------------- dns

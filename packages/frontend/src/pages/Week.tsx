@@ -81,6 +81,7 @@ export function WeekPage() {
 
       {(week.isLoading || schedule.isLoading) && <Spinner />}
       {week.error && <ErrorBox error={week.error} onRetry={() => void week.refetch()} />}
+      {!week.error && schedule.error && <ErrorBox error={schedule.error} onRetry={() => void schedule.refetch()} />}
 
       {schedule.data && rules.length === 0 && (
         <Empty title={t('week.emptyTitle')}>

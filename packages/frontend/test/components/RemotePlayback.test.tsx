@@ -95,6 +95,19 @@ describe('playback outside the browser', () => {
     expect(loadRemoteEpisodes()).toEqual([]);
   });
 
+  it('explains when marking an episode heard at its end fails', async () => {
+    rememberRemoteEpisode({ ...entryFor(), startedAt: Date.now() - 30 * MIN });
+    const state = vi.spyOn(api, 'playerState').mockResolvedValue(playing(20 * MIN - 30_000));
+    vi.spyOn(api, 'refreshEpisode').mockResolvedValue(episode(1, { status: 'IN_PROGRESS' }));
+    vi.spyOn(api, 'setStatus').mockRejectedValue(new Error('Server nicht erreichbar'));
+    renderPlayer();
+    await playerBar();
+
+    state.mockResolvedValue(null);
+    await nextPoll();
+    expect(await screen.findByText('Server nicht erreichbar')).toBeInTheDocument();
+  });
+
   it('shows the read-back position once Spotify no longer reports the paused playback', async () => {
     rememberRemoteEpisode({ ...entryFor(), startedAt: Date.now() - 30 * MIN });
     const state = vi.spyOn(api, 'playerState').mockResolvedValue(playing(29_000));

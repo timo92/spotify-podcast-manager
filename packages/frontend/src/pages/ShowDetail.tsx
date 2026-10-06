@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import type { EpisodeView, ShowSettingsPatch } from '@podcast/shared';
+import type { EpisodeView, Show, ShowSettingsPatch } from '@podcast/shared';
 import { PlayButton } from '../components/EpisodeCard';
 import { EpisodeRow } from '../components/EpisodeRow';
 import { EpisodeSheet } from '../components/EpisodeSheet';
@@ -73,12 +73,28 @@ export function ShowDetailPage() {
   const counts = Object.fromEntries(FILTERS.map((f) => [f.value, all.filter(f.test).length]));
   const showId = show.id;
 
+  /**
+   * Shows the change at once, so a second click builds on the first (e.g. two
+   * categories in a row), and restores the previous state if saving fails.
+   */
   async function update(patch: ShowSettingsPatch) {
+    const key = qk.show(showId);
+    const before = qc.getQueryData<typeof detail.data>(key);
+    const withShow = (change: (cur: Show) => Show) => (old: typeof detail.data) =>
+      old ? { ...old, show: change(old.show) } : old;
+    qc.setQueryData(
+      key,
+      withShow((cur) => ({ ...cur, ...patch })),
+    );
     try {
       const updated = await api.updateShow(showId, patch);
-      qc.setQueryData(qk.show(showId), (old: typeof detail.data) => (old ? { ...old, show: updated } : old));
+      qc.setQueryData(
+        key,
+        withShow(() => updated),
+      );
       await invalidate();
     } catch (e) {
+      qc.setQueryData(key, before);
       toast({ message: (e as Error).message, tone: 'error' });
     }
   }

@@ -37,7 +37,8 @@ export function PlanItemRow({
   // A manual podcast without a chosen episode: offer the choice right here.
   const canPick = !ep && item.show.mode === 'MANUAL';
   const done = item.state === 'done';
-  const open = ep && (item.state === 'next' || item.state === 'upcoming');
+  // A paused podcast keeps its slot, shown dimmed and without play actions.
+  const open = ep && !item.paused && (item.state === 'next' || item.state === 'upcoming');
   const started = ep && ep.remainingMs < ep.durationMs && !done;
   const showPath = `/podcasts/${encodeURIComponent(item.show.id)}`;
   const emptyText =
@@ -48,7 +49,7 @@ export function PlanItemRow({
         : t('slot.allHeard');
 
   return (
-    <li className={cx(styles.item, done && styles.isDone)}>
+    <li className={cx(styles.item, done && styles.isDone, item.paused && styles.isPaused)}>
       <span className={styles.part}>{dayPartLabel(item.part)}</span>
       {/* Same target as the name; hidden from assistive tech and the tab order to avoid a duplicate link. */}
       <Link to={showPath} className={styles.cover} tabIndex={-1} aria-hidden>
@@ -77,6 +78,7 @@ export function PlanItemRow({
             {item.state === 'upcoming' && ` · ${t('slot.expected')}`}
           </span>
         )}
+        {item.paused && <span className="muted tiny">{t('ui.paused', { ns: 'common' })}</span>}
       </div>
       <div className={styles.actions}>
         {done && (

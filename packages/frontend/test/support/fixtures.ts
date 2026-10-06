@@ -50,5 +50,13 @@ export function episode(index: number, overrides: Partial<EpisodeView> = {}): Ep
 }
 
 export function plannedItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
-  return { ruleId: 'r1', part: 'EVENING', show: showLite(), episode: episode(1), state: 'next', ...overrides };
+  return {
+    ruleId: 'r1',
+    part: 'EVENING',
+    show: showLite(),
+    episode: episode(1),
+    state: 'next',
+    paused: false,
+    ...overrides,
+  };
 }

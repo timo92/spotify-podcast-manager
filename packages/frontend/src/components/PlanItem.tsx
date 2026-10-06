@@ -4,7 +4,7 @@ import type { PlannedItem } from '@podcast/shared';
 import { Link } from 'react-router-dom';
 import { useEpisodeActions } from '../lib/actions';
 import { cx } from '../lib/cx';
-import { dayPartLabel, formatDuration } from '../lib/format';
+import { dayPartLabel, formatDuration, formatReleaseDate } from '../lib/format';
 import { PlayButton } from './EpisodeCard';
 import { EpisodePickerSheet } from './EpisodePicker';
 import { Icon } from './Icon';
@@ -68,6 +68,7 @@ export function PlanItemRow({
         {ep && (
           <span className="muted tiny">
             {item.show.mode === 'SEQUENTIAL' && `${t('episode.number', { ns: 'common', index: ep.index })} · `}
+            {formatReleaseDate(ep.releaseDate)} ·{' '}
             {done
               ? t('slot.heard')
               : started

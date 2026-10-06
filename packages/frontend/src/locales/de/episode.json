@@ -2,7 +2,9 @@
   "play": {
     "play": "Abspielen",
     "playing": "Läuft",
-    "fromStart": "Von vorne"
+    "fromStart": "Von vorne",
+    "playingOn": "Läuft auf {{device}}",
+    "playingInSpotify": "Läuft in Spotify"
   },
   "card": {
     "details": "Details zu {{name}}",

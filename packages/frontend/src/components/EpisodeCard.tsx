@@ -26,28 +26,40 @@ export function PlayButton({
 }) {
   const { t } = useTranslation('episode');
   const player = usePlayer();
-  const playing = player.nowPlaying?.episodeId === item.episode.id;
+  const np = player.nowPlaying;
+  const playing = np?.episodeId === item.episode.id;
+  // Playing outside the browser can't be paused from here, so it is only shown.
+  if (playing && np.target.kind !== 'browser' && !np.paused) {
+    const device = np.deviceName ?? (np.target.kind === 'device' ? np.target.name : undefined);
+    const status = device ? t('play.playingOn', { device }) : t('play.playingInSpotify');
+    return compact ? (
+      <IconButton icon="device" label={status} variant={primary ? 'primary' : 'soft'} disabled />
+    ) : (
+      <button type="button" className={cx('btn btn-primary', styles.playingElsewhere)} title={status} disabled>
+        <Icon name="device" size={18} />
+        <span className="ellipsis">{status}</span>
+      </button>
+    );
+  }
+  // Only the browser player can be paused from here; paused elsewhere, the button plays again.
+  const inBrowser = playing && np.target.kind === 'browser';
+  const onClick = () => (inBrowser ? player.togglePause() : void player.play(item));
   // "PLAY ON SPOTIFY" stays in English, as the Spotify design guidelines give it.
-  const label = player.target.kind === 'app' ? 'PLAY ON SPOTIFY' : playing ? t('play.playing') : t('play.play');
+  const label = player.target.kind === 'app' ? 'PLAY ON SPOTIFY' : inBrowser ? t('play.playing') : t('play.play');
   if (compact) {
     return (
       <IconButton
-        icon={playing && !player.nowPlaying?.paused ? 'pause' : 'play'}
+        icon={inBrowser && !np.paused ? 'pause' : 'play'}
         label={label}
         variant={primary ? 'primary' : 'soft'}
         disabled={player.busy}
-        onClick={() => (playing ? player.togglePause() : void player.play(item))}
+        onClick={onClick}
       />
     );
   }
   return (
-    <button
-      type="button"
-      className="btn btn-primary"
-      disabled={player.busy}
-      onClick={() => (playing ? player.togglePause() : void player.play(item))}
-    >
-      <Icon name={player.target.kind === 'app' ? 'external' : playing && !player.nowPlaying?.paused ? 'pause' : 'play'} size={18} />
+    <button type="button" className="btn btn-primary" disabled={player.busy} onClick={onClick}>
+      <Icon name={player.target.kind === 'app' ? 'external' : inBrowser && !np.paused ? 'pause' : 'play'} size={18} />
       {label}
     </button>
   );

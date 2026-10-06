@@ -35,4 +35,14 @@ describe('ShowsPage', () => {
     expect(await screen.findByText('Reihenfolge nicht gespeichert')).toBeInTheDocument();
     expect(names()).toEqual(['Alpha', 'Beta']);
   });
+
+  it('puts a choice on a review card back when saving it fails', async () => {
+    vi.spyOn(api, 'settings').mockResolvedValue(settings);
+    vi.spyOn(api, 'shows').mockResolvedValue([show({ needsReview: true, mode: 'SEQUENTIAL' })]);
+    vi.spyOn(api, 'updateShow').mockRejectedValue(new Error('Nicht gespeichert'));
+    const { user } = renderWithProviders(<ShowsPage />, { path: '/podcasts?pruefen=1' });
+    await user.click(await screen.findByRole('radio', { name: /Aktualität/ }));
+    expect(await screen.findByText('Nicht gespeichert')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Reihenfolge/ })).toHaveAttribute('aria-checked', 'true');
+  });
 });

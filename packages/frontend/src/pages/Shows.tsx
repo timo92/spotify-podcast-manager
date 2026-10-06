@@ -257,11 +257,13 @@ function ReviewCard({ show, categories }: { show: Show; categories: string[] }) 
   const [mode, setMode] = useState(show.mode);
   const [cats, setCats] = useState(show.categories);
 
-  async function save(patch: Parameters<typeof api.updateShow>[1]) {
+  /** Saves a choice; `revert` puts back one the card already shows if saving fails. */
+  async function save(patch: Parameters<typeof api.updateShow>[1], revert?: () => void) {
     try {
       await api.updateShow(show.id, patch);
       await invalidate();
     } catch (e) {
+      revert?.();
       toast({ message: (e as Error).message, tone: 'error' });
     }
   }
@@ -280,8 +282,9 @@ function ReviewCard({ show, categories }: { show: Show; categories: string[] }) 
         value={mode}
         options={modeOptions()}
         onChange={(m) => {
+          const before = mode;
           setMode(m);
-          void save({ mode: m });
+          void save({ mode: m }, () => setMode(before));
         }}
       />
       <div className="muted small">{modeHint(mode)}</div>
@@ -291,9 +294,10 @@ function ReviewCard({ show, categories }: { show: Show; categories: string[] }) 
             key={c}
             active={cats.includes(c)}
             onClick={() => {
+              const before = cats;
               const next = cats.includes(c) ? cats.filter((x) => x !== c) : [...cats, c];
               setCats(next);
-              void save({ categories: next });
+              void save({ categories: next }, () => setCats(before));
             }}
           >
             {c}

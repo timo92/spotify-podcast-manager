@@ -38,7 +38,8 @@ down by the tests, not here; open work lives in GitHub issues.
 Each podcast has exactly one mode.
 
 - **M1** **Latest** (news): the newest episode is suggested until it is heard
-  or skipped; older episodes are not suggested.
+  or skipped; then the newest one still unheard among the recent episodes
+  (the "new" window). Older episodes are not suggested.
 - **M2** **Sequential** (series): a started episode comes first; otherwise the
   first unheard episode after the last finished one. Unheard episodes before
   that point only come back once the end is reached.

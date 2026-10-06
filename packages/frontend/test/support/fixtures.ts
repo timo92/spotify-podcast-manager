@@ -41,6 +41,7 @@ export function episode(index: number, overrides: Partial<EpisodeView> = {}): Ep
     lastSyncedAt: '',
     status: 'UNSEEN',
     statusSource: 'default',
+    isRecent: false,
     isNew: false,
     remainingMs: 20 * 60_000,
     index,

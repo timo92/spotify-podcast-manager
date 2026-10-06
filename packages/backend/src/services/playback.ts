@@ -3,7 +3,7 @@ import { notFound } from '../errors.js';
 import type { SpotifyApi } from '../spotify/types.js';
 import type { Store } from '../store/types.js';
 import type { LibraryService } from './library.js';
-import { episodeChanged, toEpisode } from './sync.js';
+import { refetchEpisode } from './sync.js';
 
 /**
  * Playback outside the browser player (Spotify app, Connect devices): the
@@ -50,14 +50,11 @@ export class PlaybackService {
   private async syncEpisode(spotify: SpotifyApi, showId: string, episodeId: string): Promise<Episode> {
     const cached = await this.store.getEpisode(showId, episodeId);
     if (!cached) throw notFound('episode_not_found');
-    const fresh = await spotify.getEpisode(episodeId);
-    if (!fresh) return cached;
-    const episode = toEpisode(fresh, showId, cached.firstSeenAt, new Date().toISOString());
-    if (episodeChanged(cached, episode)) {
-      await this.store.putEpisodes([episode]);
-      await this.library.recompute(showId);
-    }
-    return episode;
+    const changed = await refetchEpisode(spotify, cached, new Date().toISOString());
+    if (!changed) return cached;
+    await this.store.putEpisodes([changed]);
+    await this.library.recompute(showId);
+    return changed;
   }
 
   /** The episode Spotify plays right now on any device, or null. */

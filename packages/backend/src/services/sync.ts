@@ -98,6 +98,17 @@ export async function releaseSyncLease(store: Store, lease: SyncState & { leaseI
   await store.releaseSyncLease(lease.leaseId, { ...endedState(lease, error), finishedAt: new Date().toISOString() });
 }
 
+/**
+ * Re-reads a stored episode from Spotify; returns the new version only if it
+ * changed (resume point, metadata), undefined otherwise.
+ */
+export async function refetchEpisode(spotify: SpotifyApi, stored: Episode, now: string): Promise<Episode | undefined> {
+  const fresh = await spotify.getEpisode(stored.id);
+  if (!fresh) return undefined;
+  const episode = toEpisode(fresh, stored.showId, stored.firstSeenAt, now);
+  return episodeChanged(stored, episode) ? episode : undefined;
+}
+
 export function pickImage(images: SpotifyImage[] | undefined): string | undefined {
   if (!images?.length) return undefined;
   const sorted = [...images].sort((a, b) => Math.abs((a.width ?? 300) - 300) - Math.abs((b.width ?? 300) - 300));
@@ -309,12 +320,9 @@ export class SyncService {
     // of the current "next" episode explicitly – that's the one that matters.
     const nextId = prev?.summary?.nextEpisode?.id;
     const storedNext = nextId ? known.get(nextId) : undefined;
-    if (!doFull && nextId && storedNext && !episodes.some((e) => e.id === nextId)) {
-      const fresh = await this.spotify.getEpisode(nextId);
-      if (fresh) {
-        const ep = toEpisode(fresh, showId, storedNext.firstSeenAt, nowIso);
-        if (episodeChanged(storedNext, ep)) changed.push(ep);
-      }
+    if (!doFull && storedNext && !episodes.some((e) => e.id === nextId)) {
+      const refreshed = await refetchEpisode(this.spotify, storedNext, nowIso);
+      if (refreshed) changed.push(refreshed);
     }
     if (changed.length) await this.store.putEpisodes(changed);
 

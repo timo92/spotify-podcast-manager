@@ -100,7 +100,7 @@
   "sync": {
     "button": "Mit Spotify synchronisieren",
     "title": "Synchronisieren",
-    "lastSynced": "Zuletzt synchronisiert {{when}}",
+    "lastSynced": "Zuletzt synchronisiert am {{date}}",
     "runningShort": "Sync läuft…",
     "running": "Synchronisiere mit Spotify…",
     "reloadingShow": "Podcast wird neu geladen…",

@@ -128,6 +128,8 @@ Each podcast has exactly one mode.
   the others, and the app stays usable when Spotify is unreachable.
 - **Y3** Podcasts removed from the Spotify library keep their progress but are
   no longer suggested.
+- **Y4** The app shows how long ago the last sync finished, and its exact
+  date and time on request, kept current while the app is open.
 
 ## Privacy and data
 

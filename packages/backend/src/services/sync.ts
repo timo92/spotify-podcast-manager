@@ -235,7 +235,9 @@ export class SyncService {
     let lastError: unknown;
     await mapLimit(saved, 3, async (raw) => {
       try {
-        newEpisodes += await this.syncShow(raw.id, raw, existing.get(raw.id), full, settings, () => ++maxPriority);
+        // Await first: `+=` would read the total before the await and lose the other workers' counts.
+        const added = await this.syncShow(raw.id, raw, existing.get(raw.id), full, settings, () => ++maxPriority);
+        newEpisodes += added;
       } catch (e) {
         // Auth problems affect every show – abort instead of failing 50 times.
         if (e instanceof ApiError && (e.status === StatusCodes.UNAUTHORIZED || e.code === 'spotify_rate_limited'))

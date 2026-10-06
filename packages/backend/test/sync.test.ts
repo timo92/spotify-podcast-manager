@@ -55,4 +55,21 @@ describe('SyncService', () => {
     expect(started).toHaveLength(3); // the three that were running; no new ones
     expect(writesAfterRun).toBe(0);
   });
+
+  it('keeps a priority the user changes while the first import runs', async () => {
+    const { store, spotify } = await connected();
+    const episodes = spotify.getShowEpisodes.bind(spotify);
+    let moved: { id: string; priority: number } | undefined;
+    spotify.getShowEpisodes = async (id, stop) => {
+      const [first] = await store.listShows();
+      if (!moved && first) {
+        moved = { id: first.id, priority: 42 };
+        await store.updateShow(first.id, { priority: 42 });
+      }
+      return episodes(id, stop);
+    };
+    await new SyncService(store, spotify).run();
+    expect(moved).toBeDefined();
+    expect((await store.getShow(moved!.id))!.priority).toBe(42);
+  });
 });

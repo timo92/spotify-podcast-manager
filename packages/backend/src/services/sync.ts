@@ -230,13 +230,18 @@ export class SyncService {
 
     const basePriority = existingList.reduce((m, s) => Math.max(m, s.priority), 0);
     let maxPriority = basePriority;
+    const provisional = new Map<string, number>();
+    const nextPriority = (showId: string) => {
+      provisional.set(showId, ++maxPriority);
+      return maxPriority;
+    };
     let newEpisodes = 0;
     let failed = 0;
     let lastError: unknown;
     await mapLimit(saved, 3, async (raw) => {
       try {
         // Await first: `+=` would read the total before the await and lose the other workers' counts.
-        const added = await this.syncShow(raw.id, raw, existing.get(raw.id), full, settings, () => ++maxPriority);
+        const added = await this.syncShow(raw.id, raw, existing.get(raw.id), full, settings, nextPriority);
         newEpisodes += added;
       } catch (e) {
         // Auth problems affect every show – abort instead of failing 50 times.
@@ -252,9 +257,12 @@ export class SyncService {
     if (failed > 0 && failed === saved.length) throw lastError;
 
     // Newly imported shows: news-like ones first (time-sensitive), then by name.
+    // A show the user has already moved during the import keeps its place.
     const created = (await this.store.listShows()).filter((s) => !existing.has(s.id));
     created.sort((a, b) => Number(b.mode === 'LATEST') - Number(a.mode === 'LATEST') || a.name.localeCompare(b.name));
-    await mapLimit(created, 5, (s, i) => this.store.updateShow(s.id, { priority: basePriority + i + 1 }));
+    await mapLimit(created, 5, async (s, i) => {
+      if (provisional.get(s.id) === s.priority) await this.store.updateShow(s.id, { priority: basePriority + i + 1 });
+    });
 
     return { shows: saved.length, newEpisodes, failed };
   }
@@ -274,7 +282,7 @@ export class SyncService {
     prev: Show | undefined,
     full: boolean,
     settings: Settings,
-    nextPriority: () => number,
+    nextPriority: (showId: string) => number,
   ): Promise<number> {
     const nowIso = new Date().toISOString();
     const known = new Map((await this.store.listEpisodes(showId)).map((e) => [e.id, e]));
@@ -334,7 +342,7 @@ export class SyncService {
         categories: guessCategories(name, description, settings.categories),
         paused: false,
         hiddenFromToday: false,
-        priority: nextPriority(),
+        priority: nextPriority(showId),
         pinnedEpisodeId: null,
         reofferSkipped: false,
         needsReview: true,

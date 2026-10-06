@@ -2,7 +2,9 @@
   "play": {
     "play": "Play",
     "playing": "Playing",
-    "fromStart": "From the start"
+    "fromStart": "From the start",
+    "playingOn": "Playing on {{device}}",
+    "playingInSpotify": "Playing in Spotify"
   },
   "card": {
     "details": "Details of {{name}}",

@@ -25,3 +25,12 @@
     margin-left: auto;
   }
 }
+
+/* "Läuft auf <device>" can be long: it shrinks (with an ellipsis) before the actions next to it do. */
+.playingElsewhere {
+  min-width: 0;
+
+  & svg {
+    flex-shrink: 0;
+  }
+}

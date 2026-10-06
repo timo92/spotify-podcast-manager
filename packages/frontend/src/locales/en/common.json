@@ -100,7 +100,7 @@
   "sync": {
     "button": "Sync with Spotify",
     "title": "Sync",
-    "lastSynced": "Last synced {{when}}",
+    "lastSynced": "Last synced on {{date}}",
     "runningShort": "Syncing…",
     "running": "Syncing with Spotify…",
     "reloadingShow": "Reloading podcast…",

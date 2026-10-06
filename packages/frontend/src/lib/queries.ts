@@ -25,7 +25,9 @@ export function useStatus() {
   return useQuery({
     queryKey: qk.status,
     queryFn: api.status,
-    refetchInterval: (q) => (q.state.data?.sync?.status === 'running' ? 2000 : false),
+    // Fast while a sync runs; otherwise once a minute, so the time since the last
+    // sync stays current and scheduled syncs show up (paused in background tabs).
+    refetchInterval: (q) => (q.state.data?.sync?.status === 'running' ? 2000 : 60_000),
   });
 }
 

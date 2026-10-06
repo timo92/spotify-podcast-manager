@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router-dom';
 import { api } from '../lib/api';
-import { formatDeletionDate, formatRelative, syncText } from '../lib/format';
+import { formatDateTime, formatDeletionDate, formatRelative, syncText } from '../lib/format';
 import { qk, useInvalidateLibrary, useStatus } from '../lib/queries';
 import { cx } from '../lib/cx';
 import { useToast } from '../lib/toast';
@@ -37,7 +37,7 @@ export function SyncButton() {
           .then(() => qc.invalidateQueries({ queryKey: qk.status }))
           .catch((e: Error) => toast({ message: e.message, tone: 'error' }));
       }}
-      title={sync?.lastSuccessAt ? t('sync.lastSynced', { when: formatRelative(sync.lastSuccessAt) }) : t('sync.title')}
+      title={sync?.lastSuccessAt ? t('sync.lastSynced', { date: formatDateTime(sync.lastSuccessAt) }) : t('sync.title')}
       aria-label={t('sync.button')}
     >
       <Icon name="refresh" size={18} />

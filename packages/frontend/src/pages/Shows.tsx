@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -23,10 +23,6 @@ export function ShowsPage() {
   const [reorder, setReorder] = useState(false);
   const [order, setOrder] = useState<Show[] | null>(null);
   const run = useRun();
-
-  useEffect(() => {
-    if (!reorder) setOrder(null);
-  }, [reorder]);
 
   const list = order ?? shows.data ?? [];
   const reviewCount = (shows.data ?? []).filter((s) => s.needsReview).length;
@@ -80,7 +76,11 @@ export function ShowsPage() {
           <button
             type="button"
             className={`btn btn-small${reorder ? ' btn-primary' : ''}`}
-            onClick={() => setReorder((r) => !r)}
+            onClick={() => {
+              // Leaving the reorder mode shows the stored order again.
+              if (reorder) setOrder(null);
+              setReorder(!reorder);
+            }}
           >
             <Icon name="sort" size={18} /> {reorder ? t('ui.done', { ns: 'common' }) : t('list.priority')}
           </button>

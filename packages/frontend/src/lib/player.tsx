@@ -156,10 +156,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const { data: settings } = useSettings();
   const toast = useToast();
   const invalidate = useInvalidateLibrary();
-  const browserSupported = useMemo(detectBrowserSupport, []);
+  const [browserSupported] = useState(detectBrowserSupport);
 
   const [target, setTargetState] = useState<PlayTarget>(() =>
-    loadTarget(detectBrowserSupport() ? { kind: 'browser' } : { kind: 'app' }),
+    loadTarget(browserSupported ? { kind: 'browser' } : { kind: 'app' }),
   );
   const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null);
   const [busy, setBusy] = useState(false);

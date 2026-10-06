@@ -15,7 +15,7 @@ import {
 import { StatusCodes } from 'http-status-codes';
 import { createApp } from '../src/app.js';
 import { ApiError } from '../src/errors.js';
-import { SyncService, type SyncOptions } from '../src/services/sync.js';
+import { acquireSyncLease, STALE_SYNC_MS, SyncService, type SyncOptions } from '../src/services/sync.js';
 import { authorizeUrl } from '../src/spotify/client.js';
 import { staticCredentials, type SpotifyCredentialsProvider } from '../src/spotify/credentials.js';
 import { MemoryStore } from '../src/store/memory.js';
@@ -219,6 +219,18 @@ describe('configuration and auth', () => {
 
     // Afterwards a new sync can start.
     await t.call('POST', '/api/sync', {});
+    expect(t.syncs).toHaveLength(2);
+  });
+
+  it('reports a sync that stopped without finishing as interrupted, and lets a new one start', async () => {
+    const t = setup();
+    await login(t);
+    await t.sync();
+    // a sync Lambda that crashed leaves its lease behind
+    await acquireSyncLease(t.store, { message: 'läuft' }, undefined, new Date(Date.now() - STALE_SYNC_MS - 1000));
+    const status = (await t.call('GET', '/api/status')).body as AppStatus;
+    expect(status.sync).toMatchObject({ status: 'error', errorCode: 'sync_interrupted' });
+    expect((await t.call('POST', '/api/sync', {})).body).toMatchObject({ status: 'running' });
     expect(t.syncs).toHaveLength(2);
   });
 

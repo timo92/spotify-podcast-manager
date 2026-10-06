@@ -31,6 +31,26 @@ export interface SyncOptions {
 export const STALE_SYNC_MS = 16 * 60 * 1000;
 
 /**
+ * The sync state as the UI should see it: a sync still "running" after
+ * STALE_SYNC_MS died without finishing (Lambda timeout or crash). Reported as
+ * interrupted, so the UI doesn't wait for it; the next sync takes the lease over.
+ */
+export function visibleSyncState(state: SyncState, now = new Date()): SyncState {
+  if (state.status !== 'running' || !state.startedAt) return state;
+  if (Date.parse(state.startedAt) > now.getTime() - STALE_SYNC_MS) return state;
+  return {
+    ...state,
+    status: 'error',
+    error: 'Der letzte Sync wurde unterbrochen.',
+    errorCode: 'sync_interrupted',
+    errorParams: undefined,
+    showId: undefined,
+    message: undefined,
+    leaseId: undefined,
+  };
+}
+
+/**
  * Starts a sync lease: only one sync may run at a time, enforced by a
  * conditional write in the store rather than by Lambda reserved concurrency
  * (which new AWS accounts can't spare). Returns the state it wrote (with the

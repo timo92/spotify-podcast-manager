@@ -28,6 +28,7 @@ export interface ErrorParams {
   invalid_status: undefined;
   not_configured: { detail: string };
   sync_start_failed: undefined;
+  sync_interrupted: undefined;
   no_active_device: undefined;
   device_unavailable: undefined;
   spotify_user_not_allowed: undefined;
@@ -72,6 +73,7 @@ export const ERROR_PARAMS = {
   invalid_status: [],
   not_configured: ['detail'],
   sync_start_failed: [],
+  sync_interrupted: [],
   no_active_device: [],
   device_unavailable: [],
   spotify_user_not_allowed: [],

@@ -235,6 +235,11 @@ describe('buildToday', () => {
     expect(today.more).toHaveLength(0);
   });
 
+  it('counts new episodes only of podcasts still in the library', () => {
+    const shows = [withNext('a', 'A', 10, 1), withNext('gone', 'Gone', 10, 2, { followed: false })];
+    expect(buildToday(shows, DEFAULT_SETTINGS).newCount).toBe(1);
+  });
+
   it('lists LATEST shows without a new episode', () => {
     const s = show({ id: 'n', mode: 'LATEST' });
     s.summary = summarizeShow(s, [], now);

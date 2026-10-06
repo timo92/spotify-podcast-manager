@@ -275,6 +275,7 @@ export function buildToday(
     noNewEpisode,
     recent,
     needsReviewCount: shows.filter((s) => s.needsReview).length,
-    newCount: shows.filter((s) => !s.paused).reduce((n, s) => n + (s.summary?.newCount ?? 0), 0),
+    // An unfollowed show's summary is no longer updated, so its count would stay frozen.
+    newCount: shows.filter((s) => s.followed && !s.paused).reduce((n, s) => n + (s.summary?.newCount ?? 0), 0),
   };
 }

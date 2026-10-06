@@ -188,12 +188,12 @@ describe('HttpSpotifyApi', () => {
       const store = await storeWithTokens();
       const fetchMock = vi.fn().mockResolvedValue(response(429, undefined, { 'retry-after': '15' }));
       const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
-      const result = expect(api.getMe()).rejects.toMatchObject({
+      const result = api.getMe().catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(16_000);
+      expect(await result).toMatchObject({
         code: 'spotify_rate_limited',
         params: { minutes: 1 },
       });
-      await vi.advanceTimersByTimeAsync(16_000);
-      await result;
       // one wait of 15 s fits, a second one would not
       expect(fetchMock).toHaveBeenCalledTimes(2);
     } finally {
@@ -231,9 +231,9 @@ describe('HttpSpotifyApi', () => {
           }),
       );
       const api = new HttpSpotifyApi(store, credentials, fetchMock as unknown as typeof fetch);
-      const result = expect(api.getMe()).rejects.toMatchObject({ code: 'spotify_unavailable' });
+      const result = api.getMe().catch((e: unknown) => e);
       await vi.advanceTimersByTimeAsync(20_000);
-      await result;
+      expect(await result).toMatchObject({ code: 'spotify_unavailable' });
     } finally {
       vi.useRealTimers();
     }

@@ -41,8 +41,8 @@ syntax (`VAR=x cmd`, `rm -rf`, `&&` chains that assume bash); use Node flags or
 CLI arguments instead.
 
 To try a branch without checking it out, open it in GitHub Codespaces; the dev
-container starts `pnpm dev:demo` (see "Preview a branch in Codespaces" in the
-README).
+container starts `pnpm dev:demo` (see "Preview a branch in Codespaces" in
+[docs/development.md](docs/development.md)).
 
 ## Code
 

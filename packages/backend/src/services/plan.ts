@@ -5,6 +5,7 @@ import {
   DAY_PARTS,
   localDate,
   type DayPart,
+  type EpisodeView,
   type PlanDay,
   type PlanInput,
   type Schedule,
@@ -28,6 +29,14 @@ export function validTimeZone(tz: string | undefined): string {
   } catch {
     return 'UTC';
   }
+}
+
+/**
+ * When the episode was finished: marked as heard in the app, or, if Spotify's
+ * played state counts, when the app saw Spotify report it as fully played.
+ */
+function finishedAt(view: EpisodeView): string | undefined {
+  return view.statusSource === 'spotify' ? view.fullyPlayedSeenAt : view.listenedAt;
 }
 
 /** Distinct weekdays, ascending; at least one. */
@@ -99,20 +108,12 @@ export class PlanService {
   async week(tz: string, days = 7, start?: string): Promise<PlanDay[]> {
     const today = localDate(Date.now(), tz);
     const from = start && /^\d{4}-\d{2}-\d{2}$/.test(start) ? start : today;
-    const [schedule, settings, history] = await Promise.all([
-      this.store.getSchedule(),
-      this.store.getSettings(),
-      this.store.listHistory(100),
-    ]);
+    const [schedule, settings] = await Promise.all([this.store.getSchedule(), this.store.getSettings()]);
     const showIds = [...new Set(schedule.rules.map((r) => r.showId))];
-
-    // Episodes finished today, oldest first, per show.
-    const doneTodayIds = new Map<string, string[]>();
-    for (const p of [...history].reverse()) {
-      if (p.listenedAt && localDate(p.listenedAt, tz) === today) {
-        doneTodayIds.set(p.showId, [...(doneTodayIds.get(p.showId) ?? []), p.episodeId]);
-      }
-    }
+    const finishedToday = (v: EpisodeView) => {
+      const at = finishedAt(v);
+      return !!at && localDate(at, tz) === today;
+    };
 
     const inputs = new Map<string, PlanInput>();
     await Promise.all(
@@ -120,8 +121,9 @@ export class PlanService {
         const show = await this.store.getShow(id);
         if (!show) return;
         const views = await this.library.loadViews(show, settings);
-        const byId = new Map(views.map((v) => [v.id, v]));
-        const doneToday = (doneTodayIds.get(id) ?? []).map((eid) => byId.get(eid)).filter((v) => !!v);
+        const doneToday = views
+          .filter(finishedToday)
+          .sort((a, b) => (finishedAt(a) ?? '').localeCompare(finishedAt(b) ?? ''));
         inputs.set(id, { show, views, doneToday });
       }),
     );

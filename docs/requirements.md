@@ -73,7 +73,7 @@ Each podcast has exactly one mode.
 ## Views
 
 - **V1** **Today:** today's slots from the weekly plan (finished ones ticked
-  off), then the next episodes of the other podcasts that fit into the daily
+  off, also when the episode was finished in the Spotify app), then the next episodes of the other podcasts that fit into the daily
   budget, then further suggestions, podcasts without a new episode, and
   recently heard episodes.
 - **V2** **Week:** a recurring weekly plan made of rules: a podcast on some

@@ -453,6 +453,36 @@ describe('library flow', () => {
     expect(nextWeek.days[1]!.items[0]!.episode?.id).toBe('demo-wissensreise-2');
   });
 
+  it('ticks off a planned slot for an episode finished in the Spotify app', async () => {
+    const t = await ready();
+    const tz = 'Europe/Berlin';
+    const weekday = weekdayOf(localDate(Date.now(), tz));
+    await t.call('PUT', '/api/schedule', {
+      rules: [
+        { showId: 'demo-wissensreise', weekdays: [weekday], part: 'MORNING' },
+        { showId: 'demo-seinundstreit', weekdays: [weekday], part: 'EVENING' },
+      ],
+    });
+    const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1';
+    await t.call('POST', '/api/player/play', {
+      showId: 'demo-wissensreise',
+      episodeId: 'demo-wissensreise-1',
+      deviceId: 'demo-phone',
+      fromStart: true,
+    });
+    const { durationMs } = (await t.call('GET', path)).body as EpisodeView;
+    t.spotify.controlPlayback('pause');
+    t.spotify.controlPlayback('seek', durationMs);
+    await t.call('POST', `${path}/refresh`);
+
+    const today = (await t.call('GET', `/api/today?tz=${tz}`)).body as TodayResponse;
+    expect(today.plan.map((p) => [p.show.id, p.state, p.episode?.id])).toEqual([
+      ['demo-wissensreise', 'done', 'demo-wissensreise-1'],
+      // Finished in Spotify before the first import: not heard today.
+      ['demo-seinundstreit', 'next', 'demo-seinundstreit-3'],
+    ]);
+  });
+
   it('validates plan rules', async () => {
     const t = await ready();
     const save = (body: unknown) => t.call('PUT', '/api/schedule', body);

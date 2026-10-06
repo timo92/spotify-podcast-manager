@@ -134,7 +134,7 @@ export async function releaseSyncLease(store: Store, lease: SyncState & { leaseI
 export async function refetchEpisode(spotify: SpotifyApi, stored: Episode, now: string): Promise<Episode | undefined> {
   const fresh = await spotify.getEpisode(stored.id);
   if (!fresh) return undefined;
-  const episode = { ...toEpisode(fresh, stored.showId, stored.firstSeenAt, now), listingOrder: stored.listingOrder };
+  const episode = toEpisode(fresh, stored.showId, stored, now);
   return episodeChanged(stored, episode) ? episode : undefined;
 }
 
@@ -144,7 +144,13 @@ export function pickImage(images: SpotifyImage[] | undefined): string | undefine
   return sorted[0]?.url;
 }
 
-export function toEpisode(raw: SpotifyEpisode, showId: string, firstSeenAt: string, now: string): Episode {
+/**
+ * The episode as Spotify reports it now. What the app recorded itself (first
+ * seen, listing order, when it saw the episode finished) is carried over from
+ * `prev`, the stored version.
+ */
+export function toEpisode(raw: SpotifyEpisode, showId: string, prev: Episode | undefined, now: string): Episode {
+  const fullyPlayed = raw.resume_point?.fully_played === true;
   return {
     id: raw.id,
     showId,
@@ -159,7 +165,11 @@ export function toEpisode(raw: SpotifyEpisode, showId: string, firstSeenAt: stri
     resumePoint: raw.resume_point
       ? { fullyPlayed: raw.resume_point.fully_played, resumePositionMs: raw.resume_point.resume_position_ms }
       : undefined,
-    firstSeenAt,
+    listingOrder: prev?.listingOrder,
+    fullyPlayedSeenAt: fullyPlayed
+      ? (prev?.fullyPlayedSeenAt ?? (prev && !prev.resumePoint?.fullyPlayed ? now : undefined))
+      : undefined,
+    firstSeenAt: prev?.firstSeenAt ?? now,
     lastSyncedAt: now,
   };
 }
@@ -174,7 +184,7 @@ export function withListingOrder(fetched: Episode[], known: Map<string, Episode>
   let next = 1 + [...known.values()].reduce((max, e) => Math.max(max, e.listingOrder ?? -1), -1);
   return fetched
     .toReversed()
-    .map((e) => ({ ...e, listingOrder: known.get(e.id)?.listingOrder ?? next++ }))
+    .map((e) => ({ ...e, listingOrder: e.listingOrder ?? next++ }))
     .toReversed();
 }
 
@@ -189,6 +199,7 @@ export function episodeChanged(prev: Episode | undefined, next: Episode): boolea
     prev.imageUrl !== next.imageUrl ||
     prev.isPlayable !== next.isPlayable ||
     prev.listingOrder !== next.listingOrder ||
+    prev.fullyPlayedSeenAt !== next.fullyPlayedSeenAt ||
     prev.resumePoint?.fullyPlayed !== next.resumePoint?.fullyPlayed ||
     prev.resumePoint?.resumePositionMs !== next.resumePoint?.resumePositionMs
   );
@@ -361,7 +372,7 @@ export class SyncService {
       doFull ? undefined : (page) => page.some((e) => known.has(e.id)),
     );
     const episodes = withListingOrder(
-      fetched.map((e) => toEpisode(e, showId, known.get(e.id)?.firstSeenAt ?? nowIso, nowIso)),
+      fetched.map((e) => toEpisode(e, showId, known.get(e.id), nowIso)),
       known,
     );
     const added = episodes.filter((e) => !known.has(e.id)).length;

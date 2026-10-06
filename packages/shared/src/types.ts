@@ -46,6 +46,12 @@ export interface Episode {
    * only episodes new to the app get one.
    */
   listingOrder?: number;
+  /**
+   * When the app first saw Spotify report the episode as fully played. Only
+   * set when it saw the change itself, not for episodes already finished
+   * when they were first imported.
+   */
+  fullyPlayedSeenAt?: string;
   firstSeenAt: string;
   lastSyncedAt: string;
 }

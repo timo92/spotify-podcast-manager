@@ -36,7 +36,7 @@ so stop or delete it after the review (*github.com/codespaces*).
 
 ## Against real Spotify
 
-Needs [your Spotify app](spotify-app.md).
+Needs [your Spotify app](../README.md#the-spotify-app).
 
 ```bash
 cp .env.example .env   # fill in SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET

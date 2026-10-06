@@ -47,7 +47,7 @@ The UI is in German and English (following the browser, switchable in
 ## Getting started
 
 - **Try it without Spotify:** `pnpm install && pnpm dev:demo`, then open http://127.0.0.1:5173 ([details](docs/development.md)).
-- **Create your Spotify app** (Client ID and secret, redirect URIs): [docs/spotify-app.md](docs/spotify-app.md).
+- **Create your Spotify app** (Client ID and secret, redirect URIs): [below](#the-spotify-app).
 - **Run locally against Spotify,** or preview a branch in Codespaces: [docs/development.md](docs/development.md).
 - **Deploy to AWS** (configuration, secret, costs, resetting): [docs/deployment.md](docs/deployment.md).
 - **How it works** (single origin, cookies, sync, data model): [docs/architecture.md](docs/architecture.md).
@@ -72,6 +72,23 @@ docs/          requirements, architecture decisions, Spotify API notes
 Why it is built this way: [docs/decisions/](docs/decisions/README.md). What it
 does: [docs/requirements.md](docs/requirements.md). How code, commits and pull
 requests are written: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## The Spotify app
+
+The app talks to Spotify through **your own Spotify developer app**. That is
+nothing more than an entry in Spotify's developer dashboard that gives you a
+Client ID and Client Secret. You create it once and use it both locally and on
+AWS:
+
+1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create an app (name and description are up to you).
+2. Under **APIs used**, select *Web API* and *Web Playback SDK*.
+3. Under **Redirect URIs**, add every address the app runs at. One app can have several:
+   - `http://127.0.0.1:5173/api/auth/callback` for local development. Spotify only allows plain `http` for loopback IPs, not for `localhost`.
+   - `https://<your domain>/api/auth/callback` for AWS (shown as the `SpotifyRedirectUri` output after deploying).
+4. Copy the Client ID and Client Secret from the app's settings into your `.env` (see [Configuration](docs/deployment.md#1-configuration) for AWS, [Run locally](docs/development.md#against-real-spotify) for development).
+
+In Spotify's development mode, the app works for its owner (you; Spotify
+Premium required) and up to five users you add under *User Management*.
 
 ## Spotify's terms
 

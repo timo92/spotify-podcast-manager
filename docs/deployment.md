@@ -13,7 +13,7 @@ loads the same file, and real environment variables take precedence over it.
 
 | Environment variable | CDK context | Example | Notes |
 | --- | --- | --- | --- |
-| `SPOTIFY_CLIENT_ID` | `spotifyClientId` | `3f1c…` | Client ID of [your Spotify app](spotify-app.md). Not a secret. Required – synth fails without it. |
+| `SPOTIFY_CLIENT_ID` | `spotifyClientId` | `3f1c…` | Client ID of [your Spotify app](../README.md#the-spotify-app). Not a secret. Required – synth fails without it. |
 | `DOMAIN_NAME` | `domainName` | `podcasts.example.com` | Optional. Without it, the app runs on the CloudFront domain. |
 | `HOSTED_ZONE_NAME` | `hostedZoneName` | `example.com` | Defaults to the parent domain of `domainName`. Must be a Route 53 hosted zone in the same account. |
 | `CERTIFICATE_ARN` | `certificateArn` | `arn:aws:acm:us-east-1:…` | Only if your DNS is **not** in Route 53. The certificate must be in us-east-1. You then point a CNAME at the `DistributionDomain` output yourself. |
@@ -86,7 +86,7 @@ in the Spotify dashboard; the app picks it up within five minutes.
 
 ## 5. Log in
 
-1. Add the `SpotifyRedirectUri` output to the redirect URIs of [your Spotify app](spotify-app.md), e.g. `https://podcasts.example.com/api/auth/callback`.
+1. Add the `SpotifyRedirectUri` output to the redirect URIs of [your Spotify app](../README.md#the-spotify-app), e.g. `https://podcasts.example.com/api/auth/callback`.
 2. Open the `Url` and log in with Spotify. The first account that logs in becomes the owner; every other account is rejected. Only accounts listed under *User Management* of your Spotify app can log in at all, so nobody else can claim the installation first.
 3. The first import runs automatically. Then confirm the guessed mode and categories under **Podcasts → Review**.
 

@@ -166,16 +166,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Reads a remembered episode back from Spotify. Once Spotify reports it as
-   * heard, it is forgotten and the player bar shows it as completed.
+   * Reads a remembered episode back from Spotify. A paused player bar showing
+   * it takes over its resume point: Spotify often reports no playback at all
+   * for an app paused in the background, so the last poll may be long out of
+   * date. Once Spotify reports the episode as heard, it is forgotten and the
+   * player bar shows it as completed.
    */
   const refreshRemote = useCallback(async (entry: RemoteEpisode) => {
     try {
       const view = await api.refreshEpisode(entry.showId, entry.episodeId);
-      if (view.status === 'COMPLETED') {
-        forgetRemoteEpisode(entry.episodeId);
-        setNowPlaying((cur) => (cur?.episodeId === entry.episodeId ? { ...cur, completed: true } : cur));
-      }
+      const completed = view.status === 'COMPLETED';
+      setNowPlaying((cur) => {
+        if (cur?.episodeId !== entry.episodeId || cur.target.kind === 'browser') return cur;
+        const positionMs = cur.paused && !completed ? view.durationMs - view.remainingMs : cur.positionMs;
+        return { ...cur, positionMs, completed: cur.completed || completed };
+      });
+      if (completed) forgetRemoteEpisode(entry.episodeId);
     } catch {
       // Spotify not reachable right now: the next visit tries again.
     }

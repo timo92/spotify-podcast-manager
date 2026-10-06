@@ -85,6 +85,21 @@ describe('playback outside the browser', () => {
     expect(loadRemoteEpisodes()).toEqual([]);
   });
 
+  it('shows the read-back position once Spotify no longer reports the paused playback', async () => {
+    rememberRemoteEpisode({ ...entryFor(), startedAt: Date.now() - 30 * MIN });
+    const state = vi.spyOn(api, 'playerState').mockResolvedValue(playing(29_000));
+    const refresh = vi.spyOn(api, 'refreshEpisode').mockResolvedValue(episode(1, { status: 'IN_PROGRESS', remainingMs: 20 * MIN }));
+    renderPlayer();
+    expect(within(await playerBar()).getByText(/0:29 \/ 20:00/)).toBeInTheDocument();
+
+    // Paused in the Spotify app, which then sits in the background: Spotify reports nothing,
+    // but the episode's resume point has moved on.
+    state.mockResolvedValue(null);
+    refresh.mockResolvedValue(episode(1, { status: 'IN_PROGRESS', statusSource: 'spotify', remainingMs: 16.5 * MIN }));
+    await nextPoll();
+    expect(within(await playerBar()).getByText(/3:30 \/ 20:00 · auf iPhone · Pausiert/)).toBeInTheDocument();
+  });
+
   it('does not mark an episode paused before its end', async () => {
     rememberRemoteEpisode({ ...entryFor(), startedAt: Date.now() - 30 * MIN });
     const state = vi.spyOn(api, 'playerState').mockResolvedValue(playing(15 * MIN));

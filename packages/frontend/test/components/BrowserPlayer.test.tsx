@@ -138,4 +138,21 @@ describe('playback in the browser', () => {
     expect(await within(await playerBar()).findByRole('button', { name: 'Pause' })).toBeInTheDocument();
     expect(loadRemoteEpisodes()).toEqual([]);
   });
+
+  it('does not mark an episode again when it ends after the user marked it in the player bar', async () => {
+    const setStatus = vi.spyOn(api, 'setStatus').mockResolvedValue(show());
+    renderPlayer();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Abspielen' })[0]!);
+    const bar = await playerBar();
+    const [player] = FakePlayer.instances;
+    act(() => player!.emit('player_state_changed', sdkState('ep-1', 20 * MIN - 2000)));
+
+    fireEvent.click(within(bar).getByRole('button', { name: 'Als gehört markieren' }));
+    expect(await screen.findByText('Als gehört markiert')).toBeInTheDocument();
+    // the episode plays to its end
+    act(() => player!.emit('player_state_changed', sdkState('ep-1', 0, true)));
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(setStatus).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('„Reise: Teil 1“ als gehört markiert')).not.toBeInTheDocument();
+  });
 });

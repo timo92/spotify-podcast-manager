@@ -91,6 +91,8 @@ interface PlayerApi {
   togglePause: () => void;
   seekBy: (deltaMs: number) => void;
   seekTo: (ms: number) => void;
+  /** Records that the user marked the shown episode as heard, so it isn't marked again when it ends. */
+  markCompleted: (episodeId: string) => void;
   close: () => void;
 }
 
@@ -479,6 +481,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const seekBy = useCallback((delta: number) => seekTo((nowRef.current?.positionMs ?? 0) + delta), [seekTo]);
 
+  const markCompleted = useCallback((episodeId: string) => {
+    setNowPlaying((cur) => (cur?.episodeId === episodeId ? { ...cur, completed: true } : cur));
+    forgetRemoteEpisode(episodeId);
+  }, []);
+
   /** Closes the player bar; for playback outside the browser it also stops following that episode. */
   const close = useCallback(() => {
     const cur = nowRef.current;
@@ -492,8 +499,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ target, setTarget, browserSupported, nowPlaying, busy, play, togglePause, seekBy, seekTo, close }),
-    [target, setTarget, browserSupported, nowPlaying, busy, play, togglePause, seekBy, seekTo, close],
+    () => ({
+      target,
+      setTarget,
+      browserSupported,
+      nowPlaying,
+      busy,
+      play,
+      togglePause,
+      seekBy,
+      seekTo,
+      markCompleted,
+      close,
+    }),
+    [target, setTarget, browserSupported, nowPlaying, busy, play, togglePause, seekBy, seekTo, markCompleted, close],
   );
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }

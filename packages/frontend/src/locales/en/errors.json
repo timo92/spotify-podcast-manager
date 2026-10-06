@@ -24,6 +24,7 @@
   "invalid_status": "Invalid status.",
   "not_configured": "Spotify credentials are missing: {{detail}}",
   "sync_start_failed": "The sync could not be started.",
+  "sync_interrupted": "The last sync was interrupted. Please start it again.",
   "no_active_device": "No active Spotify device found. Open Spotify on a device.",
   "device_unavailable": "Spotify can't reach this device right now. Open Spotify there and try again.",
   "spotify_user_not_allowed": "This Spotify account is not in the user list of the Spotify app.",

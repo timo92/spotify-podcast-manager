@@ -23,7 +23,7 @@ import { NoteService } from './services/notes.js';
 import { PlaybackService } from './services/playback.js';
 import { SettingsService } from './services/settings.js';
 import { PlanService, validTimeZone } from './services/plan.js';
-import { acquireSyncLease, releaseSyncLease, type SyncOptions } from './services/sync.js';
+import { acquireSyncLease, releaseSyncLease, visibleSyncState, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
 import { SCOPES } from './spotify/client.js';
 import type { SpotifyCredentialsProvider } from './spotify/credentials.js';
@@ -191,7 +191,7 @@ export function createApp(deps: AppDeps) {
       status.spotifyConnected = !!tokens;
       status.disconnectedAt = config?.disconnectedAt;
       status.user = config?.ownerId ? { id: config.ownerId, displayName: config.ownerName } : undefined;
-      status.sync = sync;
+      status.sync = visibleSyncState(sync);
       status.grantedScopes = granted;
       status.missingScopes = tokens ? SCOPES.filter((s) => !granted.includes(s)) : [];
     }

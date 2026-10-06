@@ -135,6 +135,7 @@ const unavailable = () =>
  */
 export class HttpSpotifyApi implements SpotifyApi {
   private tokens?: SpotifyTokens;
+  private refreshing?: Promise<SpotifyTokens>;
 
   constructor(
     private readonly store: Store,
@@ -147,26 +148,34 @@ export class HttpSpotifyApi implements SpotifyApi {
     if (!this.tokens)
       throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_not_connected', 'Spotify ist nicht verbunden.');
     if (forceRefresh || this.tokens.expiresAt - 60_000 < Date.now()) {
-      let json: TokenResponse;
-      try {
-        json = await tokenRequest(
-          await this.credentials.get(),
-          new URLSearchParams({ grant_type: 'refresh_token', refresh_token: this.tokens.refreshToken }),
-        );
-      } catch (e) {
-        if (e instanceof ApiError && e.code === 'spotify_reauth') await this.disconnect(this.tokens.refreshToken);
-        throw e;
-      }
-      this.tokens = {
-        accessToken: json.access_token,
-        // Spotify may rotate refresh tokens – keep the new one if present.
-        refreshToken: json.refresh_token ?? this.tokens.refreshToken,
-        expiresAt: Date.now() + json.expires_in * 1000,
-        scope: json.scope ?? this.tokens.scope,
-      };
-      await this.store.putTokens(this.tokens);
+      // Parallel requests share one refresh: Spotify may rotate the refresh
+      // token, and a second refresh with the old one would be rejected.
+      this.refreshing ??= this.refresh(this.tokens).finally(() => (this.refreshing = undefined));
+      this.tokens = await this.refreshing;
     }
     return this.tokens.accessToken;
+  }
+
+  private async refresh(tokens: SpotifyTokens): Promise<SpotifyTokens> {
+    let json: TokenResponse;
+    try {
+      json = await tokenRequest(
+        await this.credentials.get(),
+        new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tokens.refreshToken }),
+      );
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'spotify_reauth') await this.disconnect(tokens.refreshToken);
+      throw e;
+    }
+    const refreshed = {
+      accessToken: json.access_token,
+      // Spotify may rotate refresh tokens – keep the new one if present.
+      refreshToken: json.refresh_token ?? tokens.refreshToken,
+      expiresAt: Date.now() + json.expires_in * 1000,
+      scope: json.scope ?? tokens.scope,
+    };
+    await this.store.putTokens(refreshed);
+    return refreshed;
   }
 
   /**
@@ -332,18 +341,27 @@ export class HttpSpotifyApi implements SpotifyApi {
     return result;
   }
 
+  /**
+   * The show's episodes, newest first, each once (offset paging repeats one
+   * when an episode is published meanwhile). A page without content fails the
+   * call: a full sync deletes what is not listed, so the list must be complete.
+   */
   async getShowEpisodes(showId: string, stopAfterPage?: (page: SpotifyEpisode[]) => boolean) {
-    const episodes: SpotifyEpisode[] = [];
+    const episodes = new Map<string, SpotifyEpisode>();
     let url: string | null = `/shows/${encodeURIComponent(showId)}/episodes?limit=50`;
     while (url) {
       const page: SpotifyPage<SpotifyEpisode> | undefined = await this.request('GET', url);
-      if (!page) break;
+      if (!page) {
+        throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', `Leere Seite: ${url}`, {
+          detail: url,
+        });
+      }
       const items = page.items.filter((e): e is SpotifyEpisode => !!e?.id);
-      episodes.push(...items);
+      for (const item of items) if (!episodes.has(item.id)) episodes.set(item.id, item);
       if (stopAfterPage?.(items)) break;
       url = page.next;
     }
-    return episodes;
+    return [...episodes.values()];
   }
 
   async getEpisode(episodeId: string) {

@@ -27,6 +27,9 @@ import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
 /** One put or delete of a batch write. */
 type WriteRequest = NonNullable<BatchWriteCommandInput['RequestItems']>[string][number];
 
+/** Tries of a batch write before unprocessed items count as a failure. */
+const BATCH_ATTEMPTS = 8;
+
 /**
  * Single-table layout:
  *
@@ -55,8 +58,13 @@ export class DynamoStore implements Store {
     this.db = DynamoDBDocumentClient.from(client, { marshallOptions: { removeUndefinedValues: true } });
   }
 
+  // Base-table reads are strongly consistent: a request often reads what it
+  // just wrote (e.g. a status change, then the show's recomputed summary).
+  // Index queries cannot be; they only serve history and note lists.
   private async get<T>(pk: string, sk: string): Promise<T | undefined> {
-    const res = await this.db.send(new GetCommand({ TableName: this.table, Key: { PK: pk, SK: sk } }));
+    const res = await this.db.send(
+      new GetCommand({ TableName: this.table, Key: { PK: pk, SK: sk }, ConsistentRead: true }),
+    );
     if (!res.Item) return undefined;
     return strip(res.Item) as T;
   }
@@ -69,7 +77,9 @@ export class DynamoStore implements Store {
     const items: Record<string, unknown>[] = [];
     let ExclusiveStartKey: Record<string, unknown> | undefined;
     do {
-      const res = await this.db.send(new QueryCommand({ TableName: this.table, ...input, ExclusiveStartKey }));
+      const res = await this.db.send(
+        new QueryCommand({ TableName: this.table, ConsistentRead: !input.IndexName, ...input, ExclusiveStartKey }),
+      );
       items.push(...(res.Items ?? []));
       ExclusiveStartKey = res.LastEvaluatedKey;
     } while (ExclusiveStartKey);
@@ -79,12 +89,12 @@ export class DynamoStore implements Store {
   private async batchWrite(requests: WriteRequest[]) {
     for (let i = 0; i < requests.length; i += 25) {
       let pending: WriteRequest[] | undefined = requests.slice(i, i + 25);
-      for (let attempt = 0; pending?.length && attempt < 8; attempt++) {
+      for (let attempt = 0; pending?.length && attempt < BATCH_ATTEMPTS; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 50 * 2 ** (attempt - 1)));
         const res: BatchWriteCommandOutput = await this.db.send(
           new BatchWriteCommand({ RequestItems: { [this.table]: pending } }),
         );
         pending = res.UnprocessedItems?.[this.table];
-        if (pending?.length) await new Promise((r) => setTimeout(r, 50 * 2 ** attempt));
       }
       if (pending?.length) throw new Error('DynamoDB batch write did not complete');
     }
@@ -193,9 +203,6 @@ export class DynamoStore implements Store {
       if ((e as { name?: string }).name === 'ConditionalCheckFailedException') return false;
       throw e;
     }
-  }
-  putSyncState(state: SyncState) {
-    return this.put('META', 'SYNC', state);
   }
 
   putSession(session: Session) {
@@ -405,7 +412,8 @@ export class DynamoStore implements Store {
   }
 }
 
-function strip(item: Record<string, unknown>): any {
+/** The domain object stored in an item, without the table's key and TTL attributes. */
+function strip(item: Record<string, unknown>): object {
   const { PK: _pk, SK: _sk, GSI1PK: _g1, GSI1SK: _g2, ttl: _ttl, ...rest } = item;
   return rest;
 }

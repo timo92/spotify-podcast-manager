@@ -58,7 +58,6 @@ export interface Store {
   putSettings(settings: Settings): Promise<void>;
 
   getSyncState(): Promise<SyncState>;
-  putSyncState(state: SyncState): Promise<void>;
   /**
    * Atomically writes `state` (status 'running', with `leaseId`) unless another
    * sync holds a lease that started after `staleBefore`. A lease whose id is

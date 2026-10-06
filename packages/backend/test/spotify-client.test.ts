@@ -66,6 +66,26 @@ describe('HttpSpotifyApi', () => {
     }
   });
 
+  it('refreshes an expired token once for parallel requests', async () => {
+    const store = await storeWithTokens(Date.now() - 1000);
+    const realFetch = globalThis.fetch;
+    const tokenFetch = vi
+      .fn()
+      .mockImplementation(async () =>
+        response(200, { access_token: 'new', expires_in: 3600, refresh_token: 'rotated', token_type: 'Bearer' }),
+      );
+    globalThis.fetch = tokenFetch as typeof fetch;
+    try {
+      const apiFetch = vi.fn().mockImplementation(async () => response(200, { id: 'me' }));
+      const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
+      await Promise.all([api.getMe(), api.getMe(), api.getMe()]);
+      expect(tokenFetch).toHaveBeenCalledTimes(1);
+      expect(apiFetch.mock.calls.map((c) => c[1].headers.Authorization)).toEqual(Array(3).fill('Bearer new'));
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
   it('drops the tokens and marks the app disconnected when access was revoked', async () => {
     const store = await storeWithTokens(Date.now() - 1000);
     await store.putConfig({ ownerId: 'owner', createdAt: '', updatedAt: '' });
@@ -247,6 +267,28 @@ describe('HttpSpotifyApi', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('lists an episode only once when paging returns it twice', async () => {
+    const store = await storeWithTokens();
+    const page = (ids: string[], next: string | null) => response(200, { items: ids.map((id) => ({ id })), next });
+    // a new episode published while paging shifts the offsets by one
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(page(['e3', 'e2'], 'https://api.spotify.com/v1/next'))
+      .mockResolvedValueOnce(page(['e2', 'e1'], null));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    expect((await api.getShowEpisodes('s')).map((e) => e.id)).toEqual(['e3', 'e2', 'e1']);
+  });
+
+  it('fails instead of returning a partial episode list when a page is empty', async () => {
+    const store = await storeWithTokens();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, { items: [{ id: 'e2' }], next: 'https://api.spotify.com/v1/next' }))
+      .mockResolvedValueOnce(response(204));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    await expect(api.getShowEpisodes('s')).rejects.toMatchObject({ code: 'spotify_unexpected_response' });
   });
 
   it('stops paging episodes once a known episode shows up', async () => {

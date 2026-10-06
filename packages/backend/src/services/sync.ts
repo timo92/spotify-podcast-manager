@@ -31,6 +31,26 @@ export interface SyncOptions {
 export const STALE_SYNC_MS = 16 * 60 * 1000;
 
 /**
+ * The sync state as the UI should see it: a sync still "running" after
+ * STALE_SYNC_MS died without finishing (Lambda timeout or crash). Reported as
+ * interrupted, so the UI doesn't wait for it; the next sync takes the lease over.
+ */
+export function visibleSyncState(state: SyncState, now = new Date()): SyncState {
+  if (state.status !== 'running' || !state.startedAt) return state;
+  if (Date.parse(state.startedAt) > now.getTime() - STALE_SYNC_MS) return state;
+  return {
+    ...state,
+    status: 'error',
+    error: 'Der letzte Sync wurde unterbrochen.',
+    errorCode: 'sync_interrupted',
+    errorParams: undefined,
+    showId: undefined,
+    message: undefined,
+    leaseId: undefined,
+  };
+}
+
+/**
  * Starts a sync lease: only one sync may run at a time, enforced by a
  * conditional write in the store rather than by Lambda reserved concurrency
  * (which new AWS accounts can't spare). Returns the state it wrote (with the
@@ -230,12 +250,19 @@ export class SyncService {
 
     const basePriority = existingList.reduce((m, s) => Math.max(m, s.priority), 0);
     let maxPriority = basePriority;
+    const provisional = new Map<string, number>();
+    const nextPriority = (showId: string) => {
+      provisional.set(showId, ++maxPriority);
+      return maxPriority;
+    };
     let newEpisodes = 0;
     let failed = 0;
     let lastError: unknown;
     await mapLimit(saved, 3, async (raw) => {
       try {
-        newEpisodes += await this.syncShow(raw.id, raw, existing.get(raw.id), full, settings, () => ++maxPriority);
+        // Await first: `+=` would read the total before the await and lose the other workers' counts.
+        const added = await this.syncShow(raw.id, raw, existing.get(raw.id), full, settings, nextPriority);
+        newEpisodes += added;
       } catch (e) {
         // Auth problems affect every show – abort instead of failing 50 times.
         if (e instanceof ApiError && (e.status === StatusCodes.UNAUTHORIZED || e.code === 'spotify_rate_limited'))
@@ -250,9 +277,12 @@ export class SyncService {
     if (failed > 0 && failed === saved.length) throw lastError;
 
     // Newly imported shows: news-like ones first (time-sensitive), then by name.
+    // A show the user has already moved during the import keeps its place.
     const created = (await this.store.listShows()).filter((s) => !existing.has(s.id));
     created.sort((a, b) => Number(b.mode === 'LATEST') - Number(a.mode === 'LATEST') || a.name.localeCompare(b.name));
-    await mapLimit(created, 5, (s, i) => this.store.updateShow(s.id, { priority: basePriority + i + 1 }));
+    await mapLimit(created, 5, async (s, i) => {
+      if (provisional.get(s.id) === s.priority) await this.store.updateShow(s.id, { priority: basePriority + i + 1 });
+    });
 
     return { shows: saved.length, newEpisodes, failed };
   }
@@ -272,7 +302,7 @@ export class SyncService {
     prev: Show | undefined,
     full: boolean,
     settings: Settings,
-    nextPriority: () => number,
+    nextPriority: (showId: string) => number,
   ): Promise<number> {
     const nowIso = new Date().toISOString();
     const known = new Map((await this.store.listEpisodes(showId)).map((e) => [e.id, e]));
@@ -332,7 +362,7 @@ export class SyncService {
         categories: guessCategories(name, description, settings.categories),
         paused: false,
         hiddenFromToday: false,
-        priority: nextPriority(),
+        priority: nextPriority(showId),
         pinnedEpisodeId: null,
         reofferSkipped: false,
         needsReview: true,

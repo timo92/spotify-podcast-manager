@@ -279,3 +279,27 @@ contract('DynamoStore (dynalite)', async () => {
   );
   return new DynamoStore('test', client);
 });
+
+describe('DynamoStore reads', () => {
+  it('read their own writes: base-table reads are strongly consistent', async () => {
+    const client = new DynamoDBClient({
+      endpoint: 'http://127.0.0.1:1',
+      region: 'local',
+      credentials: { accessKeyId: 'x', secretAccessKey: 'x' },
+    });
+    const reads: Record<string, unknown>[] = [];
+    client.middlewareStack.add(
+      () => async (args) => {
+        reads.push(args.input as Record<string, unknown>);
+        return { output: { Items: [], $metadata: {} } as never, response: {} };
+      },
+      { step: 'initialize' },
+    );
+    const store = new DynamoStore('test', client);
+    await store.getShow('s');
+    await store.listEpisodes('s');
+    await store.listProgress('s');
+    expect(reads).toHaveLength(3);
+    for (const input of reads) expect(input).toMatchObject({ ConsistentRead: true });
+  });
+});

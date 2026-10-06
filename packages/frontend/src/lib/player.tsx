@@ -70,6 +70,17 @@ function remoteEpisode(item: PlayableItem, target: PlayTarget): RemoteEpisode {
   };
 }
 
+/**
+ * The browser player's state applied to the shown episode. A state of another
+ * episode (Spotify autoplays the next one, or starts one the app is about to
+ * show) means the shown one stopped; its position is never taken over.
+ */
+function applySdkState(cur: NowPlaying, state: Spotify.PlaybackState): NowPlaying {
+  const track = state.track_window.current_track;
+  if (track && track.uri !== `spotify:episode:${cur.episodeId}`) return cur.paused ? cur : { ...cur, paused: true };
+  return { ...cur, paused: state.paused, positionMs: state.position, durationMs: state.duration || cur.durationMs };
+}
+
 interface PlayerApi {
   target: PlayTarget;
   setTarget: (t: PlayTarget) => void;
@@ -273,6 +284,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const discardPlayer = useCallback((player: Spotify.Player) => {
+    player.disconnect();
+    if (playerRef.current === player) playerRef.current = null;
+    deviceRef.current = null;
+  }, []);
+
   /** Creates the in-browser Spotify device once and resolves with its id. */
   const ensureBrowserDevice = useCallback((): Promise<string> => {
     if (deviceRef.current) return deviceRef.current;
@@ -310,26 +327,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       player.addListener('autoplay_failed', () =>
         toast({ message: i18n.t('sdk.autoplayBlocked', { ns: 'player' }), tone: 'error' }),
       );
-      player.addListener('not_ready', () => {
-        deviceRef.current = null;
-      });
+      // An offline device is replaced by a new player on the next play; two
+      // connected players would show up as two devices and report twice.
+      player.addListener('not_ready', () => discardPlayer(player));
       player.addListener('player_state_changed', (state) => {
         const cur = nowRef.current;
         if (!state || !cur || cur.target.kind !== 'browser') return;
-        setNowPlaying({
-          ...cur,
-          paused: state.paused,
-          positionMs: state.position,
-          durationMs: state.duration || cur.durationMs,
-        });
+        setNowPlaying(applySdkState(cur, state));
       });
       return deviceId;
     })();
     deviceRef.current.catch(() => {
+      if (playerRef.current) discardPlayer(playerRef.current);
       deviceRef.current = null;
     });
     return deviceRef.current;
-  }, [toast]);
+  }, [toast, discardPlayer]);
 
   const play = useCallback(
     async (item: PlayableItem, opts: PlayOptions = {}) => {
@@ -375,6 +388,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           target: t,
           completed: item.episode.status === 'COMPLETED',
         });
+        // Played here, it is no longer playback outside the browser to follow.
+        if (t.kind === 'browser') forgetRemoteEpisode(item.episode.id);
         if (t.kind === 'device') {
           rememberRemoteEpisode(remoteEpisode(item, t));
           startFollowing();
@@ -408,17 +423,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const timer = setInterval(() => {
       void playerRef.current?.getCurrentState().then(
         (state) => {
-          if (!state) return;
-          setNowPlaying((cur) =>
-            cur
-              ? {
-                  ...cur,
-                  positionMs: state.position,
-                  paused: state.paused,
-                  durationMs: state.duration || cur.durationMs,
-                }
-              : cur,
-          );
+          if (state) setNowPlaying((cur) => (cur ? applySdkState(cur, state) : cur));
         },
         () => undefined,
       );

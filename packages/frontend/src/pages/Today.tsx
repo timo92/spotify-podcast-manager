@@ -86,13 +86,13 @@ export function TodayPage() {
                   className={cx(
                     styles.budget,
                     data.budgetFit === 'perfect' && styles.perfect,
-                    data.budgetFit === 'over' && styles.over,
+                    (data.budgetFit === 'slightlyOver' || data.budgetFit === 'over') && styles.over,
                   )}
                 >
                   {t('budget', { used: data.recommendedMinutes, budget: data.budgetMinutes })}
                   {data.budgetFit === 'perfect' && ` · ${t('budgetFits')}`}
-                  {data.budgetFit === 'over' &&
-                    ` · ${data.recommendedMinutes <= data.budgetMinutes * 1.2 ? t('budgetSlightlyOver') : t('budgetOver')}`}
+                  {data.budgetFit === 'slightlyOver' && ` · ${t('budgetSlightlyOver')}`}
+                  {data.budgetFit === 'over' && ` · ${t('budgetOver')}`}
                 </span>
               )}
             </div>

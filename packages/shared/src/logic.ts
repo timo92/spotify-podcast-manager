@@ -261,8 +261,8 @@ export function buildToday(
 
   let budgetFit: TodayResponse['budgetFit'] = 'none';
   if (budgetMs > 0 && usedMs > 0) {
-    const ratio = usedMs / budgetMs;
-    budgetFit = ratio > 1 ? 'over' : ratio >= 0.85 ? 'perfect' : 'under';
+    budgetFit =
+      usedMs > limitMs ? 'over' : usedMs > budgetMs ? 'slightlyOver' : usedMs >= budgetMs * 0.85 ? 'perfect' : 'under';
   }
 
   return {

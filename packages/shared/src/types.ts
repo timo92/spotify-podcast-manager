@@ -217,7 +217,12 @@ export interface TodayResponse {
   budgetMinutes: number;
   /** Sum of remaining minutes of the recommended items. */
   recommendedMinutes: number;
-  budgetFit: 'none' | 'perfect' | 'under' | 'over';
+  /**
+   * How the planned and recommended time fits the budget: `slightlyOver` is
+   * above it but within the tolerance, `over` beyond the tolerance (only planned
+   * slots can get there). `none` without a budget or anything to listen to.
+   */
+  budgetFit: 'none' | 'under' | 'perfect' | 'slightlyOver' | 'over';
   recommended: TodayItem[];
   more: TodayItem[];
   noNewEpisode: ShowLite[];

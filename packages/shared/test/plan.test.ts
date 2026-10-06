@@ -165,6 +165,16 @@ describe('buildWeek', () => {
     ]);
   });
 
+  it('leaves out podcasts removed from the library', () => {
+    const gone = { ...show('news', 'LATEST'), followed: false };
+    const inputs = new Map([
+      ['news', input(gone, eps('news', 5))],
+      ['series', input(show('series', 'SEQUENTIAL'), eps('series', 10))],
+    ]);
+    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, schedule, inputs);
+    expect(mon!.items.map((i) => i.show.id)).toEqual(['series', 'series']);
+  });
+
   it('marks shows with nothing left', () => {
     const inputs = new Map([['news', input(show('news', 'MANUAL'), eps('news', 2))]]);
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, schedule, inputs);

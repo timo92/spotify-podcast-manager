@@ -52,6 +52,15 @@ function notesPath(showId: string, episodeId: string) {
   return `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/notes`;
 }
 
+/** The parsed body; undefined for an empty one or one that isn't JSON (e.g. a proxy's HTML error page). */
+function parseJson(text: string): unknown {
+  try {
+    return text ? JSON.parse(text) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method,
@@ -60,7 +69,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: method === 'GET' ? undefined : JSON.stringify(body ?? {}),
   });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : undefined;
+  const data = parseJson(text);
   if (!res.ok) {
     const error = data as ErrorResponse | undefined;
     throw new ApiError(res.status, error?.error ?? 'error', errorMessage(error, res.status));

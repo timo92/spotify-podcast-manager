@@ -263,8 +263,11 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.getShow('s1')).toBeDefined();
     });
 
-    it('deletes everything', async () => {
+    it('deletes everything, including a held sync lease', async () => {
+      const lease = { status: 'running' as const, startedAt: '2026-01-01T00:10:00.000Z', leaseId: 'a' };
+      await store.acquireSyncLease(lease, '2026-01-01T00:00:00.000Z');
       await store.deleteAll();
+      expect(await store.getSyncState()).toEqual({ status: 'idle' });
       expect(await store.getConfig()).toBeUndefined();
       expect(await store.listShows()).toHaveLength(0);
       expect(await store.listEpisodes('s1')).toHaveLength(0);

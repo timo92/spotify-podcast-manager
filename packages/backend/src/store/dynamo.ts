@@ -441,9 +441,12 @@ export class DynamoStore implements Store {
       const res = await this.db.send(
         new ScanCommand({ TableName: this.table, ProjectionExpression: 'PK, SK', ExclusiveStartKey }),
       );
-      await this.batchWrite((res.Items ?? []).map((i) => ({ DeleteRequest: { Key: { PK: i.PK, SK: i.SK } } })));
+      const items = (res.Items ?? []).filter((i) => !(i.PK === 'META' && i.SK === 'SYNC'));
+      await this.batchWrite(items.map((i) => ({ DeleteRequest: { Key: { PK: i.PK, SK: i.SK } } })));
       ExclusiveStartKey = res.LastEvaluatedKey;
     } while (ExclusiveStartKey);
+    // The sync state goes last: it holds the lease that keeps a sync from writing while the rest is deleted.
+    await this.db.send(new DeleteCommand({ TableName: this.table, Key: { PK: 'META', SK: 'SYNC' } }));
   }
 }
 

@@ -60,7 +60,7 @@ export interface SpotifyPlaybackState {
   progress_ms: number | null;
   is_playing: boolean;
   currently_playing_type: 'track' | 'episode' | 'ad' | 'unknown';
-  item: { id: string } | null;
+  item: { id: string; duration_ms: number } | null;
   device?: { name?: string } | null;
 }
 

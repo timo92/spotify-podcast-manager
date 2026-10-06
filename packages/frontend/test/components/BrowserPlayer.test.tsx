@@ -131,7 +131,12 @@ describe('playback in the browser', () => {
       startedAt: Date.now(),
     });
     vi.spyOn(api, 'refreshEpisode').mockResolvedValue(episode(1, { status: 'IN_PROGRESS' }));
-    vi.spyOn(api, 'playerState').mockResolvedValue({ episodeId: 'ep-1', positionMs: 0, paused: true });
+    vi.spyOn(api, 'playerState').mockResolvedValue({
+      episodeId: 'ep-1',
+      positionMs: 0,
+      durationMs: 20 * MIN,
+      paused: true,
+    });
     renderPlayer();
     fireEvent.click(screen.getAllByRole('button', { name: 'Abspielen' })[0]!);
     // the browser's own controls, not the outside playback's

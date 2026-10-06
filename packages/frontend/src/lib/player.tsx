@@ -254,13 +254,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const still = moved ? 0 : (prev?.still ?? 0) + 1;
       followRef.current = { entry, lastPositionMs: state.positionMs, still };
       const { positionMs, paused, deviceName } = state;
+      // An episode started without a known length (e.g. from a note) gets Spotify's.
+      const durationMs = state.durationMs || entry.durationMs;
       setNowPlaying((shown) => ({
         showId: entry.showId,
         episodeId: entry.episodeId,
         name: entry.name,
         showName: entry.showName,
         imageUrl: entry.imageUrl,
-        durationMs: entry.durationMs,
+        durationMs,
         positionMs,
         paused,
         target: entry.target,

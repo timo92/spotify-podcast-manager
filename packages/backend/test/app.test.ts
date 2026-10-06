@@ -550,13 +550,23 @@ describe('library flow', () => {
     const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/notes';
     const playing = vi.spyOn(t.spotify, 'getPlayingEpisode');
 
-    playing.mockResolvedValue({ episodeId: 'demo-wissensreise-1', positionMs: 754_000, paused: false });
+    playing.mockResolvedValue({
+      episodeId: 'demo-wissensreise-1',
+      positionMs: 754_000,
+      durationMs: 1_800_000,
+      paused: false,
+    });
     expect((await t.call('POST', path, { text: 'Am Handy notiert' })).body).toMatchObject({ positionMs: 754_000 });
     // An explicit position (or null) wins over the playback state.
     expect((await t.call('POST', path, { text: 'x', positionMs: 1_000 })).body).toMatchObject({ positionMs: 1_000 });
     expect((await t.call('POST', path, { text: 'x', positionMs: null })).body).toMatchObject({ positionMs: null });
 
-    playing.mockResolvedValue({ episodeId: 'demo-wissensreise-2', positionMs: 754_000, paused: false });
+    playing.mockResolvedValue({
+      episodeId: 'demo-wissensreise-2',
+      positionMs: 754_000,
+      durationMs: 1_800_000,
+      paused: false,
+    });
     expect((await t.call('POST', path, { text: 'Andere Folge läuft' })).body).toMatchObject({ positionMs: null });
 
     playing.mockRejectedValue(new ApiError(StatusCodes.FORBIDDEN, 'spotify_forbidden', 'no', { detail: 'no' }));

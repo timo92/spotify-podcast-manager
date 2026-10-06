@@ -402,6 +402,7 @@ export class HttpSpotifyApi implements SpotifyApi {
     return {
       episodeId: res.item.id,
       positionMs: res.progress_ms,
+      durationMs: res.item.duration_ms,
       paused: !res.is_playing,
       deviceName: res.device?.name || undefined,
     };

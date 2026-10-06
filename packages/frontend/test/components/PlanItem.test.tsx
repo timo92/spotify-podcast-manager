@@ -27,6 +27,17 @@ describe('PlanItemRow', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/podcasts/wissen');
   });
 
+  it('shows when the episode was released', () => {
+    const yesterday = new Date(Date.now() - 86_400_000);
+    const releaseDate = [
+      yesterday.getFullYear(),
+      String(yesterday.getMonth() + 1).padStart(2, '0'),
+      String(yesterday.getDate()).padStart(2, '0'),
+    ].join('-');
+    renderSlot(plannedItem({ show: showLite(show({ mode: 'LATEST' })), episode: episode(1, { releaseDate }) }));
+    expect(screen.getByText('Gestern · 20 min')).toBeInTheDocument();
+  });
+
   it('lets the user pick the episode of a manual podcast in place', async () => {
     const manual = show({ mode: 'MANUAL' });
     vi.spyOn(api, 'show').mockResolvedValue({

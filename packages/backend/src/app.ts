@@ -28,7 +28,7 @@ import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
 import { SCOPES } from './spotify/client.js';
 import type { SpotifyCredentialsProvider } from './spotify/credentials.js';
 import type { SpotifyApi } from './spotify/types.js';
-import type { SpotifyTokens, Store } from './store/types.js';
+import type { Store } from './store/types.js';
 
 export interface AppDeps {
   store: Store;
@@ -43,6 +43,8 @@ export interface AppDeps {
   /** Public base URL, e.g. https://podcasts.example.com. Derived from headers if unset. */
   publicUrl?: string;
 }
+
+type SpotifyLogin = Awaited<ReturnType<SpotifyAuth['login']>>;
 
 const SESSION_COOKIE = 'pm_session';
 const STATE_COOKIE = 'pm_oauth_state';
@@ -214,15 +216,27 @@ export function createApp(deps: AppDeps) {
     // Spotify's own OAuth error is passed on as it is; the login page explains the ones it knows.
     if (error) return redirectError(error);
     if (!expected || !state || !safeEqual(expected, state)) return fail('state_mismatch');
+    if (!code) return fail('token_exchange_failed');
 
-    let login: { tokens: SpotifyTokens; user: { id: string; display_name?: string | null } };
+    let login: SpotifyLogin;
     try {
-      login = await auth.login(await deps.credentials.get(), code ?? '', redirectUri(c));
+      login = await auth.login(await deps.credentials.get(), code, redirectUri(c));
     } catch (e) {
       console.error('OAuth callback failed', e);
       return fail(e instanceof ApiError ? e.code : 'token_exchange_failed');
     }
-    const { tokens, user } = login;
+    // The callback is a page navigation: a failure must land on the login page, not show JSON.
+    try {
+      return await completeLogin(c, login);
+    } catch (e) {
+      console.error('Login could not be stored', e);
+      return fail('login_failed');
+    }
+  });
+
+  /** Binds the owner, stores the tokens, opens a session and starts the first import. */
+  async function completeLogin(c: Context, { tokens, user }: SpotifyLogin) {
+    const fail = (code: LoginErrorCode) => c.redirect(`/login?error=${code}`);
 
     // The first account that logs in becomes the owner. Only accounts listed under
     // "User Management" of the Spotify app can log in at all (development mode).
@@ -256,7 +270,7 @@ export function createApp(deps: AppDeps) {
     // the user can start the import again.
     if (firstRun) await startSync({}).catch((e: unknown) => console.error('Initial sync could not start', e));
     return c.redirect(firstRun ? '/?welcome=1' : '/');
-  });
+  }
 
   app.post('/api/auth/logout', async (c) => {
     const id = getCookie(c, SESSION_COOKIE);

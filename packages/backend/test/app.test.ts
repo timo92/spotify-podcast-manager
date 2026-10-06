@@ -159,6 +159,25 @@ describe('configuration and auth', () => {
     expect(res.headers.Location).toBe('/login?error=state_mismatch');
   });
 
+  it('rejects a callback without an authorization code', async () => {
+    const t = setup();
+    const start = await t.call('GET', '/api/auth/login');
+    const state = new URL(start.headers.Location!).searchParams.get('state');
+    const res = await t.call('GET', `/api/auth/callback?state=${state}`);
+    expect(res.headers.Location).toBe('/login?error=token_exchange_failed');
+    expect(await t.store.getTokens()).toBeUndefined();
+  });
+
+  it('sends the user back to the login page when the login cannot be stored', async () => {
+    const t = setup();
+    t.store.putTokens = async () => {
+      throw new Error('table unavailable');
+    };
+    const res = await login(t);
+    expect(res.status).toBe(302);
+    expect(res.headers.Location).toBe('/login?error=login_failed');
+  });
+
   it('frees the lease when the sync cannot be started, without failing the login', async () => {
     const t = setup({ triggerFails: true });
     const res = await login(t); // first login tries to start the initial import

@@ -16,7 +16,7 @@ export class DataService {
     return {
       exportedAt: new Date().toISOString(),
       settings,
-      shows: shows.map(({ summary: _summary, ...s }) => s),
+      shows: shows.map(({ summary: _summary, summaryRevision: _revision, ...s }) => s),
       progress: progress.flat(),
       schedule,
       notes,

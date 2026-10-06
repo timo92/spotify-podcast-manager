@@ -13,6 +13,9 @@ import {
   type ShowSettingsPatch,
 } from '@podcast/shared';
 
+/** Rounds a recompute may lose to concurrent ones before it keeps the stored summary. */
+const RECOMPUTE_ATTEMPTS = 3;
+
 /** A show settings change as the API receives it; the mode is checked against the known modes here. */
 export type ShowSettingsInput = Omit<ShowSettingsPatch, 'mode'> & { mode?: string };
 
@@ -42,12 +45,22 @@ export class LibraryService {
     return buildEpisodeViews(episodes, progress, s);
   }
 
+  /**
+   * Refreshes the show's summary from its episodes and progress. The sync and a
+   * user change can recompute at the same time; a summary is only stored on top
+   * of the one this computation started from, otherwise it is computed again
+   * from the newer data.
+   */
   async recompute(showId: string, settings?: Settings): Promise<Show> {
-    const show = await this.requireShow(showId);
-    const views = await this.loadViews(show, settings);
-    const summary = summarizeShow(show, views);
-    await this.store.updateShow(show.id, { summary });
-    return { ...show, summary };
+    for (let attempt = 1; ; attempt++) {
+      const show = await this.requireShow(showId);
+      const summary = summarizeShow(show, await this.loadViews(show, settings));
+      if (await this.store.putSummary(showId, summary, show.summaryRevision)) {
+        return { ...show, summary, summaryRevision: (show.summaryRevision ?? 0) + 1 };
+      }
+      // Still losing after a few rounds: the stored summary is at least as new as ours.
+      if (attempt >= RECOMPUTE_ATTEMPTS) return this.requireShow(showId);
+    }
   }
 
   async recomputeAll(): Promise<void> {

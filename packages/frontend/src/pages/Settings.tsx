@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Trans, useTranslation } from 'react-i18next';
 import type { Settings } from '@podcast/shared';
@@ -9,19 +9,10 @@ import { api } from '../lib/api';
 import { cx } from '../lib/cx';
 import { formatDateTime, syncError, syncText } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings, useStatus } from '../lib/queries';
+import { applyTheme, storedTheme, type Theme } from '../lib/theme';
 import { useToast } from '../lib/toast';
+import { useRun } from '../lib/actions';
 import styles from './Settings.module.css';
-
-type Theme = 'system' | 'light' | 'dark';
-
-function readTheme(): Theme {
-  try {
-    const t = localStorage.getItem('pm.theme');
-    return t === 'light' || t === 'dark' ? t : 'system';
-  } catch {
-    return 'system';
-  }
-}
 
 export function SettingsPage() {
   const { t } = useTranslation('settings');
@@ -30,27 +21,14 @@ export function SettingsPage() {
   const qc = useQueryClient();
   const invalidate = useInvalidateLibrary();
   const toast = useToast();
+  const run = useRun();
   // Unsaved edits (e.g. a slider being dragged) over the stored settings.
   const [edited, setDraft] = useState<Settings | null>(null);
   const draft = edited ?? settings.data;
   const [newCat, setNewCat] = useState('');
-  const [theme, setTheme] = useState<Theme>(readTheme);
+  const [theme, setTheme] = useState<Theme>(storedTheme);
   const [language, setLanguageChoice] = useState<Language | 'auto'>(() => storedLanguage() ?? 'auto');
   const [confirmDelete, setConfirmDelete] = useState('');
-
-  useEffect(() => {
-    try {
-      if (theme === 'system') {
-        localStorage.removeItem('pm.theme');
-        delete document.documentElement.dataset.theme;
-      } else {
-        localStorage.setItem('pm.theme', theme);
-        document.documentElement.dataset.theme = theme;
-      }
-    } catch {
-      // ignore
-    }
-  }, [theme]);
 
   if (settings.error) return <ErrorBox error={settings.error} onRetry={() => void settings.refetch()} />;
   if (!draft) return <Spinner />;
@@ -71,15 +49,9 @@ export function SettingsPage() {
     }
   }
 
-  async function run(fn: () => Promise<unknown>, message: string) {
-    try {
-      await fn();
-      toast({ message, tone: 'success' });
-      await qc.invalidateQueries();
-    } catch (e) {
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
-  }
+  /** For changes that affect everything the app shows (e.g. a full sync). */
+  const runEverywhere = (fn: () => Promise<unknown>, message: string) =>
+    run(fn, { message, refresh: () => qc.invalidateQueries() });
 
   /** Runs an action that ends the session (logout, deleting everything), then starts over. */
   function thenStartOver(action: () => Promise<unknown>) {
@@ -195,7 +167,10 @@ export function SettingsPage() {
         <Segmented
           label={t('appearance.theme')}
           value={theme}
-          onChange={setTheme}
+          onChange={(next) => {
+            setTheme(next);
+            applyTheme(next);
+          }}
           options={[
             { value: 'system', label: t('appearance.system') },
             { value: 'light', label: t('appearance.light') },
@@ -230,14 +205,14 @@ export function SettingsPage() {
           <button
             className="btn"
             disabled={sync?.status === 'running'}
-            onClick={() => void run(() => api.sync(false), t('sync.started'))}
+            onClick={() => void runEverywhere(() => api.sync(false), t('sync.started'))}
           >
             <Icon name="refresh" size={18} /> {t('sync.now')}
           </button>
           <button
             className="btn"
             disabled={sync?.status === 'running'}
-            onClick={() => void run(() => api.sync(true), t('sync.fullStarted'))}
+            onClick={() => void runEverywhere(() => api.sync(true), t('sync.fullStarted'))}
           >
             {t('sync.full')}
           </button>

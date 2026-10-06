@@ -1,13 +1,16 @@
 import {
+  CONSUMPTION_MODES,
   retentionExpiry,
   type ConsumptionMode,
   type DayPart,
   type EpisodeStatus,
+  type Show,
   type TodayLabel,
   type Weekday,
 } from '@podcast/shared';
 import type { SyncState } from '@podcast/shared';
 import i18n, { formatLocale } from '../i18n';
+import type { resources } from '../i18n/resources';
 import { errorMessage } from './api';
 
 const t = i18n.t.bind(i18n);
@@ -24,6 +27,10 @@ function dateFormat(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
   }
   return fmt;
 }
+
+/** "12:03 / 45:00", the position in an episode as the player shows it. */
+export const formatPosition = (positionMs: number, durationMs: number) =>
+  `${formatClock(positionMs)} / ${formatClock(durationMs)}`;
 
 export function formatDuration(ms: number): string {
   const totalMin = Math.max(1, Math.round(ms / 60_000));
@@ -87,6 +94,32 @@ export function formatDateTime(iso: string | undefined): string {
 
 export const modeLabel = (mode: ConsumptionMode) => t(`mode.${mode}`);
 export const modeHint = (mode: ConsumptionMode) => t(`modeHint.${mode}`);
+
+type ProgressKey = keyof (typeof resources)['de']['shows']['progress'];
+
+/** The modes as options of a Segmented control, in the active language. */
+export const modeOptions = () => CONSUMPTION_MODES.map((m) => ({ value: m, label: modeLabel(m), hint: modeHint(m) }));
+
+export function progressText(show: Show): { text: string; tone?: 'new' | 'muted' } {
+  const progress = (key: ProgressKey, values?: Record<string, number>) =>
+    t(`progress.${key}`, { ns: 'shows', ...values });
+  const s = show.summary;
+  if (!s || s.total === 0) return { text: progress('noEpisodes'), tone: 'muted' };
+  const next = s.nextEpisode;
+  if (show.pinnedEpisodeId && next?.id === show.pinnedEpisodeId) {
+    return { text: progress('chosen', { index: next.index, total: s.total }) };
+  }
+  switch (show.mode) {
+    case 'LATEST':
+      if (!next) return { text: progress('noNew'), tone: 'muted' };
+      return next.isNew ? { text: progress('newAvailable'), tone: 'new' } : { text: progress('newestOpen') };
+    case 'SEQUENTIAL':
+      if (!next) return { text: progress('allDone', { total: s.total }), tone: 'muted' };
+      return { text: t('episode.ofTotal', { index: next.index, total: s.total }) };
+    default:
+      return { text: progress('noneChosen'), tone: 'muted' };
+  }
+}
 export const statusLabel = (status: EpisodeStatus) => t(`status.${status}`);
 export const todayLabel = (label: TodayLabel) => t(`todayLabel.${label}`);
 export const dayPartLabel = (part: DayPart) => t(`dayPart.${part}`);

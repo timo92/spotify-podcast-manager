@@ -37,7 +37,6 @@ class FakePlayer {
   getCurrentState = async () => this.state;
   togglePlay = async () => {};
   pause = async () => {};
-  resume = async () => {};
   seek = async () => {};
   activateElement = async () => {};
 }

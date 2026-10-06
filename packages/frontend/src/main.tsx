@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { ApiError } from './lib/api';
+import { applyTheme, storedTheme } from './lib/theme';
 import { ToastProvider } from './lib/toast';
 
 const queryClient = new QueryClient({
@@ -19,12 +20,7 @@ const queryClient = new QueryClient({
 });
 
 // Apply the stored theme before first paint.
-try {
-  const theme = localStorage.getItem('pm.theme');
-  if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
-} catch {
-  // ignore
-}
+applyTheme(storedTheme());
 
 const root = document.getElementById('root');
 if (!root) throw new Error('index.html has no #root element');

@@ -1,45 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CONSUMPTION_MODES, type Show } from '@podcast/shared';
+import type { Show } from '@podcast/shared';
 import { Icon } from '../components/Icon';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, IconButton, ProgressBar, Segmented, Spinner } from '../components/ui';
-import i18n from '../i18n';
-import type { resources } from '../i18n/resources';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatRelative, modeHint, modeLabel } from '../lib/format';
-import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
-import { useToast } from '../lib/toast';
+import { formatRelative, modeHint, modeLabel, modeOptions, progressText } from '../lib/format';
+import { useRun } from '../lib/actions';
+import { qk, useSettings } from '../lib/queries';
 import styles from './Shows.module.css';
-
-type ProgressKey = keyof (typeof resources)['de']['shows']['progress'];
-
-/** The modes as options of a Segmented control, in the active language. */
-export const modeOptions = () => CONSUMPTION_MODES.map((m) => ({ value: m, label: modeLabel(m), hint: modeHint(m) }));
-
-export function progressText(show: Show): { text: string; tone?: 'new' | 'muted' } {
-  const t = (key: ProgressKey, values?: Record<string, number>) =>
-    i18n.t(`progress.${key}`, { ns: 'shows', ...values });
-  const s = show.summary;
-  if (!s || s.total === 0) return { text: t('noEpisodes'), tone: 'muted' };
-  const next = s.nextEpisode;
-  if (show.pinnedEpisodeId && next?.id === show.pinnedEpisodeId) {
-    return { text: t('chosen', { index: next.index, total: s.total }) };
-  }
-  switch (show.mode) {
-    case 'LATEST':
-      if (!next) return { text: t('noNew'), tone: 'muted' };
-      return next.isNew ? { text: t('newAvailable'), tone: 'new' } : { text: t('newestOpen') };
-    case 'SEQUENTIAL':
-      if (!next) return { text: t('allDone', { total: s.total }), tone: 'muted' };
-      return { text: i18n.t('episode.ofTotal', { index: next.index, total: s.total }) };
-    default:
-      return { text: t('noneChosen'), tone: 'muted' };
-  }
-}
 
 export function ShowsPage() {
   const { t } = useTranslation('shows');
@@ -50,12 +22,7 @@ export function ShowsPage() {
   const [filter, setFilter] = useState<string>('alle');
   const [reorder, setReorder] = useState(false);
   const [order, setOrder] = useState<Show[] | null>(null);
-  const invalidate = useInvalidateLibrary();
-  const toast = useToast();
-
-  useEffect(() => {
-    if (!reorder) setOrder(null);
-  }, [reorder]);
+  const run = useRun();
 
   const list = order ?? shows.data ?? [];
   const reviewCount = (shows.data ?? []).filter((s) => s.needsReview).length;
@@ -85,24 +52,12 @@ export function ShowsPage() {
     next[target] = moving;
     const previous = order;
     setOrder(next);
-    try {
-      await api.reorder(next.map((s) => s.id));
-      await invalidate();
-    } catch (e) {
-      setOrder(previous);
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
+    await run(() => api.reorder(next.map((s) => s.id)), { revert: () => setOrder(previous) });
   }
 
   async function confirmAll() {
-    try {
-      await Promise.all(visible.map((s) => api.updateShow(s.id, { needsReview: false })));
-      await invalidate();
-      setParams({});
-      toast({ message: t('list.allConfirmed'), tone: 'success' });
-    } catch (e) {
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
+    const confirm = () => Promise.all(visible.map((s) => api.updateShow(s.id, { needsReview: false })));
+    if (await run(confirm, { message: t('list.allConfirmed') })) setParams({});
   }
 
   return (
@@ -121,7 +76,11 @@ export function ShowsPage() {
           <button
             type="button"
             className={`btn btn-small${reorder ? ' btn-primary' : ''}`}
-            onClick={() => setReorder((r) => !r)}
+            onClick={() => {
+              // Leaving the reorder mode shows the stored order again.
+              if (reorder) setOrder(null);
+              setReorder(!reorder);
+            }}
           >
             <Icon name="sort" size={18} /> {reorder ? t('ui.done', { ns: 'common' }) : t('list.priority')}
           </button>
@@ -252,21 +211,13 @@ function ShowCard({ show, rank }: { show: Show; rank?: number }) {
 
 function ReviewCard({ show, categories }: { show: Show; categories: string[] }) {
   const { t } = useTranslation('shows');
-  const invalidate = useInvalidateLibrary();
-  const toast = useToast();
+  const run = useRun();
   const [mode, setMode] = useState(show.mode);
   const [cats, setCats] = useState(show.categories);
 
   /** Saves a choice; `revert` puts back one the card already shows if saving fails. */
-  async function save(patch: Parameters<typeof api.updateShow>[1], revert?: () => void) {
-    try {
-      await api.updateShow(show.id, patch);
-      await invalidate();
-    } catch (e) {
-      revert?.();
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
-  }
+  const save = (patch: Parameters<typeof api.updateShow>[1], revert?: () => void) =>
+    run(() => api.updateShow(show.id, patch), { revert });
 
   return (
     <div className={cx('card', styles.reviewCard)}>

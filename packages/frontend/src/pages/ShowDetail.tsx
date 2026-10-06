@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import type { EpisodeView, Show, ShowSettingsPatch } from '@podcast/shared';
+import { isDone, type EpisodeView, type Show, type ShowSettingsPatch } from '@podcast/shared';
 import { PlayButton } from '../components/EpisodeCard';
 import { EpisodeRow } from '../components/EpisodeRow';
 import { EpisodeSheet } from '../components/EpisodeSheet';
@@ -12,17 +12,25 @@ import { ListenOnSpotify, SpotifyAttribution } from '../components/SpotifyAttrib
 import { Badge, Chip, Cover, Empty, ErrorBox, ProgressBar, Segmented, Spinner, Toggle } from '../components/ui';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatDeletionDate, formatDuration, formatRelative, formatReleaseDate, modeHint } from '../lib/format';
+import {
+  formatDeletionDate,
+  formatDuration,
+  formatRelative,
+  formatReleaseDate,
+  modeHint,
+  modeOptions,
+  progressText,
+} from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import styles from './ShowDetail.module.css';
-import { modeOptions, progressText } from './Shows';
+import { matchesQuery } from '../lib/search';
 
 type Filter = 'alle' | 'ungehoert' | 'gehoert' | 'uebersprungen' | 'neu' | 'begonnen';
 
 const FILTERS: { value: Filter; test: (e: EpisodeView) => boolean }[] = [
   { value: 'alle', test: () => true },
-  { value: 'ungehoert', test: (e) => e.status === 'UNSEEN' || e.status === 'IN_PROGRESS' },
+  { value: 'ungehoert', test: (e) => !isDone(e.status) },
   { value: 'neu', test: (e) => e.isNew },
   { value: 'begonnen', test: (e) => e.status === 'IN_PROGRESS' },
   { value: 'gehoert', test: (e) => e.status === 'COMPLETED' },
@@ -54,10 +62,7 @@ export function ShowDetailPage() {
   const episodes = useMemo(() => {
     const all = detail.data?.episodes ?? [];
     const test = FILTERS.find((x) => x.value === filter)?.test ?? (() => true);
-    const q = query.trim().toLowerCase();
-    const list = all.filter(
-      (e) => test(e) && (!q || e.name.toLowerCase().includes(q) || e.description.toLowerCase().includes(q)),
-    );
+    const list = all.filter((e) => test(e) && matchesQuery(query, e.name, e.description));
     return asc ? list : [...list].reverse();
   }, [detail.data, filter, query, asc]);
 

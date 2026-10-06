@@ -52,6 +52,7 @@ export function SpotifyAttribution({ href, on = 'surface' }: { href?: string; on
  * there.
  */
 export const LISTEN_ON_SPOTIFY = 'LISTEN ON SPOTIFY';
+export const PLAY_ON_SPOTIFY = 'PLAY ON SPOTIFY';
 
 /** Link button back to Spotify. */
 export function ListenOnSpotify({ href, small }: { href: string; small?: boolean }) {

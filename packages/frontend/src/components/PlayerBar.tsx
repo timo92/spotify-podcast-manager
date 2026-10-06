@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
-import { formatClock } from '../lib/format';
+import { formatPosition } from '../lib/format';
 import { cx } from '../lib/cx';
 import i18n from '../i18n';
-import { usePlayer, type NowPlaying, type PlayTarget } from '../lib/player';
-import { qk, useInvalidateLibrary } from '../lib/queries';
-import { useToast } from '../lib/toast';
+import { BROWSER_DEVICE_NAME, deviceOf, usePlayer, type NowPlaying, type PlayTarget } from '../lib/player';
+import { useRun } from '../lib/actions';
+import { qk } from '../lib/queries';
 import { Icon } from './Icon';
 import { PlayerNoteSheet } from './Notes';
 import { NowPlayingTitle } from './NowPlaying';
@@ -16,9 +16,9 @@ import { Cover, IconButton } from './ui';
 
 /** Position (once Spotify reported it), device and pause state of playback outside the browser. */
 function remoteDetail(np: NowPlaying): string {
-  const device = np.deviceName ?? (np.target.kind === 'device' ? np.target.name : undefined);
+  const device = deviceOf(np);
   const parts = [
-    np.deviceName !== undefined ? `${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}` : undefined,
+    np.deviceName !== undefined ? formatPosition(np.positionMs, np.durationMs) : undefined,
     device ? i18n.t('onDevice', { ns: 'player', device }) : undefined,
     np.paused ? i18n.t('ui.paused') : undefined,
   ].filter((p): p is string => !!p);
@@ -28,8 +28,7 @@ function remoteDetail(np: NowPlaying): string {
 export function PlayerBar() {
   const { t } = useTranslation('player');
   const player = usePlayer();
-  const toast = useToast();
-  const invalidate = useInvalidateLibrary();
+  const run = useRun();
   const np = player.nowPlaying;
   const [dragging, setDragging] = useState<number | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -63,9 +62,7 @@ export function PlayerBar() {
         <div className={styles.text}>
           <NowPlayingTitle
             np={np}
-            detail={
-              local ? ` · ${formatClock(dragging ?? np.positionMs)} / ${formatClock(np.durationMs)}` : remoteDetail(np)
-            }
+            detail={local ? ` · ${formatPosition(dragging ?? np.positionMs, np.durationMs)}` : remoteDetail(np)}
           />
         </div>
         <div className={styles.controls}>
@@ -100,14 +97,11 @@ export function PlayerBar() {
             label={t('episode.markPlayed', { ns: 'common' })}
             active={np.completed}
             onClick={() => {
-              api
-                .setStatus(np.showId, np.episodeId, 'COMPLETED')
-                .then(() => {
-                  player.markCompleted(np.episodeId);
-                  void invalidate();
-                  toast({ message: t('episode.done.COMPLETED', { ns: 'common' }), tone: 'success' });
-                })
-                .catch((e: Error) => toast({ message: e.message, tone: 'error' }));
+              const mark = async () => {
+                await api.setStatus(np.showId, np.episodeId, 'COMPLETED');
+                player.markCompleted(np.episodeId);
+              };
+              void run(mark, { message: t('episode.done.COMPLETED', { ns: 'common' }) });
             }}
           />
           <IconButton icon="close" label={t('close')} onClick={player.close} />
@@ -179,7 +173,7 @@ export function PlayTargetPicker() {
           {devices.error && <div className="menu-note">{devices.error.message}</div>}
           {devices.data?.length === 0 && <div className="menu-note">{t('target.noDevices')}</div>}
           {devices.data
-            ?.filter((d) => d.name !== 'Podcast-Cockpit')
+            ?.filter((d) => d.name !== BROWSER_DEVICE_NAME)
             .map((d) => (
               <button
                 key={d.id}

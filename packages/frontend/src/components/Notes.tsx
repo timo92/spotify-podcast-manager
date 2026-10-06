@@ -5,9 +5,10 @@ import { useTranslation } from 'react-i18next';
 import type { EpisodeNote } from '@podcast/shared';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatClock, formatRelative, parseClock, splitTimestamps } from '../lib/format';
-import { episodeItem, usePlayer, type PlayableItem } from '../lib/player';
+import { formatClock, formatPosition, formatRelative, parseClock, splitTimestamps } from '../lib/format';
+import { episodeItem, playsInBrowser, usePlayer, type PlayableItem } from '../lib/player';
 import { qk } from '../lib/queries';
+import { useRun } from '../lib/actions';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
 import styles from './Notes.module.css';
@@ -61,30 +62,15 @@ function useNotesChanged(showId: string) {
 
 function NoteItem({ note, item, onEdit }: { note: EpisodeNote; item: PlayableItem; onEdit: () => void }) {
   const { t } = useTranslation('player');
-  const toast = useToast();
+  const run = useRun();
   const changed = useNotesChanged(note.showId);
 
-  async function remove() {
-    try {
-      await api.deleteNote(note);
-      await changed();
-      toast({
-        message: t('note.deleted'),
-        tone: 'success',
-        action: {
-          label: t('episode.undo', { ns: 'common' }),
-          onClick: () => {
-            void api
-              .createNote(note.showId, note.episodeId, { text: note.text, positionMs: note.positionMs })
-              .then(changed)
-              .catch((e: Error) => toast({ message: e.message, tone: 'error' }));
-          },
-        },
-      });
-    } catch (e) {
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
-  }
+  const remove = () =>
+    run(() => api.deleteNote(note), {
+      message: t('note.deleted'),
+      undo: () => api.createNote(note.showId, note.episodeId, { text: note.text, positionMs: note.positionMs }),
+      refresh: changed,
+    });
 
   return (
     <article className={styles.item}>
@@ -175,7 +161,7 @@ function NewNote({ item, autoFocus }: { item: PlayableItem; autoFocus?: boolean 
   const draft = useRef({ text: '', stamp: null as number | null });
 
   const np = player.nowPlaying;
-  const livePosition = np?.episodeId === item.episode.id && np.target.kind === 'browser' ? np.positionMs : null;
+  const livePosition = playsInBrowser(np, item.episode.id) ? np.positionMs : null;
   const shownPosition = stamp ?? (text ? null : livePosition);
 
   const create = useCallback(
@@ -275,7 +261,7 @@ function useJump(item: PlayableItem) {
   const player = usePlayer();
   return (ms: number) => {
     const np = player.nowPlaying;
-    if (np?.episodeId === item.episode.id && np.target.kind === 'browser') player.seekTo(ms);
+    if (playsInBrowser(np, item.episode.id)) player.seekTo(ms);
     else void player.play(item, { positionMs: ms });
   };
 }
@@ -330,10 +316,7 @@ export function PlayerNoteSheet({ onClose }: { onClose: () => void }) {
       <div className="row gap">
         <Cover src={np.imageUrl} alt={np.showName} size={44} />
         <div className="grow">
-          <NowPlayingTitle
-            np={np}
-            detail={local ? ` · ${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}` : ''}
-          />
+          <NowPlayingTitle np={np} detail={local ? ` · ${formatPosition(np.positionMs, np.durationMs)}` : ''} />
         </div>
         <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
       </div>

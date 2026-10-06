@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import type { ShowLite } from '@podcast/shared';
+import { isDone, type ShowLite } from '@podcast/shared';
 import { useEpisodeActions } from '../lib/actions';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
@@ -10,8 +10,9 @@ import { formatDuration, formatReleaseDate } from '../lib/format';
 import { qk } from '../lib/queries';
 import styles from './EpisodePicker.module.css';
 import { SpotifyAttribution } from './SpotifyAttribution';
-import { Cover, Empty, ErrorBox, IconButton, Spinner, StatusBadge } from './ui';
+import { Cover, Empty, ErrorBox, Spinner, StatusBadge } from './ui';
 import { Sheet } from './Sheet';
+import { matchesQuery } from '../lib/search';
 
 /**
  * Picks the next episode of a podcast in place (pins it, like "Als nächste
@@ -24,19 +25,11 @@ export function EpisodePickerSheet({ show, onClose }: { show: ShowLite; onClose:
   const [query, setQuery] = useState('');
 
   const open = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (detail.data?.episodes ?? [])
-      .filter((e) => e.status === 'UNSEEN' || e.status === 'IN_PROGRESS')
-      .filter((e) => !q || e.name.toLowerCase().includes(q))
-      .reverse();
+    return (detail.data?.episodes ?? []).filter((e) => !isDone(e.status) && matchesQuery(query, e.name)).reverse();
   }, [detail.data, query]);
 
   return (
-    <Sheet label={t('picker.title')} onClose={onClose}>
-      <div className="row-between">
-        <h2>{t('picker.title')}</h2>
-        <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
-      </div>
+    <Sheet title={t('picker.title')} onClose={onClose}>
       <div className="row gap">
         <Cover src={show.imageUrl} alt={show.name} size={40} />
         <strong className="grow">{show.name}</strong>

@@ -6,6 +6,7 @@ import { useInvalidateLibrary, useSettings } from './queries';
 import { playbackEnded } from './playback-end';
 import { forgetRemoteEpisode, loadRemoteEpisodes, rememberRemoteEpisode, type RemoteEpisode } from './remote-episodes';
 import { LISTEN_ON_SPOTIFY } from '../components/SpotifyAttribution';
+import { readStoredJson, writeStored } from './storage';
 import { useToast } from './toast';
 
 /** Where "Abspielen" sends an episode. */
@@ -26,6 +27,14 @@ export interface NowPlaying {
   /** For playback outside the browser: the device Spotify reports it on. */
   deviceName?: string;
 }
+
+/** The device playback outside the browser runs on, as far as known. */
+export const deviceOf = (np: NowPlaying): string | undefined =>
+  np.deviceName ?? (np.target.kind === 'device' ? np.target.name : undefined);
+
+/** Whether `episodeId` is the episode the browser player shows (and can control). */
+export const playsInBrowser = (np: NowPlaying | null, episodeId: string): np is NowPlaying =>
+  np?.episodeId === episodeId && np.target.kind === 'browser';
 
 export interface PlayableItem {
   show: { id: string; name: string; imageUrl?: string };
@@ -103,6 +112,8 @@ export interface PlayOptions {
 }
 
 const PlayerContext = createContext<PlayerApi | null>(null);
+/** Name of the Spotify Connect device this browser becomes. */
+export const BROWSER_DEVICE_NAME = 'Podcast-Cockpit';
 const TARGET_KEY = 'pm.playTarget';
 /** How often playback outside the browser is read from Spotify while the page is visible. */
 const REMOTE_POLL_MS = 30_000;
@@ -121,13 +132,7 @@ function detectBrowserSupport(): boolean {
 }
 
 function loadTarget(fallback: PlayTarget): PlayTarget {
-  try {
-    const raw = localStorage.getItem(TARGET_KEY);
-    if (raw) return JSON.parse(raw) as PlayTarget;
-  } catch {
-    // ignore
-  }
-  return fallback;
+  return (readStoredJson(TARGET_KEY) as PlayTarget | undefined) ?? fallback;
 }
 
 let sdkPromise: Promise<void> | null = null;
@@ -151,10 +156,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const { data: settings } = useSettings();
   const toast = useToast();
   const invalidate = useInvalidateLibrary();
-  const browserSupported = useMemo(detectBrowserSupport, []);
+  const [browserSupported] = useState(detectBrowserSupport);
 
   const [target, setTargetState] = useState<PlayTarget>(() =>
-    loadTarget(detectBrowserSupport() ? { kind: 'browser' } : { kind: 'app' }),
+    loadTarget(browserSupported ? { kind: 'browser' } : { kind: 'app' }),
   );
   const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null);
   const [busy, setBusy] = useState(false);
@@ -281,11 +286,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const setTarget = useCallback((t: PlayTarget) => {
     setTargetState(t);
-    try {
-      localStorage.setItem(TARGET_KEY, JSON.stringify(t));
-    } catch {
-      // ignore
-    }
+    writeStored(TARGET_KEY, JSON.stringify(t));
   }, []);
 
   const discardPlayer = useCallback((player: Spotify.Player) => {
@@ -300,7 +301,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     deviceRef.current = (async () => {
       await loadSdk();
       const player = new window.Spotify.Player({
-        name: 'Podcast-Cockpit',
+        name: BROWSER_DEVICE_NAME,
         volume: 0.9,
         getOAuthToken: (cb) => {
           api

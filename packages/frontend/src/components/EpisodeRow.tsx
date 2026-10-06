@@ -7,6 +7,7 @@ import { PlayButton } from './EpisodeCard';
 import styles from './EpisodeRow.module.css';
 import { Icon } from './Icon';
 import { Badge, IconButton, Menu, StatusBadge } from './ui';
+import { LISTEN_ON_SPOTIFY } from './SpotifyAttribution';
 
 export function EpisodeRow({
   show,
@@ -90,7 +91,7 @@ export function EpisodeRow({
               onClick: () => void actions.resetStatus(episode),
               hidden: episode.statusSource !== 'local',
             },
-            { label: 'LISTEN ON SPOTIFY', icon: 'external', href: episode.spotifyUrl },
+            { label: LISTEN_ON_SPOTIFY, icon: 'external', href: episode.spotifyUrl },
           ]}
         />
       </div>

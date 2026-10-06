@@ -71,12 +71,11 @@ export interface MenuItem {
   icon?: IconName;
   onClick?: () => void;
   href?: string;
-  danger?: boolean;
   hidden?: boolean;
 }
 
 /** Small popover menu ("⋯"). */
-export function Menu({ items, label }: { items: MenuItem[]; label?: string }) {
+export function Menu({ items }: { items: MenuItem[] }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -95,7 +94,7 @@ export function Menu({ items, label }: { items: MenuItem[]; label?: string }) {
   }, [open]);
   return (
     <div className="menu" ref={ref}>
-      <IconButton icon="more" label={label ?? t('ui.moreActions')} onClick={() => setOpen((o) => !o)} active={open} />
+      <IconButton icon="more" label={t('ui.moreActions')} onClick={() => setOpen((o) => !o)} active={open} />
       {open && (
         <div className="menu-pop" role="menu">
           {items
@@ -119,7 +118,7 @@ export function Menu({ items, label }: { items: MenuItem[]; label?: string }) {
                   key={item.label}
                   role="menuitem"
                   type="button"
-                  className={`menu-item${item.danger ? ' is-danger' : ''}`}
+                  className="menu-item"
                   onClick={() => {
                     setOpen(false);
                     item.onClick?.();
@@ -233,12 +232,12 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
-export function Spinner({ label }: { label?: string }) {
+export function Spinner() {
   const { t } = useTranslation();
   return (
     <div className="spinner-wrap" role="status">
       <span className="spinner" aria-hidden />
-      <span>{label ?? t('ui.loading')}</span>
+      <span>{t('ui.loading')}</span>
     </div>
   );
 }

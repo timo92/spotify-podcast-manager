@@ -80,7 +80,10 @@ export function resolveConfig(context: (key: string) => unknown, env: NodeJS.Pro
   const { domainName, certificateArn } = raw;
   const appName = raw.appName ?? 'PodcastCockpit';
   const stage = raw.stage ?? 'dev';
-  // Part of stack names and an SSM path segment, so keep it simple.
+  // Both are part of the stack names and SSM path segments, so keep them simple.
+  if (!/^[A-Za-z][A-Za-z0-9-]{0,63}$/.test(appName)) {
+    throw new Error(`STACK_NAME "${appName}" is invalid: start with a letter, then letters, digits and "-".`);
+  }
   if (!/^[a-z][a-z0-9-]{0,19}$/.test(stage)) {
     throw new Error(`STAGE "${stage}" is invalid: use lower-case letters, digits and "-" (e.g. dev, prod).`);
   }

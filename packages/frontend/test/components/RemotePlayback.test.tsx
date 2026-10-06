@@ -66,16 +66,37 @@ describe('playback outside the browser', () => {
     expect(state).toHaveBeenCalledTimes(2);
   });
 
-  it('marks an episode heard when it reaches its end elsewhere', async () => {
-    rememberRemoteEpisode({ ...entryFor(), startedAt: Date.now() });
-    vi.spyOn(api, 'playerState').mockResolvedValue(playing(20 * MIN - 30_000));
+  it('marks an episode heard once playback stops after reaching its end elsewhere', async () => {
+    rememberRemoteEpisode({ ...entryFor(), startedAt: Date.now() - 30 * MIN });
+    const state = vi.spyOn(api, 'playerState').mockResolvedValue(playing(20 * MIN - 30_000));
     vi.spyOn(api, 'refreshEpisode').mockResolvedValue(episode(1, { status: 'IN_PROGRESS' }));
     const setStatus = vi.spyOn(api, 'setStatus').mockResolvedValue(show());
     renderPlayer();
 
+    // Still playing the last 30 seconds: not marked yet.
+    expect(within(await playerBar()).getByText(/19:30 \/ 20:00/)).toBeInTheDocument();
+    expect(setStatus).not.toHaveBeenCalled();
+
+    state.mockResolvedValue(null);
+    await nextPoll();
     expect(await screen.findByText('„Reise: Teil 1“ als gehört markiert')).toBeInTheDocument();
+    expect(setStatus).toHaveBeenCalledTimes(1);
     expect(setStatus).toHaveBeenCalledWith('wissen', 'ep-1', 'COMPLETED');
     expect(loadRemoteEpisodes()).toEqual([]);
+  });
+
+  it('does not mark an episode paused before its end', async () => {
+    rememberRemoteEpisode({ ...entryFor(), startedAt: Date.now() - 30 * MIN });
+    const state = vi.spyOn(api, 'playerState').mockResolvedValue(playing(15 * MIN));
+    vi.spyOn(api, 'refreshEpisode').mockResolvedValue(episode(1, { status: 'IN_PROGRESS' }));
+    const setStatus = vi.spyOn(api, 'setStatus').mockResolvedValue(show());
+    renderPlayer();
+    expect(within(await playerBar()).getByText(/15:00 \/ 20:00/)).toBeInTheDocument();
+
+    state.mockResolvedValue(null);
+    await nextPoll();
+    await nextPoll();
+    expect(setStatus).not.toHaveBeenCalled();
   });
 
   it('catches up on remembered episodes when the page becomes visible again', async () => {

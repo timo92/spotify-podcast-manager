@@ -3,6 +3,7 @@ import type { EpisodeView, PlaybackState } from '@podcast/shared';
 import i18n from '../i18n';
 import { api, ApiError } from './api';
 import { useInvalidateLibrary, useSettings } from './queries';
+import { playbackEnded } from './playback-end';
 import { forgetRemoteEpisode, loadRemoteEpisodes, rememberRemoteEpisode, type RemoteEpisode } from './remote-episodes';
 import { LISTEN_ON_SPOTIFY } from '../components/SpotifyAttribution';
 import { useToast } from './toast';
@@ -95,6 +96,8 @@ const PlayerContext = createContext<PlayerApi | null>(null);
 const TARGET_KEY = 'pm.playTarget';
 /** How often playback outside the browser is read from Spotify while the page is visible. */
 const REMOTE_POLL_MS = 30_000;
+/** How close to its end the browser player must have been for an episode to count as ended. */
+const BROWSER_END_WINDOW_MS = 5_000;
 /** Polls without movement after which following outside playback stops (it was paused or ended). */
 const REMOTE_STILL_POLLS = 2;
 // Overridable so local development can load a fake SDK (see packages/frontend/dev).
@@ -399,32 +402,36 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(timer);
   }, [nowPlaying?.episodeId, nowPlaying?.paused, nowPlaying?.target.kind]);
 
-  // Auto-complete near the end of the episode. Outside the browser the position is
-  // only known every REMOTE_POLL_MS, so the end counts from further away.
+  // Auto-complete once an episode has ended (see playbackEnded). The browser
+  // player reports its position every second; outside the browser it is only
+  // known at each poll, so the last position seen before the end may be up to
+  // one poll away from it.
+  const shownRef = useRef<NowPlaying | null>(null);
+  const autoCompleteRef = useRef(false);
+  autoCompleteRef.current = !!settings?.autoCompleteInPlayer;
   useEffect(() => {
-    const cur = nowPlaying;
-    if (!cur || cur.completed || !settings?.autoCompleteInPlayer) return;
-    const remaining = cur.durationMs - cur.positionMs;
-    const endWithin = cur.target.kind === 'browser' ? 20_000 : REMOTE_POLL_MS + 15_000;
-    if (cur.durationMs > 0 && (remaining < endWithin || cur.positionMs / cur.durationMs > 0.97)) {
-      setNowPlaying({ ...cur, completed: true });
-      forgetRemoteEpisode(cur.episodeId);
-      api
-        .setStatus(cur.showId, cur.episodeId, 'COMPLETED')
-        .then(() => {
-          void invalidate();
-          toast({
-            message: i18n.t('episode.autoCompleted', { name: cur.name }),
-            tone: 'success',
-            action: {
-              label: i18n.t('episode.undo'),
-              onClick: () => void api.setStatus(cur.showId, cur.episodeId, null).then(invalidate),
-            },
-          });
-        })
-        .catch(() => undefined);
-    }
-  }, [nowPlaying, settings?.autoCompleteInPlayer, invalidate, toast]);
+    const prev = shownRef.current;
+    shownRef.current = nowPlaying;
+    if (!prev || !autoCompleteRef.current) return;
+    const endWindowMs = prev.target.kind === 'browser' ? BROWSER_END_WINDOW_MS : REMOTE_POLL_MS + 15_000;
+    if (!playbackEnded(prev, nowPlaying, endWindowMs)) return;
+    setNowPlaying((cur) => (cur?.episodeId === prev.episodeId ? { ...cur, completed: true } : cur));
+    forgetRemoteEpisode(prev.episodeId);
+    api
+      .setStatus(prev.showId, prev.episodeId, 'COMPLETED')
+      .then(() => {
+        void invalidateRef.current();
+        toast({
+          message: i18n.t('episode.autoCompleted', { name: prev.name }),
+          tone: 'success',
+          action: {
+            label: i18n.t('episode.undo'),
+            onClick: () => void api.setStatus(prev.showId, prev.episodeId, null).then(() => invalidateRef.current()),
+          },
+        });
+      })
+      .catch(() => undefined);
+  }, [nowPlaying, toast]);
 
   const togglePause = useCallback(() => {
     const cur = nowRef.current;

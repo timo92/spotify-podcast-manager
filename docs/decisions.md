@@ -558,8 +558,13 @@ app on a phone as well.
   (Spotify's `GET /me/player`) every 30 seconds and shows a remembered
   episode playing elsewhere in the player bar. It stops after two polls
   without movement or when something else plays, and reads the episode back
-  once more. Auto-complete applies as in the browser player, with a wider
-  margin at the end because the position is only known every 30 seconds.
+  once more.
+- Auto-complete, in the browser player and for followed playback, marks an
+  episode only once its playback has ended: it was playing close to the end
+  (5 seconds in the browser, one poll plus 15 seconds outside it) and then
+  stopped, moved on to something else, went back to the beginning or sits at
+  the very end. Spotify reports no "finished" event, so the end is inferred
+  from the change. Seeking back or closing the player bar is not an end.
 
 **Why.** The scheduled sync (every 2 hours, all episodes only at night) is
 too slow for "I just finished it in the Spotify app". Spotify offers no push

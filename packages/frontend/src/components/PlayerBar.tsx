@@ -6,8 +6,8 @@ import { formatClock } from '../lib/format';
 import { cx } from '../lib/cx';
 import i18n from '../i18n';
 import { BROWSER_DEVICE_NAME, usePlayer, type NowPlaying, type PlayTarget } from '../lib/player';
-import { qk, useInvalidateLibrary } from '../lib/queries';
-import { useToast } from '../lib/toast';
+import { useRun } from '../lib/actions';
+import { qk } from '../lib/queries';
 import { Icon } from './Icon';
 import { PlayerNoteSheet } from './Notes';
 import { NowPlayingTitle } from './NowPlaying';
@@ -28,8 +28,7 @@ function remoteDetail(np: NowPlaying): string {
 export function PlayerBar() {
   const { t } = useTranslation('player');
   const player = usePlayer();
-  const toast = useToast();
-  const invalidate = useInvalidateLibrary();
+  const run = useRun();
   const np = player.nowPlaying;
   const [dragging, setDragging] = useState<number | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -100,14 +99,11 @@ export function PlayerBar() {
             label={t('episode.markPlayed', { ns: 'common' })}
             active={np.completed}
             onClick={() => {
-              api
-                .setStatus(np.showId, np.episodeId, 'COMPLETED')
-                .then(() => {
-                  player.markCompleted(np.episodeId);
-                  void invalidate();
-                  toast({ message: t('episode.done.COMPLETED', { ns: 'common' }), tone: 'success' });
-                })
-                .catch((e: Error) => toast({ message: e.message, tone: 'error' }));
+              const mark = async () => {
+                await api.setStatus(np.showId, np.episodeId, 'COMPLETED');
+                player.markCompleted(np.episodeId);
+              };
+              void run(mark, { message: t('episode.done.COMPLETED', { ns: 'common' }) });
             }}
           />
           <IconButton icon="close" label={t('close')} onClick={player.close} />

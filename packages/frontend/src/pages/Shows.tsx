@@ -9,8 +9,8 @@ import { Badge, Chip, Cover, Empty, ErrorBox, IconButton, ProgressBar, Segmented
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
 import { formatRelative, modeHint, modeLabel, modeOptions, progressText } from '../lib/format';
-import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
-import { useToast } from '../lib/toast';
+import { useRun } from '../lib/actions';
+import { qk, useSettings } from '../lib/queries';
 import styles from './Shows.module.css';
 
 export function ShowsPage() {
@@ -22,8 +22,7 @@ export function ShowsPage() {
   const [filter, setFilter] = useState<string>('alle');
   const [reorder, setReorder] = useState(false);
   const [order, setOrder] = useState<Show[] | null>(null);
-  const invalidate = useInvalidateLibrary();
-  const toast = useToast();
+  const run = useRun();
 
   useEffect(() => {
     if (!reorder) setOrder(null);
@@ -57,24 +56,12 @@ export function ShowsPage() {
     next[target] = moving;
     const previous = order;
     setOrder(next);
-    try {
-      await api.reorder(next.map((s) => s.id));
-      await invalidate();
-    } catch (e) {
-      setOrder(previous);
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
+    await run(() => api.reorder(next.map((s) => s.id)), { revert: () => setOrder(previous) });
   }
 
   async function confirmAll() {
-    try {
-      await Promise.all(visible.map((s) => api.updateShow(s.id, { needsReview: false })));
-      await invalidate();
-      setParams({});
-      toast({ message: t('list.allConfirmed'), tone: 'success' });
-    } catch (e) {
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
+    const confirm = () => Promise.all(visible.map((s) => api.updateShow(s.id, { needsReview: false })));
+    if (await run(confirm, { message: t('list.allConfirmed') })) setParams({});
   }
 
   return (
@@ -224,21 +211,13 @@ function ShowCard({ show, rank }: { show: Show; rank?: number }) {
 
 function ReviewCard({ show, categories }: { show: Show; categories: string[] }) {
   const { t } = useTranslation('shows');
-  const invalidate = useInvalidateLibrary();
-  const toast = useToast();
+  const run = useRun();
   const [mode, setMode] = useState(show.mode);
   const [cats, setCats] = useState(show.categories);
 
   /** Saves a choice; `revert` puts back one the card already shows if saving fails. */
-  async function save(patch: Parameters<typeof api.updateShow>[1], revert?: () => void) {
-    try {
-      await api.updateShow(show.id, patch);
-      await invalidate();
-    } catch (e) {
-      revert?.();
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
-  }
+  const save = (patch: Parameters<typeof api.updateShow>[1], revert?: () => void) =>
+    run(() => api.updateShow(show.id, patch), { revert });
 
   return (
     <div className={cx('card', styles.reviewCard)}>

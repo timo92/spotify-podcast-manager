@@ -11,6 +11,7 @@ import { formatDateTime, syncError, syncText } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings, useStatus } from '../lib/queries';
 import { applyTheme, storedTheme, type Theme } from '../lib/theme';
 import { useToast } from '../lib/toast';
+import { useRun } from '../lib/actions';
 import styles from './Settings.module.css';
 
 export function SettingsPage() {
@@ -20,6 +21,7 @@ export function SettingsPage() {
   const qc = useQueryClient();
   const invalidate = useInvalidateLibrary();
   const toast = useToast();
+  const run = useRun();
   // Unsaved edits (e.g. a slider being dragged) over the stored settings.
   const [edited, setDraft] = useState<Settings | null>(null);
   const draft = edited ?? settings.data;
@@ -47,15 +49,9 @@ export function SettingsPage() {
     }
   }
 
-  async function run(fn: () => Promise<unknown>, message: string) {
-    try {
-      await fn();
-      toast({ message, tone: 'success' });
-      await qc.invalidateQueries();
-    } catch (e) {
-      toast({ message: (e as Error).message, tone: 'error' });
-    }
-  }
+  /** For changes that affect everything the app shows (e.g. a full sync). */
+  const runEverywhere = (fn: () => Promise<unknown>, message: string) =>
+    run(fn, { message, refresh: () => qc.invalidateQueries() });
 
   /** Runs an action that ends the session (logout, deleting everything), then starts over. */
   function thenStartOver(action: () => Promise<unknown>) {
@@ -209,14 +205,14 @@ export function SettingsPage() {
           <button
             className="btn"
             disabled={sync?.status === 'running'}
-            onClick={() => void run(() => api.sync(false), t('sync.started'))}
+            onClick={() => void runEverywhere(() => api.sync(false), t('sync.started'))}
           >
             <Icon name="refresh" size={18} /> {t('sync.now')}
           </button>
           <button
             className="btn"
             disabled={sync?.status === 'running'}
-            onClick={() => void run(() => api.sync(true), t('sync.fullStarted'))}
+            onClick={() => void runEverywhere(() => api.sync(true), t('sync.fullStarted'))}
           >
             {t('sync.full')}
           </button>

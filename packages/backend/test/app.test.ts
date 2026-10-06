@@ -308,6 +308,21 @@ describe('library flow', () => {
     expect(history).toHaveLength(8);
   });
 
+  it('keeps a setting when its new value is invalid', async () => {
+    const t = await ready();
+    await t.call('PUT', '/api/settings', { budgetTolerancePercent: 25, autoCompleteInPlayer: false });
+    const saved = await t.call('PUT', '/api/settings', {
+      budgetTolerancePercent: 'viel',
+      autoCompleteInPlayer: 'false',
+      audioBudgetMinutes: 1000,
+    });
+    expect(saved.body).toMatchObject({
+      budgetTolerancePercent: 25,
+      autoCompleteInPlayer: false,
+      audioBudgetMinutes: 600,
+    });
+  });
+
   it('respects the Spotify played-state setting', async () => {
     const t = await ready();
     const id = 'demo-restgeschichte';

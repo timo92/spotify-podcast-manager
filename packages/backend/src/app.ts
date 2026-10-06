@@ -1,7 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import {
   buildToday,
-  DEFAULT_SETTINGS,
   type ApiErrorBody,
   type AppStatus,
   type ErrorCode,
@@ -22,6 +21,7 @@ import { ApiError, badRequest, unauthorized } from './errors.js';
 import { LibraryService } from './services/library.js';
 import { NoteService } from './services/notes.js';
 import { PlaybackService } from './services/playback.js';
+import { SettingsService } from './services/settings.js';
 import { PlanService, validTimeZone } from './services/plan.js';
 import { acquireSyncLease, releaseSyncLease, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
@@ -88,6 +88,7 @@ export function createApp(deps: AppDeps) {
   const planner = new PlanService(store, library);
   const notes = new NoteService(store, library, deps.spotify);
   const playback = new PlaybackService(store, library, deps.spotify);
+  const settingsService = new SettingsService(store, library);
   const app = new Hono();
 
   const baseUrl = (c: Context) => {
@@ -392,35 +393,7 @@ export function createApp(deps: AppDeps) {
 
   app.get('/api/settings', async (c) => c.json(await store.getSettings()));
 
-  app.put('/api/settings', async (c) => {
-    const input = await readBody<Settings>(c);
-    const current = await store.getSettings();
-    const num = (v: unknown, min: number, max: number, fallback: number) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
-    };
-    const next: Settings = {
-      audioBudgetMinutes: num(
-        input.audioBudgetMinutes ?? current.audioBudgetMinutes,
-        0,
-        600,
-        current.audioBudgetMinutes,
-      ),
-      budgetTolerancePercent: num(input.budgetTolerancePercent ?? current.budgetTolerancePercent, 0, 100, 10),
-      newWindowDays: num(input.newWindowDays ?? current.newWindowDays, 1, 90, current.newWindowDays),
-      useSpotifyPlayedState: Boolean(input.useSpotifyPlayedState ?? current.useSpotifyPlayedState),
-      autoCompleteInPlayer: Boolean(input.autoCompleteInPlayer ?? current.autoCompleteInPlayer),
-      categories: Array.isArray(input.categories)
-        ? [...new Set(input.categories.map((cat) => String(cat).trim()).filter(Boolean))].slice(0, 50)
-        : current.categories,
-    };
-    if (!next.categories.length) next.categories = DEFAULT_SETTINGS.categories;
-    await store.putSettings(next);
-    if (next.newWindowDays !== current.newWindowDays || next.useSpotifyPlayedState !== current.useSpotifyPlayedState) {
-      await library.recomputeAll();
-    }
-    return c.json(next);
-  });
+  app.put('/api/settings', async (c) => c.json(await settingsService.save(await readBody<Settings>(c))));
 
   // ---------------------------------------------------------------- player
 

@@ -66,6 +66,26 @@ describe('HttpSpotifyApi', () => {
     }
   });
 
+  it('refreshes an expired token once for parallel requests', async () => {
+    const store = await storeWithTokens(Date.now() - 1000);
+    const realFetch = globalThis.fetch;
+    const tokenFetch = vi
+      .fn()
+      .mockImplementation(async () =>
+        response(200, { access_token: 'new', expires_in: 3600, refresh_token: 'rotated', token_type: 'Bearer' }),
+      );
+    globalThis.fetch = tokenFetch as typeof fetch;
+    try {
+      const apiFetch = vi.fn().mockImplementation(async () => response(200, { id: 'me' }));
+      const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
+      await Promise.all([api.getMe(), api.getMe(), api.getMe()]);
+      expect(tokenFetch).toHaveBeenCalledTimes(1);
+      expect(apiFetch.mock.calls.map((c) => c[1].headers.Authorization)).toEqual(Array(3).fill('Bearer new'));
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
   it('drops the tokens and marks the app disconnected when access was revoked', async () => {
     const store = await storeWithTokens(Date.now() - 1000);
     await store.putConfig({ ownerId: 'owner', createdAt: '', updatedAt: '' });

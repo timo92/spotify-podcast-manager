@@ -1,24 +1,20 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import {
   buildToday,
   type ApiErrorBody,
   type AppStatus,
   type ErrorCode,
-  type EpisodeStatus,
   type HistoryItem,
   type LoginErrorCode,
-  type NoteCreate,
-  type NotePatch,
   type PlayerDevice,
-  type Settings,
-  type ShowSettingsPatch,
 } from '@podcast/shared';
 import { Hono, type Context } from 'hono';
 import { compress } from 'hono/compress';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { StatusCodes } from 'http-status-codes';
 import { ApiError, badRequest, unauthorized } from './errors.js';
-import { LibraryService } from './services/library.js';
+import { field, isJsonRequest, readBody, safeEqual, type Body } from './routes/http.js';
+import { episodeStatus, LibraryService, type ShowSettingsInput } from './services/library.js';
 import { NoteService } from './services/notes.js';
 import { PlaybackService } from './services/playback.js';
 import { SettingsService } from './services/settings.js';
@@ -55,35 +51,21 @@ const SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60;
 const PUBLIC_PATHS = new Set(['/api/status', '/api/auth/login', '/api/auth/callback', '/api/auth/logout']);
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-/**
- * Whether the request body is declared as JSON. Compares the media type itself:
- * browsers send `text/plain` with arbitrary parameters cross-site without a
- * preflight, so a substring match would let such a request through.
- */
-function isJsonRequest(c: Context): boolean {
-  const mediaType = (c.req.header('content-type') ?? '').split(';')[0] ?? '';
-  return mediaType.trim().toLowerCase() === 'application/json';
-}
-
 /** Back to the login page, which explains the error codes it knows. */
 const toLogin = (c: Context, error: string) => c.redirect(`/login?error=${encodeURIComponent(error)}`);
 
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
-}
-
-/** JSON body of the request; `{}` when empty. */
-async function readBody<T>(c: Context): Promise<Partial<T>> {
-  const text = await c.req.text();
-  if (!text) return {};
-  try {
-    const parsed: unknown = JSON.parse(text);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    throw badRequest('invalid_json', 'Ungültiges JSON');
-  }
+/** The show settings a PATCH may change, with their types checked. */
+function showSettings(body: Body): ShowSettingsInput {
+  return {
+    mode: field.string(body, 'mode'),
+    categories: field.stringArray(body, 'categories'),
+    paused: field.boolean(body, 'paused'),
+    hiddenFromToday: field.boolean(body, 'hiddenFromToday'),
+    reofferSkipped: field.boolean(body, 'reofferSkipped'),
+    needsReview: field.boolean(body, 'needsReview'),
+    priority: field.number(body, 'priority'),
+    pinnedEpisodeId: field.nullableString(body, 'pinnedEpisodeId'),
+  };
 }
 
 export function createApp(deps: AppDeps) {
@@ -314,14 +296,14 @@ export function createApp(deps: AppDeps) {
   });
 
   app.post('/api/shows/reorder', async (c) => {
-    await library.reorder((await readBody<{ ids: string[] }>(c)).ids ?? []);
+    await library.reorder(field.stringArray(await readBody(c), 'ids') ?? []);
     return c.json({ ok: true });
   });
 
   app.get('/api/shows/:id', async (c) => c.json(await library.detail(c.req.param('id'))));
 
   app.patch('/api/shows/:id', async (c) =>
-    c.json(await library.updateSettings(c.req.param('id'), await readBody<ShowSettingsPatch>(c))),
+    c.json(await library.updateSettings(c.req.param('id'), showSettings(await readBody(c)))),
   );
 
   app.post('/api/shows/:id/sync', async (c) => {
@@ -339,8 +321,11 @@ export function createApp(deps: AppDeps) {
   );
 
   app.put('/api/shows/:id/episodes/:episodeId/status', async (c) => {
-    const { status } = await readBody<{ status: EpisodeStatus | null }>(c);
-    return c.json(await library.setStatus(c.req.param('id'), [c.req.param('episodeId')], status ?? null));
+    const status = field.nullableString(await readBody(c), 'status') ?? null;
+    const episodeIds = [c.req.param('episodeId')];
+    return c.json(
+      await library.setStatus(c.req.param('id'), episodeIds, status === null ? null : episodeStatus(status)),
+    );
   });
 
   app.post('/api/shows/:id/episodes/:episodeId/complete-before', async (c) =>
@@ -374,21 +359,11 @@ export function createApp(deps: AppDeps) {
   );
 
   app.post('/api/shows/:id/episodes/:episodeId/notes', async (c) =>
-    c.json(
-      await notes.create(c.req.param('id'), c.req.param('episodeId'), await readBody<NoteCreate>(c)),
-      StatusCodes.CREATED,
-    ),
+    c.json(await notes.create(c.req.param('id'), c.req.param('episodeId'), await readBody(c)), StatusCodes.CREATED),
   );
 
   app.patch('/api/shows/:id/episodes/:episodeId/notes/:noteId', async (c) =>
-    c.json(
-      await notes.update(
-        c.req.param('id'),
-        c.req.param('episodeId'),
-        c.req.param('noteId'),
-        await readBody<NotePatch>(c),
-      ),
-    ),
+    c.json(await notes.update(c.req.param('id'), c.req.param('episodeId'), c.req.param('noteId'), await readBody(c))),
   );
 
   app.delete('/api/shows/:id/episodes/:episodeId/notes/:noteId', async (c) => {
@@ -399,15 +374,15 @@ export function createApp(deps: AppDeps) {
   // ------------------------------------------------------------------ sync
 
   app.post('/api/sync', async (c) => {
-    const { full } = await readBody<{ full: boolean }>(c);
-    return c.json(await startSync({ full: !!full }), StatusCodes.ACCEPTED);
+    const full = field.boolean(await readBody(c), 'full') ?? false;
+    return c.json(await startSync({ full }), StatusCodes.ACCEPTED);
   });
 
   // -------------------------------------------------------------- settings
 
   app.get('/api/settings', async (c) => c.json(await store.getSettings()));
 
-  app.put('/api/settings', async (c) => c.json(await settingsService.save(await readBody<Settings>(c))));
+  app.put('/api/settings', async (c) => c.json(await settingsService.save(await readBody(c))));
 
   // ---------------------------------------------------------------- player
 
@@ -423,25 +398,15 @@ export function createApp(deps: AppDeps) {
   });
 
   app.post('/api/player/play', async (c) => {
-    const {
-      showId,
-      episodeId,
-      deviceId,
-      fromStart,
-      positionMs: requested,
-    } = await readBody<{
-      showId: string;
-      episodeId: string;
-      deviceId?: string;
-      fromStart?: boolean;
-      /** Explicit start position, e.g. from a timestamp in a note. */
-      positionMs?: number;
-    }>(c);
+    const body = await readBody(c);
+    const showId = field.string(body, 'showId');
+    const episodeId = field.string(body, 'episodeId');
     if (!showId || !episodeId) throw badRequest('episode_required', 'showId und episodeId sind erforderlich');
     const started = await playback.play(showId, episodeId, {
-      deviceId: typeof deviceId === 'string' && deviceId ? deviceId : undefined,
-      fromStart: fromStart === true,
-      positionMs: typeof requested === 'number' ? requested : undefined,
+      deviceId: field.string(body, 'deviceId') || undefined,
+      fromStart: field.boolean(body, 'fromStart') ?? false,
+      // An explicit start position, e.g. from a timestamp in a note.
+      positionMs: field.number(body, 'positionMs'),
     });
     return c.json({ ok: true, ...started });
   });

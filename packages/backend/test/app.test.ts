@@ -55,6 +55,7 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
     },
   });
   let cookies: Record<string, string> = {};
+  /** `body` is sent as JSON; a string is sent as it is, to test malformed input. */
   async function call(
     method: string,
     path: string,
@@ -71,7 +72,7 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
           .join('; '),
         ...headers,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: typeof body === 'string' ? body : body !== undefined ? JSON.stringify(body) : undefined,
     });
     for (const c of res.headers.getSetCookie()) {
       const [pair = ''] = c.split(';');
@@ -283,6 +284,30 @@ describe('library flow', () => {
     expect(state.status).toBe('idle');
     return t;
   }
+
+  it('rejects request fields of the wrong type instead of storing them', async () => {
+    const t = await ready();
+    const path = '/api/shows/demo-dertag';
+    const invalid = async (body: unknown, field: string) => {
+      const res = await t.call('PATCH', path, body);
+      expect(res.status, JSON.stringify(body)).toBe(400);
+      expect(res.body).toMatchObject({ error: 'invalid_field', params: { field } });
+    };
+    await invalid('{"priority":1e400}', 'priority');
+    await invalid({ pinnedEpisodeId: { id: 'x' } }, 'pinnedEpisodeId');
+    await invalid({ paused: 'yes' }, 'paused');
+    await invalid({ categories: 'Politik' }, 'categories');
+    const show = (await t.call('GET', path)).body as ShowDetailResponse;
+    expect(show.show).toMatchObject({ paused: false, pinnedEpisodeId: null });
+
+    expect((await t.call('POST', '/api/shows/reorder', ['demo-dertag'])).body).toMatchObject({ error: 'invalid_body' });
+    const play = await t.call('POST', '/api/player/play', {
+      showId: 'demo-dertag',
+      episodeId: 'demo-dertag-1',
+      positionMs: '100',
+    });
+    expect(play.body).toMatchObject({ error: 'invalid_field', params: { field: 'positionMs' } });
+  });
 
   it('imports shows with guessed modes and builds today', async () => {
     const t = await ready();

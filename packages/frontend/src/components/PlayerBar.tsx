@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
-import { formatClock } from '../lib/format';
+import { formatPosition } from '../lib/format';
 import { cx } from '../lib/cx';
 import i18n from '../i18n';
-import { BROWSER_DEVICE_NAME, usePlayer, type NowPlaying, type PlayTarget } from '../lib/player';
+import { BROWSER_DEVICE_NAME, deviceOf, usePlayer, type NowPlaying, type PlayTarget } from '../lib/player';
 import { useRun } from '../lib/actions';
 import { qk } from '../lib/queries';
 import { Icon } from './Icon';
@@ -16,9 +16,9 @@ import { Cover, IconButton } from './ui';
 
 /** Position (once Spotify reported it), device and pause state of playback outside the browser. */
 function remoteDetail(np: NowPlaying): string {
-  const device = np.deviceName ?? (np.target.kind === 'device' ? np.target.name : undefined);
+  const device = deviceOf(np);
   const parts = [
-    np.deviceName !== undefined ? `${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}` : undefined,
+    np.deviceName !== undefined ? formatPosition(np.positionMs, np.durationMs) : undefined,
     device ? i18n.t('onDevice', { ns: 'player', device }) : undefined,
     np.paused ? i18n.t('ui.paused') : undefined,
   ].filter((p): p is string => !!p);
@@ -62,9 +62,7 @@ export function PlayerBar() {
         <div className={styles.text}>
           <NowPlayingTitle
             np={np}
-            detail={
-              local ? ` · ${formatClock(dragging ?? np.positionMs)} / ${formatClock(np.durationMs)}` : remoteDetail(np)
-            }
+            detail={local ? ` · ${formatPosition(dragging ?? np.positionMs, np.durationMs)}` : remoteDetail(np)}
           />
         </div>
         <div className={styles.controls}>

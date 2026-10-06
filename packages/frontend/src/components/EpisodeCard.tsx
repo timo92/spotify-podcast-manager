@@ -3,7 +3,7 @@ import type { TodayItem } from '@podcast/shared';
 import { useEpisodeActions } from '../lib/actions';
 import { cx } from '../lib/cx';
 import { formatDuration, formatReleaseDate, todayLabel } from '../lib/format';
-import { usePlayer, type PlayableItem } from '../lib/player';
+import { deviceOf, playsInBrowser, usePlayer, type PlayableItem } from '../lib/player';
 import styles from './EpisodeCard.module.css';
 import { Icon } from './Icon';
 import { Badge, Cover, IconButton, Menu, ProgressBar, type BadgeTone } from './ui';
@@ -31,7 +31,7 @@ export function PlayButton({
   const playing = np?.episodeId === item.episode.id;
   // Playing outside the browser can't be paused from here, so it is only shown.
   if (playing && np.target.kind !== 'browser' && !np.paused) {
-    const device = np.deviceName ?? (np.target.kind === 'device' ? np.target.name : undefined);
+    const device = deviceOf(np);
     const status = device ? t('play.playingOn', { device }) : t('play.playingInSpotify');
     return compact ? (
       <IconButton icon="device" label={status} variant={primary ? 'primary' : 'soft'} disabled />
@@ -43,7 +43,7 @@ export function PlayButton({
     );
   }
   // Only the browser player can be paused from here; paused elsewhere, the button plays again.
-  const inBrowser = playing && np.target.kind === 'browser';
+  const inBrowser = playsInBrowser(np, item.episode.id);
   const onClick = () => (inBrowser ? player.togglePause() : void player.play(item));
   // "PLAY ON SPOTIFY" stays in English, as the Spotify design guidelines give it.
   const label = player.target.kind === 'app' ? PLAY_ON_SPOTIFY : inBrowser ? t('play.playing') : t('play.play');

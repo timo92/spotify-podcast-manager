@@ -28,6 +28,10 @@ function dateFormat(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
   return fmt;
 }
 
+/** "12:03 / 45:00", the position in an episode as the player shows it. */
+export const formatPosition = (positionMs: number, durationMs: number) =>
+  `${formatClock(positionMs)} / ${formatClock(durationMs)}`;
+
 export function formatDuration(ms: number): string {
   const totalMin = Math.max(1, Math.round(ms / 60_000));
   if (totalMin < 60) return t('duration.minutes', { minutes: totalMin });

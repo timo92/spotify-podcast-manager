@@ -28,6 +28,14 @@ export interface NowPlaying {
   deviceName?: string;
 }
 
+/** The device playback outside the browser runs on, as far as known. */
+export const deviceOf = (np: NowPlaying): string | undefined =>
+  np.deviceName ?? (np.target.kind === 'device' ? np.target.name : undefined);
+
+/** Whether `episodeId` is the episode the browser player shows (and can control). */
+export const playsInBrowser = (np: NowPlaying | null, episodeId: string): np is NowPlaying =>
+  np?.episodeId === episodeId && np.target.kind === 'browser';
+
 export interface PlayableItem {
   show: { id: string; name: string; imageUrl?: string };
   episode: Pick<EpisodeView, 'id' | 'name' | 'durationMs' | 'spotifyUrl' | 'imageUrl' | 'status' | 'statusSource'>;

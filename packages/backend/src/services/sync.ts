@@ -95,7 +95,8 @@ export function toEpisode(raw: SpotifyEpisode, showId: string, firstSeenAt: stri
   };
 }
 
-function episodeChanged(prev: Episode | undefined, next: Episode): boolean {
+/** Whether a fetched episode differs from the stored one in anything the sync stores. */
+export function episodeChanged(prev: Episode | undefined, next: Episode): boolean {
   if (!prev) return true;
   return (
     prev.name !== next.name ||

@@ -1,3 +1,5 @@
+import type { PlaybackState } from '@podcast/shared';
+
 /** Subset of the Spotify Web API payloads we rely on. */
 
 export interface SpotifyImage {
@@ -56,14 +58,10 @@ export interface SpotifyDevice {
 /** The parts of GET /me/player we use; `item` is null for ads and unknown content. */
 export interface SpotifyPlaybackState {
   progress_ms: number | null;
+  is_playing: boolean;
   currently_playing_type: 'track' | 'episode' | 'ad' | 'unknown';
   item: { id: string } | null;
-}
-
-/** The episode Spotify is playing right now, on any of the user's devices, and its position. */
-export interface PlayingEpisode {
-  episodeId: string;
-  positionMs: number;
+  device?: { name?: string } | null;
 }
 
 export interface TokenResponse {
@@ -98,7 +96,7 @@ export interface SpotifyApi {
   getDevices(): Promise<SpotifyDevice[]>;
   play(episodeId: string, deviceId: string | undefined, positionMs: number): Promise<void>;
   /** The episode playing right now (paused counts), or undefined if nothing or no episode is playing. */
-  getPlayingEpisode(): Promise<PlayingEpisode | undefined>;
+  getPlayingEpisode(): Promise<PlaybackState | undefined>;
   /** Short-lived access token for the Web Playback SDK in the browser. */
   getAccessToken(): Promise<{ accessToken: string; expiresAt: number }>;
 }

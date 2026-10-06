@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { localDate, weekdayOf, type AppStatus, type EpisodeNote, type Schedule, type Show, type SyncState, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
+import { localDate, weekdayOf, type AppStatus, type EpisodeNote, type EpisodeView, type Schedule, type Show, type SyncState, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
 import { StatusCodes } from 'http-status-codes';
 import { createApp } from '../src/app.js';
 import { ApiError } from '../src/errors.js';
@@ -460,13 +460,13 @@ describe('library flow', () => {
     const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/notes';
     const playing = vi.spyOn(t.spotify, 'getPlayingEpisode');
 
-    playing.mockResolvedValue({ episodeId: 'demo-wissensreise-1', positionMs: 754_000 });
+    playing.mockResolvedValue({ episodeId: 'demo-wissensreise-1', positionMs: 754_000, paused: false });
     expect((await t.call('POST', path, { text: 'Am Handy notiert' })).body).toMatchObject({ positionMs: 754_000 });
     // An explicit position (or null) wins over the playback state.
     expect((await t.call('POST', path, { text: 'x', positionMs: 1_000 })).body).toMatchObject({ positionMs: 1_000 });
     expect((await t.call('POST', path, { text: 'x', positionMs: null })).body).toMatchObject({ positionMs: null });
 
-    playing.mockResolvedValue({ episodeId: 'demo-wissensreise-2', positionMs: 754_000 });
+    playing.mockResolvedValue({ episodeId: 'demo-wissensreise-2', positionMs: 754_000, paused: false });
     expect((await t.call('POST', path, { text: 'Andere Folge läuft' })).body).toMatchObject({ positionMs: null });
 
     playing.mockRejectedValue(new ApiError(StatusCodes.FORBIDDEN, 'spotify_forbidden', 'no', { detail: 'no' }));
@@ -492,6 +492,48 @@ describe('library flow', () => {
       deviceId: 'demo-phone',
     });
     expect(ok.status).toBe(200);
+  });
+
+  it('reports what Spotify plays on any device', async () => {
+    const t = await ready();
+    expect((await t.call('GET', '/api/player/state')).body).toBeNull();
+    await t.call('POST', '/api/player/play', {
+      showId: 'demo-wissensreise',
+      episodeId: 'demo-wissensreise-1',
+      deviceId: 'demo-phone',
+      fromStart: true,
+    });
+    expect((await t.call('GET', '/api/player/state')).body).toMatchObject({
+      episodeId: 'demo-wissensreise-1',
+      paused: false,
+      deviceName: 'Handy (Demo)',
+    });
+  });
+
+  it('refreshes an episode from Spotify, e.g. after listening in the Spotify app', async () => {
+    const t = await ready();
+    const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1';
+    await t.call('POST', '/api/player/play', {
+      showId: 'demo-wissensreise',
+      episodeId: 'demo-wissensreise-1',
+      deviceId: 'demo-phone',
+      fromStart: true,
+    });
+    const { durationMs } = (await t.call('GET', path)).body as EpisodeView;
+
+    t.spotify.controlPlayback('pause');
+    t.spotify.controlPlayback('seek', durationMs / 2);
+    const halfway = (await t.call('POST', `${path}/refresh`)).body as EpisodeView;
+    expect(halfway).toMatchObject({ status: 'IN_PROGRESS', statusSource: 'spotify' });
+    expect(halfway.remainingMs).toBeCloseTo(durationMs / 2, -3);
+
+    t.spotify.controlPlayback('seek', durationMs);
+    expect((await t.call('POST', `${path}/refresh`)).body).toMatchObject({ status: 'COMPLETED', statusSource: 'spotify' });
+    // The show's summary follows: the finished episode is no longer the next one.
+    const shows = (await t.call('GET', '/api/shows')).body as Show[];
+    expect(shows.find((s) => s.id === 'demo-wissensreise')!.summary?.nextEpisode?.id).not.toBe('demo-wissensreise-1');
+
+    expect((await t.call('POST', '/api/shows/demo-wissensreise/episodes/nope/refresh')).status).toBe(404);
   });
 
   it('deletes all data', async () => {

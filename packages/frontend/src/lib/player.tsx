@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { EpisodeView } from '@podcast/shared';
+import type { EpisodeView, PlaybackState } from '@podcast/shared';
 import i18n from '../i18n';
 import { api, ApiError } from './api';
 import { useInvalidateLibrary, useSettings } from './queries';
+import { playbackEnded } from './playback-end';
+import { forgetRemoteEpisode, loadRemoteEpisodes, rememberRemoteEpisode, type RemoteEpisode } from './remote-episodes';
 import { LISTEN_ON_SPOTIFY } from '../components/SpotifyAttribution';
 import { useToast } from './toast';
 
@@ -24,6 +26,8 @@ export interface NowPlaying {
   target: PlayTarget;
   /** True once we marked it as completed automatically. */
   completed: boolean;
+  /** For playback outside the browser: the device Spotify reports it on. */
+  deviceName?: string;
 }
 
 export interface PlayableItem {
@@ -56,6 +60,19 @@ export function episodeItem(ref: {
   };
 }
 
+function remoteEpisode(item: PlayableItem, target: PlayTarget): RemoteEpisode {
+  return {
+    showId: item.show.id,
+    episodeId: item.episode.id,
+    name: item.episode.name,
+    showName: item.show.name,
+    imageUrl: item.episode.imageUrl ?? item.show.imageUrl,
+    durationMs: item.episode.durationMs,
+    target,
+    startedAt: Date.now(),
+  };
+}
+
 interface PlayerApi {
   target: PlayTarget;
   setTarget: (t: PlayTarget) => void;
@@ -77,6 +94,12 @@ export interface PlayOptions {
 
 const PlayerContext = createContext<PlayerApi | null>(null);
 const TARGET_KEY = 'pm.playTarget';
+/** How often playback outside the browser is read from Spotify while the page is visible. */
+const REMOTE_POLL_MS = 30_000;
+/** How close to its end the browser player must have been for an episode to count as ended. */
+const BROWSER_END_WINDOW_MS = 5_000;
+/** Polls without movement after which following outside playback stops (it was paused or ended). */
+const REMOTE_STILL_POLLS = 2;
 // Overridable so local development can load a fake SDK (see packages/frontend/dev).
 const SDK_URL = import.meta.env.VITE_SPOTIFY_SDK_URL || 'https://sdk.scdn.co/spotify-player.js';
 
@@ -129,6 +152,113 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const deviceRef = useRef<Promise<string> | null>(null);
   const nowRef = useRef<NowPlaying | null>(null);
   nowRef.current = nowPlaying;
+  const invalidateRef = useRef(invalidate);
+  invalidateRef.current = invalidate;
+  // Following playback outside the browser: (re)started by `followToken`, ended by `followStopped`.
+  const [followToken, setFollowToken] = useState(0);
+  const [followStopped, setFollowStopped] = useState(false);
+  const [visible, setVisible] = useState(() => document.visibilityState === 'visible');
+  const followRef = useRef<{ entry: RemoteEpisode; lastPositionMs: number; still: number } | null>(null);
+
+  const startFollowing = useCallback(() => {
+    setFollowStopped(false);
+    setFollowToken((n) => n + 1);
+  }, []);
+
+  /**
+   * Reads a remembered episode back from Spotify. Once Spotify reports it as
+   * heard, it is forgotten and the player bar shows it as completed.
+   */
+  const refreshRemote = useCallback(async (entry: RemoteEpisode) => {
+    try {
+      const view = await api.refreshEpisode(entry.showId, entry.episodeId);
+      if (view.status === 'COMPLETED') {
+        forgetRemoteEpisode(entry.episodeId);
+        setNowPlaying((cur) => (cur?.episodeId === entry.episodeId ? { ...cur, completed: true } : cur));
+      }
+    } catch {
+      // Spotify not reachable right now: the next visit tries again.
+    }
+  }, []);
+
+  /** Catches up on all remembered episodes, e.g. when the user returns from the Spotify app. */
+  const catchUp = useCallback(async () => {
+    const remembered = loadRemoteEpisodes();
+    if (!remembered.length) return;
+    await Promise.all(remembered.map(refreshRemote));
+    void invalidateRef.current();
+  }, [refreshRemote]);
+
+  const stopFollowing = useCallback(() => {
+    setFollowStopped(true);
+    const followed = followRef.current;
+    followRef.current = null;
+    setNowPlaying((cur) => (cur && cur.target.kind !== 'browser' ? { ...cur, paused: true } : cur));
+    if (followed) void refreshRemote(followed.entry).then(() => invalidateRef.current());
+  }, [refreshRemote]);
+
+  // On start and whenever the page becomes visible again: catch up, then follow outside playback.
+  useEffect(() => {
+    const onVisibility = () => {
+      const isVisible = document.visibilityState === 'visible';
+      setVisible(isVisible);
+      if (!isVisible) return;
+      void catchUp();
+      startFollowing();
+    };
+    void catchUp();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [catchUp, startFollowing]);
+
+  // While visible, poll what Spotify plays; follow it if it is a remembered episode.
+  useEffect(() => {
+    if (followStopped || !visible || !loadRemoteEpisodes().length) return;
+    let cancelled = false;
+    const poll = async () => {
+      const remembered = loadRemoteEpisodes();
+      const cur = nowRef.current;
+      if (!remembered.length || (cur?.target.kind === 'browser' && !cur.paused)) return stopFollowing();
+      let state: PlaybackState | null;
+      try {
+        state = await api.playerState();
+      } catch {
+        return;
+      }
+      if (cancelled) return;
+      const entry = state && remembered.find((r) => r.episodeId === state.episodeId);
+      if (!state || !entry) {
+        // Right after starting, Spotify may not report the new playback yet.
+        const justStarted = Date.now() - remembered[0].startedAt < 2 * REMOTE_POLL_MS;
+        return justStarted ? undefined : stopFollowing();
+      }
+      const prev = followRef.current?.entry.episodeId === entry.episodeId ? followRef.current : null;
+      const moved = !state.paused && state.positionMs !== prev?.lastPositionMs;
+      const still = moved ? 0 : (prev?.still ?? 0) + 1;
+      followRef.current = { entry, lastPositionMs: state.positionMs, still };
+      const { positionMs, paused, deviceName } = state;
+      setNowPlaying((shown) => ({
+        showId: entry.showId,
+        episodeId: entry.episodeId,
+        name: entry.name,
+        showName: entry.showName,
+        imageUrl: entry.imageUrl,
+        durationMs: entry.durationMs,
+        positionMs,
+        paused,
+        target: entry.target,
+        deviceName,
+        completed: shown?.episodeId === entry.episodeId && shown.completed,
+      }));
+      if (still >= REMOTE_STILL_POLLS) stopFollowing();
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), REMOTE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [followToken, followStopped, visible, stopFollowing]);
 
   const setTarget = useCallback((t: PlayTarget) => {
     setTargetState(t);
@@ -196,6 +326,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     async (item: PlayableItem, opts: PlayOptions = {}) => {
       const t = target.kind === 'browser' && !browserSupported ? ({ kind: 'app' } as PlayTarget) : target;
       if (t.kind === 'app') {
+        rememberRemoteEpisode(remoteEpisode(item, t));
+        startFollowing();
         window.open(item.episode.spotifyUrl, '_blank', 'noopener');
         return;
       }
@@ -234,7 +366,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           target: t,
           completed: item.episode.status === 'COMPLETED',
         });
-        if (t.kind === 'device') toast({ message: i18n.t('playingOn', { ns: 'player', device: t.name }) });
+        if (t.kind === 'device') {
+          rememberRemoteEpisode(remoteEpisode(item, t));
+          startFollowing();
+          toast({ message: i18n.t('playingOn', { ns: 'player', device: t.name }) });
+        }
       } catch (e) {
         if (t.kind === 'device' && e instanceof ApiError && e.code === 'device_unavailable') {
           toast({
@@ -249,7 +385,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setBusy(false);
       }
     },
-    [target, browserSupported, ensureBrowserDevice, toast],
+    [target, browserSupported, ensureBrowserDevice, toast, startFollowing],
   );
 
   // Poll the browser player while playing.
@@ -266,29 +402,36 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(timer);
   }, [nowPlaying?.episodeId, nowPlaying?.paused, nowPlaying?.target.kind]);
 
-  // Auto-complete near the end of the episode.
+  // Auto-complete once an episode has ended (see playbackEnded). The browser
+  // player reports its position every second; outside the browser it is only
+  // known at each poll, so the last position seen before the end may be up to
+  // one poll away from it.
+  const shownRef = useRef<NowPlaying | null>(null);
+  const autoCompleteRef = useRef(false);
+  autoCompleteRef.current = !!settings?.autoCompleteInPlayer;
   useEffect(() => {
-    const cur = nowPlaying;
-    if (!cur || cur.completed || !settings?.autoCompleteInPlayer || cur.target.kind !== 'browser') return;
-    const remaining = cur.durationMs - cur.positionMs;
-    if (cur.durationMs > 0 && (remaining < 20_000 || cur.positionMs / cur.durationMs > 0.97)) {
-      setNowPlaying({ ...cur, completed: true });
-      api
-        .setStatus(cur.showId, cur.episodeId, 'COMPLETED')
-        .then(() => {
-          void invalidate();
-          toast({
-            message: i18n.t('episode.autoCompleted', { name: cur.name }),
-            tone: 'success',
-            action: {
-              label: i18n.t('episode.undo'),
-              onClick: () => void api.setStatus(cur.showId, cur.episodeId, null).then(invalidate),
-            },
-          });
-        })
-        .catch(() => undefined);
-    }
-  }, [nowPlaying, settings?.autoCompleteInPlayer, invalidate, toast]);
+    const prev = shownRef.current;
+    shownRef.current = nowPlaying;
+    if (!prev || !autoCompleteRef.current) return;
+    const endWindowMs = prev.target.kind === 'browser' ? BROWSER_END_WINDOW_MS : REMOTE_POLL_MS + 15_000;
+    if (!playbackEnded(prev, nowPlaying, endWindowMs)) return;
+    setNowPlaying((cur) => (cur?.episodeId === prev.episodeId ? { ...cur, completed: true } : cur));
+    forgetRemoteEpisode(prev.episodeId);
+    api
+      .setStatus(prev.showId, prev.episodeId, 'COMPLETED')
+      .then(() => {
+        void invalidateRef.current();
+        toast({
+          message: i18n.t('episode.autoCompleted', { name: prev.name }),
+          tone: 'success',
+          action: {
+            label: i18n.t('episode.undo'),
+            onClick: () => void api.setStatus(prev.showId, prev.episodeId, null).then(() => invalidateRef.current()),
+          },
+        });
+      })
+      .catch(() => undefined);
+  }, [nowPlaying, toast]);
 
   const togglePause = useCallback(() => {
     const cur = nowRef.current;
@@ -310,8 +453,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const seekBy = useCallback((delta: number) => seekTo((nowRef.current?.positionMs ?? 0) + delta), [seekTo]);
 
+  /** Closes the player bar; for playback outside the browser it also stops following that episode. */
   const close = useCallback(() => {
-    if (nowRef.current?.target.kind === 'browser') void playerRef.current?.pause();
+    const cur = nowRef.current;
+    if (cur?.target.kind === 'browser') void playerRef.current?.pause();
+    else if (cur) {
+      forgetRemoteEpisode(cur.episodeId);
+      followRef.current = null;
+      setFollowStopped(true);
+    }
     setNowPlaying(null);
   }, []);
 

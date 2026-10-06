@@ -1,3 +1,4 @@
+import type { PlaybackState } from '@podcast/shared';
 import { deviceUnavailable } from '../../src/errors.js';
 import type { SpotifyAuth } from '../../src/spotify/auth.js';
 import { SCOPES } from '../../src/spotify/client.js';
@@ -175,10 +176,20 @@ export class FakeSpotifyApi implements SpotifyApi {
     return structuredClone(out);
   }
 
+  /** Like Spotify, the resume point of the episode in the fake playback follows its position. */
   async getEpisode(episodeId: string) {
     for (const eps of this.episodes.values()) {
       const ep = eps.find((e) => e.id === episodeId);
-      if (ep) return structuredClone(ep);
+      if (!ep) continue;
+      const copy = structuredClone(ep);
+      const p = this.playbackState();
+      if (p.episodeId === episodeId) {
+        copy.resume_point = {
+          fully_played: p.positionMs >= p.durationMs - 1000,
+          resume_position_ms: Math.round(p.positionMs),
+        };
+      }
+      return copy;
     }
     return undefined;
   }
@@ -190,17 +201,20 @@ export class FakeSpotifyApi implements SpotifyApi {
     ];
   }
 
+  private deviceName = 'Podcast-Cockpit';
+
   private playback = { episodeId: null as string | null, durationMs: 0, positionMs: 0, paused: true, since: Date.now() };
 
   async play(episodeId: string, deviceId: string | undefined, positionMs: number) {
     if (deviceId === SLEEPING_DEVICE) throw deviceUnavailable();
+    this.deviceName = deviceId === 'demo-phone' ? 'Handy (Demo)' : 'Podcast-Cockpit';
     const ep = await this.getEpisode(episodeId);
     this.playback = { episodeId, durationMs: ep?.duration_ms ?? 0, positionMs, paused: false, since: Date.now() };
   }
 
-  async getPlayingEpisode() {
-    const { episodeId, positionMs } = this.playbackState();
-    return episodeId ? { episodeId, positionMs } : undefined;
+  async getPlayingEpisode(): Promise<PlaybackState | undefined> {
+    const { episodeId, positionMs, paused } = this.playbackState();
+    return episodeId ? { episodeId, positionMs, paused, deviceName: this.deviceName } : undefined;
   }
 
   /** Current fake playback state (position advances while not paused). */

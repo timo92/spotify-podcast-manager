@@ -12,6 +12,7 @@ import {
   type EpisodeProgress,
   type EpisodeStatus,
   type EpisodeView,
+  type PlaybackState,
   type PlayerDevice,
   type Settings,
   type Show,
@@ -93,6 +94,12 @@ export const api = {
   syncShow: (id: string) => request<SyncState>('POST', `/api/shows/${encodeURIComponent(id)}/sync`),
   episode: (showId: string, episodeId: string) =>
     request<EpisodeView>('GET', `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}`),
+  /** Re-reads the episode from Spotify (resume point) and returns it as the app shows it. */
+  refreshEpisode: (showId: string, episodeId: string) =>
+    request<EpisodeView>(
+      'POST',
+      `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/refresh`,
+    ),
   setStatus: (showId: string, episodeId: string, status: EpisodeStatus | null) =>
     request<Show>(
       'PUT',
@@ -112,6 +119,7 @@ export const api = {
 
   playerToken: () => request<{ accessToken: string; expiresAt: number }>('GET', '/api/player/token'),
   devices: () => request<PlayerDevice[]>('GET', '/api/player/devices'),
+  playerState: () => request<PlaybackState | null>('GET', '/api/player/state'),
   play: (input: { showId: string; episodeId: string; deviceId?: string; fromStart?: boolean; positionMs?: number }) =>
     request<{ ok: true; positionMs: number; durationMs: number }>('POST', '/api/player/play', input),
 

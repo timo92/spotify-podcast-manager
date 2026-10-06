@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { formatClock } from '../lib/format';
 import { cx } from '../lib/cx';
-import { usePlayer, type PlayTarget } from '../lib/player';
+import i18n from '../i18n';
+import { usePlayer, type NowPlaying, type PlayTarget } from '../lib/player';
 import { qk, useInvalidateLibrary } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
@@ -12,6 +13,17 @@ import { PlayerNoteSheet } from './Notes';
 import { NowPlayingTitle } from './NowPlaying';
 import styles from './PlayerBar.module.css';
 import { Cover, IconButton } from './ui';
+
+/** Position (once Spotify reported it), device and pause state of playback outside the browser. */
+function remoteDetail(np: NowPlaying): string {
+  const device = np.deviceName ?? (np.target.kind === 'device' ? np.target.name : undefined);
+  const parts = [
+    np.deviceName !== undefined ? `${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}` : undefined,
+    device ? i18n.t('onDevice', { ns: 'player', device }) : undefined,
+    np.paused ? i18n.t('ui.paused') : undefined,
+  ].filter((p): p is string => !!p);
+  return parts.map((p) => ` · ${p}`).join('');
+}
 
 export function PlayerBar() {
   const { t } = useTranslation('player');
@@ -51,13 +63,7 @@ export function PlayerBar() {
         <div className={styles.text}>
           <NowPlayingTitle
             np={np}
-            detail={
-              local
-                ? ` · ${formatClock(dragging ?? np.positionMs)} / ${formatClock(np.durationMs)}`
-                : np.target.kind === 'device'
-                  ? ` · ${t('onDevice', { device: np.target.name })}`
-                  : ''
-            }
+            detail={local ? ` · ${formatClock(dragging ?? np.positionMs)} / ${formatClock(np.durationMs)}` : remoteDetail(np)}
           />
         </div>
         <div className={styles.controls}>

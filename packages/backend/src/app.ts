@@ -1,4 +1,4 @@
-import type { ApiErrorBody } from '@podcast/shared';
+import { ORIGIN_VERIFY_HEADER, type ApiErrorBody } from '@podcast/shared';
 import { Hono } from 'hono';
 import { compress } from 'hono/compress';
 import { getCookie } from 'hono/cookie';
@@ -7,7 +7,7 @@ import { ApiError, unauthorized } from './errors.js';
 import { authRoutes } from './routes/auth.js';
 import { SESSION_COOKIE, web, type RouteContext } from './routes/context.js';
 import { dataRoutes } from './routes/data.js';
-import { isJsonRequest } from './routes/http.js';
+import { isJsonRequest, safeEqual } from './routes/http.js';
 import { libraryRoutes } from './routes/library.js';
 import { noteRoutes } from './routes/notes.js';
 import { planRoutes } from './routes/plan.js';
@@ -37,6 +37,11 @@ export interface AppDeps {
   triggerSync: (opts: SyncOptions) => Promise<void>;
   /** Public base URL, e.g. https://podcasts.example.com. Derived from headers if unset. */
   publicUrl?: string;
+  /**
+   * Value CloudFront sends in `x-origin-verify`; requests without it are
+   * refused. Unset locally, where there is no CloudFront.
+   */
+  originSecret?: string;
 }
 
 /** Endpoints reachable without a session. */
@@ -64,6 +69,15 @@ export function createApp(deps: AppDeps) {
 
   const app = new Hono();
 
+  const { originSecret } = deps;
+  if (originSecret) {
+    app.use('/api/*', async (c, next) => {
+      if (!safeEqual(c.req.header(ORIGIN_VERIFY_HEADER) ?? '', originSecret)) {
+        throw new ApiError(StatusCodes.FORBIDDEN, 'origin_forbidden', 'Nur über CloudFront erreichbar');
+      }
+      await next();
+    });
+  }
   app.use('/api/*', compress());
 
   app.use('/api/*', async (c, next) => {

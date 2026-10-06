@@ -1,6 +1,7 @@
 import { isDone, plannedOpenMs, selectNextEpisode, toShowLite } from './logic.js';
 import {
   DAY_PARTS,
+  type DayPart,
   type EpisodeView,
   type PlanDay,
   type PlannedItem,
@@ -88,14 +89,15 @@ export function buildWeek(
     );
   }
   const heads = new Map([...queues].map(([id, queue]) => [id, queue[0]?.id]));
-  const order = (part: string) => DAY_PARTS.indexOf(part as (typeof DAY_PARTS)[number]);
+  const order = (part: DayPart) => DAY_PARTS.indexOf(part);
 
   const result: PlanDay[] = [];
   for (let i = 0; i < days; i++) {
     const date = addDays(start, i);
     const weekday = weekdayOf(date);
     const isToday = date === today;
-    const rules = schedule.rules
+    // Past days of the range have no slots.
+    const rules = (date < today ? [] : schedule.rules)
       .map((rule, idx) => ({ rule, idx }))
       // A podcast removed from the library is no longer suggested; its rules wait for retention.
       .filter(({ rule }) => rule.weekdays.includes(weekday) && inputs.get(rule.showId)?.show.followed)
@@ -104,7 +106,6 @@ export function buildWeek(
 
     const items: PlannedItem[] = [];
     for (const rule of rules) {
-      if (date < today) continue;
       const input = inputs.get(rule.showId);
       if (!input) continue;
       const base = { ruleId: rule.id, part: rule.part, show: toShowLite(input.show) };

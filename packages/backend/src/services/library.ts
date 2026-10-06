@@ -23,13 +23,13 @@ import type { Store } from '../store/types.js';
 export class LibraryService {
   constructor(private readonly store: Store) {}
 
-  async loadViews(show: Show, settings?: Settings, now = new Date()): Promise<EpisodeView[]> {
+  async loadViews(show: Show, settings?: Settings): Promise<EpisodeView[]> {
     const [episodes, progress, s] = await Promise.all([
       this.store.listEpisodes(show.id),
       this.store.listProgress(show.id),
       settings ?? this.store.getSettings(),
     ]);
-    return buildEpisodeViews(episodes, progress, s, now);
+    return buildEpisodeViews(episodes, progress, s);
   }
 
   async recompute(showId: string, settings?: Settings): Promise<Show> {
@@ -146,9 +146,7 @@ export class LibraryService {
     const views = await this.loadViews(show);
     const target = views.find((v) => v.id === episodeId);
     if (!target) throw notFound('episode_not_found');
-    const ids = views
-      .filter((v) => v.index < target.index && v.status !== 'COMPLETED' && v.status !== 'SKIPPED')
-      .map((v) => v.id);
+    const ids = views.filter((v) => v.index < target.index && !isDone(v.status)).map((v) => v.id);
     if (!ids.length) return show;
     return this.setStatus(showId, ids, 'COMPLETED');
   }

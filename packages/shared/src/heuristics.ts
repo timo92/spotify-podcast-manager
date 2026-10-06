@@ -1,7 +1,6 @@
+import { DAY_MS } from './config.js';
 import { releaseTime } from './logic.js';
 import type { ConsumptionMode, Episode } from './types.js';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Guesses a consumption mode for a freshly imported show: shows that publish

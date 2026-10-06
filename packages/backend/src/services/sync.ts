@@ -156,11 +156,14 @@ export function episodeChanged(prev: Episode | undefined, next: Episode): boolea
  * be repeated any number of times (idempotent).
  */
 export class SyncService {
+  private readonly library: LibraryService;
+
   constructor(
     private readonly store: Store,
     private readonly spotify: SpotifyApi,
-    private readonly library = new LibraryService(store),
-  ) {}
+  ) {
+    this.library = new LibraryService(store);
+  }
 
   /** Runs a sync, or returns the current state unchanged if another sync holds the lease. */
   async run(opts: SyncOptions = {}): Promise<SyncState> {

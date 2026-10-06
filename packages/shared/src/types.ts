@@ -355,6 +355,8 @@ export interface PlannedItem {
   show: ShowLite;
   episode: EpisodeView | null;
   state: PlannedState;
+  /** The podcast is paused: the slot stays in the plan but is left out of Today and the budget. */
+  paused: boolean;
 }
 
 export interface PlanDay {

@@ -459,11 +459,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           tone: 'success',
           action: {
             label: i18n.t('episode.undo'),
-            onClick: () => void api.setStatus(prev.showId, prev.episodeId, null).then(() => invalidateRef.current()),
+            onClick: () =>
+              void api
+                .setStatus(prev.showId, prev.episodeId, null)
+                .then(() => invalidateRef.current())
+                .catch((e: Error) => toast({ message: e.message, tone: 'error' })),
           },
         });
       })
-      .catch(() => undefined);
+      .catch((e: Error) => {
+        setNowPlaying((cur) => (cur?.episodeId === prev.episodeId ? { ...cur, completed: false } : cur));
+        toast({ message: e.message, tone: 'error' });
+      });
   }, [nowPlaying, toast]);
 
   const togglePause = useCallback(() => {

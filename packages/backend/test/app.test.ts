@@ -102,7 +102,7 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
 
 async function login(t: ReturnType<typeof setup>) {
   const res = await t.call('GET', '/api/auth/login');
-  const state = new URL(res.headers!.Location).searchParams.get('state');
+  const state = new URL(res.headers.Location).searchParams.get('state');
   return t.call('GET', `/api/auth/callback?code=x&state=${state}`);
 }
 
@@ -115,8 +115,8 @@ describe('configuration and auth', () => {
       claimed: false,
       redirectUri: 'https://podcasts.example.com/api/auth/callback',
     });
-    const login = await t.call('GET', '/api/auth/login');
-    expect(new URL(login.headers.Location).searchParams.get('client_id')).toBe(CLIENT_ID);
+    const redirect = await t.call('GET', '/api/auth/login');
+    expect(new URL(redirect.headers.Location).searchParams.get('client_id')).toBe(CLIENT_ID);
   });
 
   it('explains a missing client ID instead of starting the login', async () => {
@@ -140,7 +140,7 @@ describe('configuration and auth', () => {
     const t = setup();
     const res = await login(t);
     expect(res.status).toBe(302);
-    expect(res.headers!.Location).toBe('/?welcome=1');
+    expect(res.headers.Location).toBe('/?welcome=1');
     expect(t.syncs).toHaveLength(1);
     expect((await t.store.getConfig())!.ownerId).toBe('owner');
     expect((await t.call('GET', '/api/today')).status).toBe(200);
@@ -148,7 +148,7 @@ describe('configuration and auth', () => {
     t.clearCookies();
     t.setUser('intruder');
     const bad = await login(t);
-    expect(bad.headers!.Location).toBe('/login?error=wrong_account');
+    expect(bad.headers.Location).toBe('/login?error=wrong_account');
     expect((await t.call('GET', '/api/today')).status).toBe(401);
   });
 
@@ -156,7 +156,7 @@ describe('configuration and auth', () => {
     const t = setup();
     await t.call('GET', '/api/auth/login');
     const res = await t.call('GET', '/api/auth/callback?code=x&state=forged');
-    expect(res.headers!.Location).toBe('/login?error=state_mismatch');
+    expect(res.headers.Location).toBe('/login?error=state_mismatch');
   });
 
   it('frees the lease when the sync cannot be started, without failing the login', async () => {
@@ -357,7 +357,9 @@ describe('library flow', () => {
     const t = await ready();
     const save = (body: unknown) => t.call('PUT', '/api/schedule', body);
     expect((await save({ rules: [{ weekdays: [1] }] })).body).toMatchObject({ error: 'rule_show_missing' });
-    expect((await save({ rules: Array(201).fill({ showId: 'demo-dertag', weekdays: [1] }) })).body).toEqual({
+    expect(
+      (await save({ rules: Array.from({ length: 201 }, () => ({ showId: 'demo-dertag', weekdays: [1] })) })).body,
+    ).toEqual({
       error: 'too_many_rules',
       message: 'Höchstens 200 Regeln',
       params: { max: 200 },

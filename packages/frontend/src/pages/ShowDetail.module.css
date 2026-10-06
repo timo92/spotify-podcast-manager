@@ -22,6 +22,16 @@
   min-width: 0;
 }
 /* The description shows three lines until clicked. */
+/* The description is a button so it can be expanded from the keyboard too; it looks like plain text. */
+.descriptionToggle {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .clamp {
   display: -webkit-box;
   -webkit-line-clamp: 3;

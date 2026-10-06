@@ -65,7 +65,7 @@ async function readBody<T>(c: Context): Promise<Partial<T>> {
   if (!text) return {};
   try {
     const parsed: unknown = JSON.parse(text);
-    return parsed && typeof parsed === 'object' ? (parsed as Partial<T>) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
     throw badRequest('invalid_json', 'Ungültiges JSON');
   }
@@ -465,7 +465,7 @@ export function createApp(deps: AppDeps) {
   // ------------------------------------------------------------------ data
 
   app.get('/api/export', async (c) => {
-    const [shows, settings, schedule, notes] = await Promise.all([
+    const [shows, settings, schedule, allNotes] = await Promise.all([
       store.listShows(),
       store.getSettings(),
       store.getSchedule(),
@@ -479,7 +479,7 @@ export function createApp(deps: AppDeps) {
       shows: shows.map(({ summary: _summary, ...s }) => s),
       progress: progress.flat(),
       schedule,
-      notes,
+      notes: allNotes,
     });
   });
 

@@ -341,7 +341,7 @@ export class SyncService {
         ...metadata,
         lastSyncedAt: nowIso,
         fullSyncAt: nowIso,
-      } as Show;
+      };
       await this.store.putShow(show);
     } else {
       await this.store.updateShow(showId, {

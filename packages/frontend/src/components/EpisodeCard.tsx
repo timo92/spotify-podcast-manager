@@ -121,13 +121,13 @@ export function EpisodeCard({
             icon="check"
             label={t('episode.markPlayed', { ns: 'common' })}
             variant="soft"
-            onClick={() => actions.setStatus(episode, 'COMPLETED')}
+            onClick={() => void actions.setStatus(episode, 'COMPLETED')}
           />
           <IconButton
             icon="skip"
             label={t('action.skip')}
             variant="soft"
-            onClick={() => actions.setStatus(episode, 'SKIPPED')}
+            onClick={() => void actions.setStatus(episode, 'SKIPPED')}
           />
           <Menu
             items={[
@@ -136,7 +136,7 @@ export function EpisodeCard({
               {
                 label: t('action.completeBeforeMenu'),
                 icon: 'check',
-                onClick: () => actions.completeBefore(episode),
+                onClick: () => void actions.completeBefore(episode),
                 hidden: show.mode !== 'SEQUENTIAL' || episode.index <= 1,
               },
             ]}

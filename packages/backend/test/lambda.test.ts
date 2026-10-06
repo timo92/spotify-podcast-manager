@@ -79,7 +79,7 @@ describe('lambda handler', () => {
   it('serves the status with the public redirect URI', async () => {
     const res = await handler(event('GET', '/api/status'));
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body!);
+    const body = JSON.parse(res.body);
     expect(body).toMatchObject({
       configured: true,
       claimed: false,
@@ -120,7 +120,7 @@ describe('lambda handler', () => {
     expect(res.statusCode).toBe(200);
     expect(res.isBase64Encoded).toBe(true);
     expect(header(res, 'content-encoding')).toBe('gzip');
-    const shows = JSON.parse(gunzipSync(Buffer.from(res.body!, 'base64')).toString('utf8'));
+    const shows = JSON.parse(gunzipSync(Buffer.from(res.body, 'base64')).toString('utf8'));
     expect(shows).toHaveLength(20);
   });
 

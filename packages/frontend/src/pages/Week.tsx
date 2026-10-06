@@ -21,6 +21,7 @@ import { formatDayMonth, formatDuration, formatRule, formatWeekdays, weekdayLong
 import { cx } from '../lib/cx';
 import { qk } from '../lib/queries';
 import styles from './Week.module.css';
+import { Sheet } from '../components/Sheet';
 
 export function WeekPage() {
   const { t } = useTranslation('plan');
@@ -203,26 +204,18 @@ function RemoveSlotSheet({
 }) {
   const { t } = useTranslation('plan');
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('remove.title')}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="row-between">
-          <h2>{t('remove.title')}</h2>
-          <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
-        </div>
-        <p>{t('remove.text', { show: item.show.name, rule: formatRule(rule) })}</p>
-        <button className="btn btn-block" onClick={onRemoveDay}>
-          {t('remove.onlyDay', { day: weekdayLong(weekday) })}
-        </button>
-        <button className="btn btn-danger btn-block" onClick={onRemoveRule}>
-          {t('remove.wholeRule', { days: formatWeekdays(rule.weekdays) })}
-        </button>
+    <Sheet label={t('remove.title')} onClose={onClose}>
+      <div className="row-between">
+        <h2>{t('remove.title')}</h2>
+        <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
       </div>
-    </div>
+      <p>{t('remove.text', { show: item.show.name, rule: formatRule(rule) })}</p>
+      <button className="btn btn-block" onClick={onRemoveDay}>
+        {t('remove.onlyDay', { day: weekdayLong(weekday) })}
+      </button>
+      <button className="btn btn-danger btn-block" onClick={onRemoveRule}>
+        {t('remove.wholeRule', { days: formatWeekdays(rule.weekdays) })}
+      </button>
+    </Sheet>
   );
 }

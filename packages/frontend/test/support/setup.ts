@@ -10,7 +10,8 @@ beforeEach(async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
-      throw new Error(`Unmocked request in a component test: ${String(input)}`);
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      throw new Error(`Unmocked request in a component test: ${url}`);
     }),
   );
 });

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { EpisodeView } from '@podcast/shared';
 import { api } from './api';
@@ -59,11 +59,11 @@ export function useRefreshFromSpotify(showId: string, episodeId: string) {
     return () => {
       active = false;
     };
-    // Once per episode: `qc` is stable and `invalidate` is only used in the callback.
-  }, [showId, episodeId]);
+  }, [showId, episodeId, qc, invalidate]);
 }
 
+/** Refetches everything derived from the library; the returned function is stable. */
 export function useInvalidateLibrary() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ predicate: (q) => LIBRARY_KEYS.has(String(q.queryKey[0])) });
+  return useCallback(() => qc.invalidateQueries({ predicate: (q) => LIBRARY_KEYS.has(String(q.queryKey[0])) }), [qc]);
 }

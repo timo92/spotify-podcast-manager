@@ -175,7 +175,7 @@ export function PlayTargetPicker() {
           </button>
           <div className="menu-heading">{t('target.connect')}</div>
           {devices.isLoading && <div className="menu-note">{t('target.searching')}</div>}
-          {devices.error && <div className="menu-note">{(devices.error as Error).message}</div>}
+          {devices.error && <div className="menu-note">{devices.error.message}</div>}
           {devices.data?.length === 0 && <div className="menu-note">{t('target.noDevices')}</div>}
           {devices.data
             ?.filter((d) => d.name !== 'Podcast-Cockpit')

@@ -20,6 +20,7 @@ const MAX_RULES = 200;
 export function validTimeZone(tz: string | undefined): string {
   if (!tz) return 'UTC';
   try {
+    // oxlint-disable-next-line eslint/no-new -- the constructor throws for an unknown time zone
     new Intl.DateTimeFormat('en-US', { timeZone: tz });
     return tz;
   } catch {

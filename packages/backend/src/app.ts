@@ -18,12 +18,12 @@ import { Hono, type Context } from 'hono';
 import { compress } from 'hono/compress';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { StatusCodes } from 'http-status-codes';
-import { ApiError, badRequest, notFound, unauthorized } from './errors.js';
+import { ApiError, badRequest, unauthorized } from './errors.js';
 import { LibraryService } from './services/library.js';
 import { NoteService } from './services/notes.js';
 import { PlaybackService } from './services/playback.js';
 import { PlanService, validTimeZone } from './services/plan.js';
-import { acquireSyncLease, releaseSyncLease, toEpisode, type SyncOptions } from './services/sync.js';
+import { acquireSyncLease, releaseSyncLease, type SyncOptions } from './services/sync.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
 import { SCOPES } from './spotify/client.js';
 import type { SpotifyCredentialsProvider } from './spotify/credentials.js';
@@ -451,23 +451,12 @@ export function createApp(deps: AppDeps) {
       positionMs?: number;
     }>(c);
     if (!showId || !episodeId) throw badRequest('episode_required', 'showId und episodeId sind erforderlich');
-    const cached = await store.getEpisode(showId, episodeId);
-    if (!cached) throw notFound('episode_not_found', 'Folge nicht gefunden');
-
-    // Fetch the episode fresh so we resume where Spotify left off.
-    const spotify = deps.spotify();
-    const fresh = await spotify.getEpisode(episodeId);
-    let positionMs = 0;
-    if (fresh) {
-      const ep = toEpisode(fresh, showId, cached.firstSeenAt, new Date().toISOString());
-      await store.putEpisodes([ep]);
-      if (!fromStart && ep.resumePoint && !ep.resumePoint.fullyPlayed) positionMs = ep.resumePoint.resumePositionMs;
-    }
-    if (typeof requested === 'number' && Number.isFinite(requested) && requested >= 0) {
-      positionMs = Math.min(requested, Math.max(0, cached.durationMs - 1000));
-    }
-    await spotify.play(episodeId, deviceId || undefined, positionMs);
-    return c.json({ ok: true, positionMs, durationMs: cached.durationMs });
+    const started = await playback.play(showId, episodeId, {
+      deviceId: typeof deviceId === 'string' && deviceId ? deviceId : undefined,
+      fromStart: fromStart === true,
+      positionMs: typeof requested === 'number' ? requested : undefined,
+    });
+    return c.json({ ok: true, ...started });
   });
 
   // ------------------------------------------------------------------ data

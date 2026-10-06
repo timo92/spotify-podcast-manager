@@ -583,6 +583,23 @@ describe('library flow', () => {
     expect((await t.call('POST', '/api/shows/demo-wissensreise/episodes/nope/refresh')).status).toBe(404);
   });
 
+  it('updates the show when playing an episode Spotify reports as finished', async () => {
+    const t = await ready();
+    const play = { showId: 'demo-wissensreise', episodeId: 'demo-wissensreise-1', deviceId: 'demo-phone' };
+    const next = async () =>
+      ((await t.call('GET', '/api/shows')).body as Show[]).find((s) => s.id === 'demo-wissensreise')!.summary
+        ?.nextEpisode?.id;
+    await t.call('POST', '/api/player/play', { ...play, fromStart: true });
+    expect(await next()).toBe('demo-wissensreise-1');
+
+    // finished in the Spotify app; playing it here again picks that up
+    const { durationMs } = (await t.call('GET', '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1'))
+      .body as EpisodeView;
+    t.spotify.controlPlayback('seek', durationMs);
+    expect((await t.call('POST', '/api/player/play', play)).body).toMatchObject({ positionMs: 0 });
+    expect(await next()).not.toBe('demo-wissensreise-1');
+  });
+
   it('deletes all data', async () => {
     const t = await ready();
     expect((await t.call('DELETE', '/api/data')).status).toBe(200);

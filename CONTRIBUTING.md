@@ -14,6 +14,7 @@ pnpm install
 pnpm dev:demo        # local app with fake Spotify, no credentials needed
 pnpm dev             # local app against real Spotify (needs .env)
 pnpm format          # format code, JSON and CSS (oxfmt)
+pnpm lint            # oxlint, including type-aware rules
 pnpm typecheck
 pnpm test
 pnpm build
@@ -25,6 +26,7 @@ when both pass:
 ```bash
 pnpm install --frozen-lockfile
 pnpm format:check
+pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
@@ -62,7 +64,10 @@ README).
 Formatting is done by oxfmt (`pnpm format`, configured in `.oxfmtrc.json`,
 D25); CI rejects unformatted code. Markdown is not formatted automatically.
 A commit that only reformats goes into `.git-blame-ignore-revs`.
-Beyond what the formatter covers:
+oxlint (`pnpm lint`, `.oxlintrc.json`, D26) checks correctness, promises, React
+hooks and accessibility; warnings fail CI too. Where the code is right but a
+rule disagrees, disable it for that line with the reason:
+`// oxlint-disable-next-line <rule> -- <reason>`. Beyond what the tools cover:
 
 - TypeScript in strict mode everywhere. No `any`. Prefer narrowing and type
   guards over `as` casts and `!` in production code.

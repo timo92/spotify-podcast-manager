@@ -49,3 +49,4 @@ wish to keep operations close to zero.
 | [D23](d23-individual-notes.md) | Notes are individual entries with a position |
 | [D24](d24-playback-read-back.md) | Playback outside the browser is read back on demand |
 | [D25](d25-oxfmt.md) | Formatting with oxfmt |
+| [D26](d26-oxlint.md) | Linting with oxlint, including type-aware rules |

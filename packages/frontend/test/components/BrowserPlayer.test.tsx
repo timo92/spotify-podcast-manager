@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlayButton } from '../../src/components/EpisodeCard';
-import { PlayerBar } from '../../src/components/PlayerBar';
+import { PlayerBar, PlayTargetPicker } from '../../src/components/PlayerBar';
 import { api } from '../../src/lib/api';
 import { loadRemoteEpisodes, rememberRemoteEpisode } from '../../src/lib/remote-episodes';
 import { episode, settings, show } from '../support/fixtures';
@@ -20,6 +20,7 @@ function renderPlayer() {
       <PlayButton item={{ show: show(), episode: episode(1) }} />
       <PlayButton item={{ show: show(), episode: episode(2) }} />
       <PlayerBar />
+      <PlayTargetPicker />
     </>,
   );
 }
@@ -46,6 +47,25 @@ describe('playback in the browser', () => {
     act(() => player!.emit('player_state_changed', sdkState('ep-2', 5 * MIN)));
     expect(within(await playerBar()).getByText(/0:00 \/ 20:00/)).toBeInTheDocument();
     expect(within(await playerBar()).getByRole('button', { name: 'Fortsetzen' })).toBeInTheDocument();
+  });
+
+  it('opens the episode in the Spotify app once that is the target, also after it played here', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    vi.spyOn(api, 'devices').mockResolvedValue([]);
+    vi.spyOn(api, 'playerState').mockResolvedValue(null);
+    const { user } = renderPlayer();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Abspielen' })[0]!);
+    await playerBar();
+    const pause = vi.spyOn(FakePlayer.instances[0]!, 'pause');
+
+    await user.click(screen.getByRole('button', { name: /Wiedergabe auf/ }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Spotify-App öffnen' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'PLAY ON SPOTIFY' })[0]!);
+
+    expect(open).toHaveBeenCalledWith('https://open.spotify.com/episode/ep-1', '_blank', 'noopener');
+    expect(pause).toHaveBeenCalled();
+    expect(api.play).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('region', { name: 'Player' })).not.toBeInTheDocument();
   });
 
   it('disconnects a player that failed to connect before creating the next one', async () => {

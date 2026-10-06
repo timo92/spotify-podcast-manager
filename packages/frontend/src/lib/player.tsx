@@ -10,7 +10,14 @@ import { forgetRemoteEpisode, rememberRemoteEpisode } from './remote-episodes';
 import { readStoredJson, writeStored } from './storage';
 import { useToast } from './toast';
 
-export { deviceOf, playsInBrowser, type NowPlaying, type PlayableItem, type PlayTarget } from './player/now-playing';
+export {
+  controlsInBrowser,
+  deviceOf,
+  playsInBrowser,
+  type NowPlaying,
+  type PlayableItem,
+  type PlayTarget,
+} from './player/now-playing';
 export { BROWSER_DEVICE_NAME } from './player/sdk';
 
 /**
@@ -102,6 +109,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     async (item: PlayableItem, opts: PlayOptions = {}) => {
       const t = target.kind === 'browser' && !browserSupported ? ({ kind: 'app' } as PlayTarget) : target;
       if (t.kind === 'app') {
+        // The Spotify app plays on its own; a browser player still running would play along.
+        if (nowRef.current?.target.kind === 'browser') {
+          device.pause();
+          dispatch({ type: 'closed' });
+        }
         rememberRemoteEpisode(remoteEpisode(item, t));
         startFollowing();
         window.open(item.episode.spotifyUrl, '_blank', 'noopener');

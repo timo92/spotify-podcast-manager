@@ -28,6 +28,14 @@ export const deviceOf = (np: NowPlaying): string | undefined =>
 export const playsInBrowser = (np: NowPlaying | null, episodeId: string): np is NowPlaying =>
   np?.episodeId === episodeId && np.target.kind === 'browser';
 
+/**
+ * Whether playing `episodeId` means controlling the browser player (pause,
+ * resume, seek) rather than starting it on the chosen target: only while the
+ * browser is that target.
+ */
+export const controlsInBrowser = (np: NowPlaying | null, target: PlayTarget, episodeId: string): np is NowPlaying =>
+  target.kind === 'browser' && playsInBrowser(np, episodeId);
+
 export interface PlayableItem {
   show: { id: string; name: string; imageUrl?: string };
   episode: Pick<EpisodeView, 'id' | 'name' | 'durationMs' | 'spotifyUrl' | 'imageUrl' | 'status' | 'statusSource'>;

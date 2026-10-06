@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import type { ShowLite } from '@podcast/shared';
+import { isDone, type ShowLite } from '@podcast/shared';
 import { useEpisodeActions } from '../lib/actions';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
@@ -26,7 +26,7 @@ export function EpisodePickerSheet({ show, onClose }: { show: ShowLite; onClose:
   const open = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (detail.data?.episodes ?? [])
-      .filter((e) => e.status === 'UNSEEN' || e.status === 'IN_PROGRESS')
+      .filter((e) => !isDone(e.status))
       .filter((e) => !q || e.name.toLowerCase().includes(q))
       .reverse();
   }, [detail.data, query]);

@@ -2,44 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CONSUMPTION_MODES, type Show } from '@podcast/shared';
+import type { Show } from '@podcast/shared';
 import { Icon } from '../components/Icon';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, IconButton, ProgressBar, Segmented, Spinner } from '../components/ui';
-import i18n from '../i18n';
-import type { resources } from '../i18n/resources';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
-import { formatRelative, modeHint, modeLabel } from '../lib/format';
+import { formatRelative, modeHint, modeLabel, modeOptions, progressText } from '../lib/format';
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import styles from './Shows.module.css';
-
-type ProgressKey = keyof (typeof resources)['de']['shows']['progress'];
-
-/** The modes as options of a Segmented control, in the active language. */
-export const modeOptions = () => CONSUMPTION_MODES.map((m) => ({ value: m, label: modeLabel(m), hint: modeHint(m) }));
-
-export function progressText(show: Show): { text: string; tone?: 'new' | 'muted' } {
-  const t = (key: ProgressKey, values?: Record<string, number>) =>
-    i18n.t(`progress.${key}`, { ns: 'shows', ...values });
-  const s = show.summary;
-  if (!s || s.total === 0) return { text: t('noEpisodes'), tone: 'muted' };
-  const next = s.nextEpisode;
-  if (show.pinnedEpisodeId && next?.id === show.pinnedEpisodeId) {
-    return { text: t('chosen', { index: next.index, total: s.total }) };
-  }
-  switch (show.mode) {
-    case 'LATEST':
-      if (!next) return { text: t('noNew'), tone: 'muted' };
-      return next.isNew ? { text: t('newAvailable'), tone: 'new' } : { text: t('newestOpen') };
-    case 'SEQUENTIAL':
-      if (!next) return { text: t('allDone', { total: s.total }), tone: 'muted' };
-      return { text: i18n.t('episode.ofTotal', { index: next.index, total: s.total }) };
-    default:
-      return { text: t('noneChosen'), tone: 'muted' };
-  }
-}
 
 export function ShowsPage() {
   const { t } = useTranslation('shows');

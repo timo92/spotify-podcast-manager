@@ -17,6 +17,7 @@ pnpm format          # format code, JSON and CSS (oxfmt)
 pnpm lint            # oxlint, including type-aware rules
 pnpm typecheck
 pnpm test
+pnpm test:coverage   # tests with coverage; HTML report in packages/*/coverage/
 pnpm build
 ```
 
@@ -33,7 +34,9 @@ pnpm build
 cd packages/infra && SPOTIFY_CLIENT_ID=ci-synth-placeholder pnpm exec cdk synth -q
 ```
 
-Run them before you push. Keep package scripts cross-platform: no POSIX-only
+On Ubuntu, CI runs the tests with coverage instead and shows it per package in
+the job summary; the HTML report is attached to the run. There is no minimum
+yet. Run them before you push. Keep package scripts cross-platform: no POSIX-only
 syntax (`VAR=x cmd`, `rm -rf`, `&&` chains that assume bash); use Node flags or
 CLI arguments instead.
 

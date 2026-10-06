@@ -46,6 +46,8 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       setupFiles: ['./test/support/setup.ts'],
+      // Measured only with `pnpm test:coverage` (CI on Ubuntu).
+      coverage: { provider: 'v8', include: ['src/**'], reporter: ['text-summary', 'json-summary', 'html'] },
     },
   };
 });

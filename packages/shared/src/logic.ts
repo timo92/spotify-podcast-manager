@@ -114,17 +114,18 @@ export function selectNextEpisode(
       // 2. otherwise continue after the last finished episode – unmarked
       //    episodes before it count as "left behind", not as next,
       // 3. otherwise fill gaps from the beginning.
-      const started = episodes.filter((e) => e.status === 'IN_PROGRESS');
-      const furthest = started.at(-1);
+      // Episodes Spotify no longer plays are never suggested.
+      const playable = (e: EpisodeView) => e.isPlayable !== false;
+      const furthest = episodes.findLast((e) => e.status === 'IN_PROGRESS' && playable(e));
       if (furthest) return furthest;
-      const open = (e: EpisodeView) => e.status === 'UNSEEN' && e.isPlayable !== false;
+      const open = (e: EpisodeView) => e.status === 'UNSEEN' && playable(e);
       let anchor = -1;
       episodes.forEach((e, i) => {
         if (isDone(e.status)) anchor = i;
       });
       const next = episodes.slice(anchor + 1).find(open) ?? episodes.find(open);
       if (next) return next;
-      if (show.reofferSkipped) return episodes.find((e) => e.status === 'SKIPPED') ?? null;
+      if (show.reofferSkipped) return episodes.find((e) => e.status === 'SKIPPED' && playable(e)) ?? null;
       return null;
     }
     case 'MANUAL':
@@ -198,12 +199,13 @@ function labelFor(show: Show, ep: EpisodeView): TodayLabel {
 
 /**
  * Remaining listening time of the open planned items. An episode planned in
- * several slots is listened to once, so it counts once.
+ * several slots is listened to once, so it counts once; slots of paused
+ * podcasts don't count.
  */
 export function plannedOpenMs(items: PlannedItem[]): number {
   const open = new Map<string, number>();
-  for (const { episode, state } of items) {
-    if (episode && (state === 'next' || state === 'upcoming')) open.set(episode.id, episode.remainingMs);
+  for (const { episode, state, paused } of items) {
+    if (episode && !paused && (state === 'next' || state === 'upcoming')) open.set(episode.id, episode.remainingMs);
   }
   return [...open.values()].reduce((sum, ms) => sum + ms, 0);
 }
@@ -220,8 +222,10 @@ export function buildToday(
   shows: Show[],
   settings: Settings,
   recent: HistoryItem[] = [],
-  plan: PlannedItem[] = [],
+  slots: PlannedItem[] = [],
 ): TodayResponse {
+  // Paused podcasts keep their slots in the week, but Today leaves them out.
+  const plan = slots.filter((p) => !p.paused);
   // Shows planned for today are listed in the plan, not again below.
   const planned = new Set(plan.map((p) => p.show.id));
   const eligible = shows
@@ -236,8 +240,6 @@ export function buildToday(
     else if (show.mode === 'LATEST') noNewEpisode.push(toShowLite(show));
   }
 
-  const ordered = candidates;
-
   const budgetMs = settings.audioBudgetMinutes * 60_000;
   const limitMs = budgetMs * (1 + settings.budgetTolerancePercent / 100);
   const recommended: TodayItem[] = [];
@@ -246,10 +248,10 @@ export function buildToday(
   let usedMs = plannedOpenMs(plan);
 
   if (budgetMs <= 0) {
-    recommended.push(...ordered);
-    usedMs += ordered.reduce((sum, c) => sum + c.episode.remainingMs, 0);
+    recommended.push(...candidates);
+    usedMs += candidates.reduce((sum, c) => sum + c.episode.remainingMs, 0);
   } else {
-    for (const c of ordered) {
+    for (const c of candidates) {
       if (usedMs + c.episode.remainingMs <= limitMs) {
         recommended.push(c);
         usedMs += c.episode.remainingMs;
@@ -261,8 +263,8 @@ export function buildToday(
 
   let budgetFit: TodayResponse['budgetFit'] = 'none';
   if (budgetMs > 0 && usedMs > 0) {
-    const ratio = usedMs / budgetMs;
-    budgetFit = ratio > 1 ? 'over' : ratio >= 0.85 ? 'perfect' : 'under';
+    budgetFit =
+      usedMs > limitMs ? 'over' : usedMs > budgetMs ? 'slightlyOver' : usedMs >= budgetMs * 0.85 ? 'perfect' : 'under';
   }
 
   return {
@@ -275,6 +277,7 @@ export function buildToday(
     noNewEpisode,
     recent,
     needsReviewCount: shows.filter((s) => s.needsReview).length,
-    newCount: shows.filter((s) => !s.paused).reduce((n, s) => n + (s.summary?.newCount ?? 0), 0),
+    // An unfollowed show's summary is no longer updated, so its count would stay frozen.
+    newCount: shows.filter((s) => s.followed && !s.paused).reduce((n, s) => n + (s.summary?.newCount ?? 0), 0),
   };
 }

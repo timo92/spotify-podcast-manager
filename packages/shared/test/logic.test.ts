@@ -119,6 +119,27 @@ describe('selectNextEpisode', () => {
     expect(selectNextEpisode(show({ reofferSkipped: true }), views)?.id).toBe('a');
   });
 
+  it('SEQUENTIAL never suggests an episode Spotify no longer plays', () => {
+    const gone = (id: string, date: string) => ep(id, date, 30, { isPlayable: false });
+    const started = buildEpisodeViews(
+      [gone('a', '2026-10-01'), ep('b', '2026-10-02')],
+      new Map([['a', { ...prog('a', 'IN_PROGRESS'), listenedAt: undefined }]]),
+      DEFAULT_SETTINGS,
+      now,
+    );
+    expect(selectNextEpisode(show(), started)?.id).toBe('b');
+    const skipped = buildEpisodeViews(
+      [gone('a', '2026-10-01'), ep('b', '2026-10-02')],
+      new Map([
+        ['a', prog('a', 'SKIPPED')],
+        ['b', prog('b', 'COMPLETED')],
+      ]),
+      DEFAULT_SETTINGS,
+      now,
+    );
+    expect(selectNextEpisode(show({ reofferSkipped: true }), skipped)).toBeNull();
+  });
+
   it('LATEST picks the newest episode', () => {
     const views = buildEpisodeViews(episodes, new Map(), DEFAULT_SETTINGS, now);
     expect(selectNextEpisode(show({ mode: 'LATEST' }), views)?.id).toBe('c');
@@ -231,8 +252,27 @@ describe('buildToday', () => {
     const today = buildToday(shows, { ...DEFAULT_SETTINGS, audioBudgetMinutes: 30, budgetTolerancePercent: 10 });
     expect(today.recommended.map((r) => r.show.id)).toEqual(['tag']);
     expect(today.recommended[0]!.label).toBe('NEU');
-    expect(today.budgetFit).toBe('over');
+    expect(today.budgetFit).toBe('slightlyOver');
     expect(today.more).toHaveLength(0);
+  });
+
+  it('counts new episodes only of podcasts still in the library', () => {
+    const shows = [withNext('a', 'A', 10, 1), withNext('gone', 'Gone', 10, 2, { followed: false })];
+    expect(buildToday(shows, DEFAULT_SETTINGS).newCount).toBe(1);
+  });
+
+  it('rates the budget by the tolerance the user set', () => {
+    const fit = (minutes: number, budgetTolerancePercent: number) =>
+      buildToday([withNext('a', 'A', minutes, 1)], {
+        ...DEFAULT_SETTINGS,
+        audioBudgetMinutes: 30,
+        budgetTolerancePercent,
+      }).budgetFit;
+    expect(fit(20, 10)).toBe('under');
+    expect(fit(30, 10)).toBe('perfect');
+    expect(fit(40, 50)).toBe('slightlyOver');
+    // beyond the tolerance the episode isn't recommended, so there is nothing to rate
+    expect(fit(40, 10)).toBe('none');
   });
 
   it('lists LATEST shows without a new episode', () => {

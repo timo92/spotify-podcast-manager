@@ -99,7 +99,8 @@ Each podcast has exactly one mode.
   into the budget. Planned slots count first; started episodes count with
   their remaining time only.
 - **B3** The user can reorder podcasts, pause a podcast, or hide it from Today
-  while still tracking it.
+  while still tracking it. A paused podcast keeps its slots in the weekly plan,
+  marked as paused, but they don't appear on Today or count towards the budget.
 - **B4** Categories are free-form, several per podcast, with a default set to
   start from.
 

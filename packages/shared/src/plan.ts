@@ -97,7 +97,8 @@ export function buildWeek(
     const isToday = date === today;
     const rules = schedule.rules
       .map((rule, idx) => ({ rule, idx }))
-      .filter(({ rule }) => rule.weekdays.includes(weekday) && inputs.has(rule.showId))
+      // A podcast removed from the library is no longer suggested; its rules wait for retention.
+      .filter(({ rule }) => rule.weekdays.includes(weekday) && inputs.get(rule.showId)?.show.followed)
       .sort((a, b) => order(a.rule.part) - order(b.rule.part) || a.idx - b.idx)
       .map(({ rule }) => rule);
 
@@ -106,7 +107,7 @@ export function buildWeek(
       if (date < today) continue;
       const input = inputs.get(rule.showId);
       if (!input) continue;
-      const base = { ruleId: rule.id, part: rule.part, show: toShowLite(input.show) };
+      const base = { ruleId: rule.id, part: rule.part, show: toShowLite(input.show), paused: input.show.paused };
       const doneEpisode = isToday ? done.get(rule.showId)?.shift() : undefined;
       if (doneEpisode) {
         items.push({ ...base, episode: doneEpisode, state: 'done' });

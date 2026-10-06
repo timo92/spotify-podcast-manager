@@ -165,6 +165,28 @@ describe('buildWeek', () => {
     ]);
   });
 
+  it("keeps a paused podcast's slots, marked as paused and without open time", () => {
+    const paused = { ...show('series', 'SEQUENTIAL'), paused: true };
+    const inputs = new Map([['series', input(paused, eps('series', 10))]]);
+    const [mon, , wed] = buildWeek('2026-10-05', '2026-10-05', 7, schedule, inputs);
+    expect(mon!.items.map((i) => [i.episode?.id, i.paused])).toEqual([
+      ['series-1', true],
+      ['series-2', true],
+    ]);
+    expect(wed!.items[0]!.episode?.id).toBe('series-3');
+    expect(mon!.openMs).toBe(0);
+  });
+
+  it('leaves out podcasts removed from the library', () => {
+    const gone = { ...show('news', 'LATEST'), followed: false };
+    const inputs = new Map([
+      ['news', input(gone, eps('news', 5))],
+      ['series', input(show('series', 'SEQUENTIAL'), eps('series', 10))],
+    ]);
+    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, schedule, inputs);
+    expect(mon!.items.map((i) => i.show.id)).toEqual(['series', 'series']);
+  });
+
   it('marks shows with nothing left', () => {
     const inputs = new Map([['news', input(show('news', 'MANUAL'), eps('news', 2))]]);
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, schedule, inputs);
@@ -214,6 +236,21 @@ describe('buildToday with a plan', () => {
     expect(today.recommended).toHaveLength(0);
     expect(today.more.map((m) => m.show.id)).toEqual(['other']);
     expect(today.recommendedMinutes).toBe(20);
+  });
+
+  it('leaves slots of paused podcasts out of Today and its budget', () => {
+    const paused = { ...show('series', 'SEQUENTIAL'), paused: true };
+    const inputs = new Map([['series', input(paused, eps('series', 3, 20))]]);
+    const [mon] = buildWeek(
+      '2026-10-05',
+      '2026-10-05',
+      1,
+      { rules: [{ id: 'x', showId: 'series', weekdays: [1], part: 'ANYTIME' }] },
+      inputs,
+    );
+    const today = buildToday([paused], DEFAULT_SETTINGS, [], mon!.items);
+    expect(today.plan).toHaveLength(0);
+    expect(today.recommendedMinutes).toBe(0);
   });
 
   it('counts an episode planned in several slots once', () => {

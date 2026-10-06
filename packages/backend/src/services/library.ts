@@ -1,5 +1,8 @@
 import {
   buildEpisodeViews,
+  CONSUMPTION_MODES,
+  EPISODE_STATUSES,
+  isDone,
   summarizeShow,
   truncate,
   type EpisodeProgress,
@@ -69,8 +72,7 @@ export class LibraryService {
     await this.requireShow(showId);
     const clean: ShowSettingsPatch = {};
     if (patch.mode !== undefined) {
-      if (!['LATEST', 'SEQUENTIAL', 'MANUAL'].includes(patch.mode))
-        throw badRequest('invalid_mode', 'Ungültiger Modus');
+      if (!CONSUMPTION_MODES.includes(patch.mode)) throw badRequest('invalid_mode', 'Ungültiger Modus');
       clean.mode = patch.mode;
     }
     if (patch.categories !== undefined) {
@@ -101,7 +103,7 @@ export class LibraryService {
    * the episode falls back to Spotify's state.
    */
   async setStatus(showId: string, episodeIds: string[], status: EpisodeStatus | null): Promise<Show> {
-    if (status !== null && !['UNSEEN', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED'].includes(status)) {
+    if (status !== null && !EPISODE_STATUSES.includes(status)) {
       throw badRequest('invalid_status', 'Ungültiger Status');
     }
     const show = await this.requireShow(showId);
@@ -132,11 +134,7 @@ export class LibraryService {
       );
     }
     // A finished pinned episode no longer needs the pin.
-    if (
-      show.pinnedEpisodeId &&
-      episodeIds.includes(show.pinnedEpisodeId) &&
-      (status === 'COMPLETED' || status === 'SKIPPED')
-    ) {
+    if (show.pinnedEpisodeId && episodeIds.includes(show.pinnedEpisodeId) && status !== null && isDone(status)) {
       await this.store.updateShow(showId, { pinnedEpisodeId: null });
     }
     return this.recompute(showId);

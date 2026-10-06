@@ -14,6 +14,8 @@ export const CONSUMPTION_MODES: ConsumptionMode[] = ['LATEST', 'SEQUENTIAL', 'MA
 
 export type EpisodeStatus = 'UNSEEN' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED';
 
+export const EPISODE_STATUSES: EpisodeStatus[] = ['UNSEEN', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED'];
+
 /** Statuses that mean "done with this one, don't suggest it again". */
 export const DONE_STATUSES: EpisodeStatus[] = ['COMPLETED', 'SKIPPED'];
 
@@ -217,7 +219,12 @@ export interface TodayResponse {
   budgetMinutes: number;
   /** Sum of remaining minutes of the recommended items. */
   recommendedMinutes: number;
-  budgetFit: 'none' | 'perfect' | 'under' | 'over';
+  /**
+   * How the planned and recommended time fits the budget: `slightlyOver` is
+   * above it but within the tolerance, `over` beyond the tolerance (only planned
+   * slots can get there). `none` without a budget or anything to listen to.
+   */
+  budgetFit: 'none' | 'under' | 'perfect' | 'slightlyOver' | 'over';
   recommended: TodayItem[];
   more: TodayItem[];
   noNewEpisode: ShowLite[];
@@ -346,6 +353,8 @@ export interface PlannedItem {
   show: ShowLite;
   episode: EpisodeView | null;
   state: PlannedState;
+  /** The podcast is paused: the slot stays in the plan but is left out of Today and the budget. */
+  paused: boolean;
 }
 
 export interface PlanDay {

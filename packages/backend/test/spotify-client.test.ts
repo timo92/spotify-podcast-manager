@@ -182,6 +182,63 @@ describe('HttpSpotifyApi', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('gives up on rate limits that would outlast the request deadline', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = await storeWithTokens();
+      const fetchMock = vi.fn().mockResolvedValue(response(429, undefined, { 'retry-after': '15' }));
+      const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+      const result = expect(api.getMe()).rejects.toMatchObject({
+        code: 'spotify_rate_limited',
+        params: { minutes: 1 },
+      });
+      await vi.advanceTimersByTimeAsync(16_000);
+      await result;
+      // one wait of 15 s fits, a second one would not
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits a second when Retry-After is not a number of seconds', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = await storeWithTokens();
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(response(429, undefined, { 'retry-after': 'Wed, 21 Oct 2026 07:28:00 GMT' }))
+        .mockResolvedValueOnce(response(200, { id: 'me' }));
+      const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+      const me = api.getMe();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(600);
+      expect((await me).id).toBe('me');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('aborts a request Spotify does not answer and reports Spotify as unavailable', async () => {
+    vi.useFakeTimers();
+    try {
+      const store = await storeWithTokens();
+      const fetchMock = vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+          }),
+      );
+      const api = new HttpSpotifyApi(store, credentials, fetchMock as unknown as typeof fetch);
+      const result = expect(api.getMe()).rejects.toMatchObject({ code: 'spotify_unavailable' });
+      await vi.advanceTimersByTimeAsync(20_000);
+      await result;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('stops paging episodes once a known episode shows up', async () => {
     const store = await storeWithTokens();
     const page = (ids: string[], next: string | null) => response(200, { items: ids.map((id) => ({ id })), next });

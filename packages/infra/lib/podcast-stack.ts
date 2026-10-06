@@ -41,8 +41,6 @@ export interface PodcastStackProps extends StackProps {
   stage: string;
   /** Built frontend (packages/frontend/dist). */
   frontendDir?: string;
-  /** Hours between incremental syncs. */
-  syncEveryHours?: number;
 }
 
 /**
@@ -207,9 +205,8 @@ export class PodcastStack extends Stack {
     clientSecret.grantRead(apiFn);
     clientSecret.grantRead(syncFn);
 
-    const every = props.syncEveryHours ?? 2;
     new events.Rule(this, 'IncrementalSync', {
-      schedule: events.Schedule.cron({ minute: '7', hour: `*/${every}` }),
+      schedule: events.Schedule.cron({ minute: '7', hour: '*/2' }),
       targets: [
         new targets.LambdaFunction(syncFn, { event: events.RuleTargetInput.fromObject({ source: 'schedule' }) }),
       ],

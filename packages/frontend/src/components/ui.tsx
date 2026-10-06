@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRef, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { EpisodeStatus } from '@podcast/shared';
+import { itemForKey } from '../lib/focus';
 import { statusLabel } from '../lib/format';
+import { usePopover } from '../lib/use-popover';
 import { Icon, type IconName } from './Icon';
 
 export function Cover({ src, alt, size = 56 }: { src?: string; alt: string; size?: number }) {
@@ -42,6 +44,7 @@ export function IconButton({
   variant = 'ghost',
   size = 20,
   className = '',
+  ...popup
 }: {
   icon: IconName;
   label: string;
@@ -51,9 +54,14 @@ export function IconButton({
   variant?: 'ghost' | 'primary' | 'soft';
   size?: number;
   className?: string;
+  /** For a button that opens a popover (see usePopover). */
+  ref?: Ref<HTMLButtonElement>;
+  'aria-haspopup'?: 'menu';
+  'aria-expanded'?: boolean;
 }) {
   return (
     <button
+      {...popup}
       type="button"
       className={`icon-btn icon-btn-${variant}${active ? ' is-active' : ''} ${className}`.trim()}
       onClick={onClick}
@@ -77,24 +85,11 @@ export interface MenuItem {
 /** Small popover menu ("⋯"). */
 export function Menu({ items }: { items: MenuItem[] }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  const { open, close, rootProps, triggerProps } = usePopover();
   return (
-    <div className="menu" ref={ref}>
-      <IconButton icon="more" label={t('ui.moreActions')} onClick={() => setOpen((o) => !o)} active={open} />
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the keys are handled for the menu items inside
+    <div className="menu" {...rootProps}>
+      <IconButton icon="more" label={t('ui.moreActions')} active={open} {...triggerProps} />
       {open && (
         <div className="menu-pop" role="menu">
           {items
@@ -108,7 +103,7 @@ export function Menu({ items }: { items: MenuItem[] }) {
                   href={item.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => setOpen(false)}
+                  onClick={close}
                 >
                   {item.icon && <Icon name={item.icon} size={18} />}
                   {item.label}
@@ -120,7 +115,7 @@ export function Menu({ items }: { items: MenuItem[] }) {
                   type="button"
                   className="menu-item"
                   onClick={() => {
-                    setOpen(false);
+                    close();
                     item.onClick?.();
                   }}
                 >
@@ -146,14 +141,26 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void;
   label: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const chosen = options.findIndex((o) => o.value === value);
+  // Roving tabindex: Tab reaches the chosen option, the arrow keys choose another one.
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const next = itemForKey(options, options[chosen] ?? null, e.key);
+    if (!next) return;
+    e.preventDefault();
+    onChange(next.value);
+    ref.current?.querySelectorAll<HTMLElement>('[role="radio"]')[options.indexOf(next)]?.focus();
+  };
   return (
-    <div className="segmented" role="radiogroup" aria-label={label}>
-      {options.map((o) => (
+    <div className="segmented" role="radiogroup" aria-label={label} ref={ref}>
+      {options.map((o, i) => (
         <button
           key={o.value}
           type="button"
           role="radio"
           aria-checked={value === o.value}
+          tabIndex={i === Math.max(0, chosen) ? 0 : -1}
+          onKeyDown={onKeyDown}
           className={value === o.value ? 'is-active' : ''}
           onClick={() => onChange(o.value)}
           title={o.hint}

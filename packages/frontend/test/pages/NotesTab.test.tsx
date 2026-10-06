@@ -87,7 +87,9 @@ describe('NotesTab', () => {
     const { user } = renderWithProviders(<NotesTab onOpen={() => {}} />);
 
     const positions = () =>
-      screen.getAllByRole('article').map((c) => within(c).getByRole('button', { name: /^\d+:\d{2}$/ }).textContent);
+      screen
+        .getAllByRole('article')
+        .map((c) => within(c).getByRole('button', { name: /^Ab \d+:\d{2} abspielen$/ }).textContent);
     await screen.findByText('zweiter Gedanke');
     expect(positions()).toEqual(['1:30', '0:30']);
 

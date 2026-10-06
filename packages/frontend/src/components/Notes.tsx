@@ -271,7 +271,13 @@ export function PositionButton({ ms, item }: { ms: number; item: PlayableItem })
   const { t } = useTranslation('player');
   const jump = useJump(item);
   return (
-    <button type="button" className={styles.timestamp} onClick={() => jump(ms)} title={t('note.jump')}>
+    <button
+      type="button"
+      className={styles.timestamp}
+      onClick={() => jump(ms)}
+      title={t('note.jump', { time: formatClock(ms) })}
+      aria-label={t('note.jump', { time: formatClock(ms) })}
+    >
       {formatClock(ms)}
     </button>
   );
@@ -290,7 +296,8 @@ export function NoteText({ note, item }: { note: Pick<EpisodeNote, 'text'>; item
             type="button"
             className={styles.timestamp}
             onClick={() => jump(part.ms)}
-            title={t('note.jump')}
+            title={t('note.jump', { time: part.label })}
+            aria-label={t('note.jump', { time: part.label })}
           >
             {part.label}
           </button>

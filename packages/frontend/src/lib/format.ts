@@ -142,10 +142,10 @@ export function splitTimestamps(text: string): ({ text: string } | { label: stri
   const parts: ({ text: string } | { label: string; ms: number })[] = [];
   let last = 0;
   for (const m of text.matchAll(TIMESTAMP_RE)) {
-    if (m.index! > last) parts.push({ text: text.slice(last, m.index) });
+    if (m.index > last) parts.push({ text: text.slice(last, m.index) });
     const ms = ((Number(m[1] ?? 0) * 60 + Number(m[2])) * 60 + Number(m[3])) * 1000;
     parts.push({ label: m[0], ms });
-    last = m.index! + m[0].length;
+    last = m.index + m[0].length;
   }
   if (last < text.length) parts.push({ text: text.slice(last) });
   return parts;

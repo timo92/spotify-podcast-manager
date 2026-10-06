@@ -57,37 +57,37 @@ export function EpisodeRow({
           icon="check"
           label={done ? t('action.markUnplayed') : t('episode.markPlayed', { ns: 'common' })}
           active={done}
-          onClick={() => actions.setStatus(episode, done ? 'UNSEEN' : 'COMPLETED')}
+          onClick={() => void actions.setStatus(episode, done ? 'UNSEEN' : 'COMPLETED')}
         />
         <Menu
           items={[
             {
               label: t('action.skip'),
               icon: 'skip',
-              onClick: () => actions.setStatus(episode, 'SKIPPED'),
+              onClick: () => void actions.setStatus(episode, 'SKIPPED'),
               hidden: episode.status === 'SKIPPED',
             },
             {
               label: t('action.markUnplayed'),
               icon: 'undo',
-              onClick: () => actions.setStatus(episode, 'UNSEEN'),
+              onClick: () => void actions.setStatus(episode, 'UNSEEN'),
               hidden: episode.status === 'UNSEEN',
             },
             {
               label: pinned ? t('action.unpin') : t('action.pin'),
               icon: 'pin',
-              onClick: () => actions.pin(show.id, pinned ? null : episode.id, show.pinnedEpisodeId),
+              onClick: () => void actions.pin(show.id, pinned ? null : episode.id, show.pinnedEpisodeId),
             },
             {
               label: t('action.completeBeforeMenu'),
               icon: 'check',
-              onClick: () => actions.completeBefore(episode),
+              onClick: () => void actions.completeBefore(episode),
               hidden: episode.index <= 1,
             },
             {
               label: t('action.resetStatus'),
               icon: 'refresh',
-              onClick: () => actions.resetStatus(episode),
+              onClick: () => void actions.resetStatus(episode),
               hidden: episode.statusSource !== 'local',
             },
             { label: 'LISTEN ON SPOTIFY', icon: 'external', href: episode.spotifyUrl },

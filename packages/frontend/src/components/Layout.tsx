@@ -60,7 +60,7 @@ function useSyncWatcher() {
       if (message) toast({ message, tone: now === 'error' ? 'error' : 'success' });
     }
     prev.current = now;
-  }, [status?.sync?.status]);
+  }, [status?.sync, invalidate, toast]);
 }
 
 export function Layout() {

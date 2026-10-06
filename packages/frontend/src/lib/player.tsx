@@ -125,10 +125,10 @@ function loadSdk(): Promise<void> {
     const script = document.createElement('script');
     script.src = SDK_URL;
     script.async = true;
-    script.onerror = () => {
+    script.addEventListener('error', () => {
       sdkPromise = null;
       reject(new Error(i18n.t('sdk.loadFailed', { ns: 'player' })));
-    };
+    });
     document.body.appendChild(script);
   });
   return sdkPromise;
@@ -277,7 +277,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (deviceRef.current) return deviceRef.current;
     deviceRef.current = (async () => {
       await loadSdk();
-      const player = new window.Spotify!.Player({
+      const player = new window.Spotify.Player({
         name: 'Podcast-Cockpit',
         volume: 0.9,
         getOAuthToken: (cb) => {
@@ -399,21 +399,31 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [target, browserSupported, ensureBrowserDevice, toast, startFollowing],
   );
 
-  // Poll the browser player while playing.
+  // Poll the browser player while it plays; a reading that fails is simply taken a second later.
+  const pollingEpisode =
+    nowPlaying && !nowPlaying.paused && nowPlaying.target.kind === 'browser' ? nowPlaying.episodeId : null;
   useEffect(() => {
-    if (!nowPlaying || nowPlaying.paused || nowPlaying.target.kind !== 'browser') return;
-    const timer = setInterval(async () => {
-      const state = await playerRef.current?.getCurrentState();
-      if (state) {
-        setNowPlaying((cur) =>
-          cur
-            ? { ...cur, positionMs: state.position, paused: state.paused, durationMs: state.duration || cur.durationMs }
-            : cur,
-        );
-      }
+    if (!pollingEpisode) return;
+    const timer = setInterval(() => {
+      void playerRef.current?.getCurrentState().then(
+        (state) => {
+          if (!state) return;
+          setNowPlaying((cur) =>
+            cur
+              ? {
+                  ...cur,
+                  positionMs: state.position,
+                  paused: state.paused,
+                  durationMs: state.duration || cur.durationMs,
+                }
+              : cur,
+          );
+        },
+        () => undefined,
+      );
     }, 1000);
     return () => clearInterval(timer);
-  }, [nowPlaying?.episodeId, nowPlaying?.paused, nowPlaying?.target.kind]);
+  }, [pollingEpisode]);
 
   // Auto-complete once an episode has ended (see playbackEnded). The browser
   // player reports its position every second; outside the browser it is only

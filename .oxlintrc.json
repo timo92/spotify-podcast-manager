@@ -1,0 +1,70 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y", "import", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    // Type-aware rules (oxlint-tsgolint): promises and assertions.
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+
+    "react/rules-of-hooks": "error",
+    // Only DOM elements: components pass autoFocus on to an element that decides.
+    "jsx-a11y/no-autofocus": ["error", { "ignoreNonDOM": true }],
+    "react/exhaustive-deps": "error",
+    // Same check as exhaustive-deps, reported a second time.
+    "react/exhaustive-effect-dependencies": "off",
+    // Rules for the React Compiler, which the app doesn't use. The "latest value"
+    // refs they report (written during render, read in callbacks) are deliberate.
+    "react/purity": "off",
+    "react/refs": "off",
+    "react/set-state-in-effect": "off",
+    "react/use-memo": "off",
+    // The automatic JSX runtime needs no React import.
+    "react/react-in-jsx-scope": "off",
+
+    // ARIA roles on divs are valid; the native <dialog>, <progress> and <output>
+    // they suggest behave and look differently.
+    "jsx-a11y/prefer-tag-over-role": "off",
+
+    // Casts are reduced with the stricter TypeScript settings, not by the linter.
+    "typescript/no-unsafe-type-assertion": "off",
+    // HTTP status numbers are compared with the StatusCodes enum on purpose.
+    "typescript/no-unsafe-enum-comparison": "off",
+    // Request bodies are typed optimistically; the conversions coerce untrusted JSON.
+    "typescript/no-unnecessary-type-conversion": "off",
+    // Effects return a cleanup only on some paths.
+    "typescript/consistent-return": "off",
+
+    // Side-effect imports (CSS, i18n setup) and i18next's default export are intended.
+    "import/no-unassigned-import": "off",
+    "import/no-named-as-default-member": "off",
+
+    // Style preferences without a bug behind them.
+    "unicorn/no-array-sort": "off",
+    "unicorn/no-array-reverse": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "vitest/require-mock-type-parameters": "off",
+    // The store contract tests name their describe blocks after the store.
+    "vitest/valid-title": ["error", { "ignoreTypeOfDescribeName": true }],
+    // Vitest's expect takes a message as second argument.
+    "vitest/valid-expect": ["error", { "maxArgs": 2 }],
+    // CDK assertion tests assert through the template.
+    "vitest/expect-expect": [
+      "error",
+      { "assertFunctionNames": ["expect", "expect.*", "template.*", "*.hasResourceProperties", "*.resourceCountIs"] }
+    ]
+  },
+  "overrides": [
+    {
+      // CDK constructs register themselves in their scope when created.
+      "files": ["packages/infra/**"],
+      "rules": { "eslint/no-new": "off" }
+    }
+  ],
+  "ignorePatterns": ["**/dist/**", "**/cdk.out/**", "**/node_modules/**"]
+}

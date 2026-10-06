@@ -45,7 +45,7 @@ export function authorizeUrl(clientId: string, redirectUri: string, state: strin
     redirect_uri: redirectUri,
     state,
   });
-  return `${ACCOUNTS}/authorize?${params}`;
+  return `${ACCOUNTS}/authorize?${params.toString()}`;
 }
 
 async function tokenRequest(credentials: SpotifyCredentials, body: URLSearchParams) {
@@ -282,6 +282,7 @@ export class HttpSpotifyApi implements SpotifyApi {
           },
         );
       }
+      // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- the JSON may hold anything
       ids.forEach((id, k) => result.set(id, saved[k] === true));
     }
     return result;

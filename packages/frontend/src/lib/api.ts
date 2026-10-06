@@ -62,8 +62,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const text = await res.text();
   const data = text ? JSON.parse(text) : undefined;
   if (!res.ok) {
-    const body = data as ErrorResponse | undefined;
-    throw new ApiError(res.status, body?.error ?? 'error', errorMessage(body, res.status));
+    const error = data as ErrorResponse | undefined;
+    throw new ApiError(res.status, error?.error ?? 'error', errorMessage(error, res.status));
   }
   return data as T;
 }

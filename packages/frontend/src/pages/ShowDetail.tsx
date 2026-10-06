@@ -109,7 +109,7 @@ export function ShowDetailPage() {
             <button
               className="btn btn-small"
               onClick={() =>
-                api
+                void api
                   .syncShow(show.id)
                   .then(() => {
                     toast({ message: t('detail.reloading') });
@@ -126,12 +126,14 @@ export function ShowDetailPage() {
       </header>
 
       {show.description && (
-        <p
-          className={cx('description', !showDescription && styles.clamp)}
+        <button
+          type="button"
+          className={cx('description', styles.descriptionToggle, !showDescription && styles.clamp)}
+          aria-expanded={showDescription}
           onClick={() => setShowDescription((v) => !v)}
         >
           {show.description}
-        </p>
+        </button>
       )}
 
       {next && (

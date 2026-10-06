@@ -19,6 +19,7 @@ export function NotConfiguredPage({ status }: { status: Status }) {
               i18nKey="setup.step1"
               components={{
                 dashboard: (
+                  // oxlint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label -- Trans fills in the link text
                   <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer" />
                 ),
                 strong: <strong />,

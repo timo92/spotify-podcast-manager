@@ -26,8 +26,8 @@ describe('translations', () => {
 
   for (const ns of Object.keys(de) as (keyof typeof de)[]) {
     it(`"${ns}" has every key in both languages, with the same variables`, () => {
-      const deKeys = flatten(de[ns] as Tree);
-      const enKeys = flatten(en[ns] as Tree);
+      const deKeys = flatten(de[ns]);
+      const enKeys = flatten(en[ns]);
       expect([...enKeys.keys()].sort()).toEqual([...deKeys.keys()].sort());
       for (const [key, text] of deKeys) {
         expect(variables(enKeys.get(key) ?? ''), `${ns}:${key}`).toEqual(variables(text));

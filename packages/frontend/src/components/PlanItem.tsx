@@ -90,7 +90,7 @@ export function PlanItemRow({
           <IconButton
             icon="check"
             label={t('episode.markPlayed', { ns: 'common' })}
-            onClick={() => actions.setStatus(ep, 'COMPLETED')}
+            onClick={() => void actions.setStatus(ep, 'COMPLETED')}
           />
         )}
         {canPick && (

@@ -34,7 +34,7 @@ function renderWeek(rules: ScheduleRule[], openMs = 0) {
 /** The slot of `weekdayName` ("Montag", …) in the rendered week. */
 function slotOn(weekdayName: string) {
   const day = screen.getByRole('heading', { name: new RegExp(weekdayName) }).closest('section')!;
-  return within(day as HTMLElement);
+  return within(day);
 }
 
 describe('WeekPage', () => {

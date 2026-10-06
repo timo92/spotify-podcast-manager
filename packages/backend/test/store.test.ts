@@ -72,6 +72,7 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(s.categories).toEqual(['Geschichte']);
       expect(s.lastSyncError).toBeUndefined();
       expect(await store.listShows()).toHaveLength(1);
+      // oxlint-disable-next-line vitest/require-to-throw-message -- each store fails with its own error
       await expect(store.updateShow('missing', { mode: 'LATEST' })).rejects.toThrow();
     });
 

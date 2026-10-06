@@ -8,6 +8,8 @@ import {
   QueryCommand,
   ScanCommand,
   UpdateCommand,
+  type BatchWriteCommandInput,
+  type BatchWriteCommandOutput,
   type QueryCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 import {
@@ -21,6 +23,9 @@ import {
   type SyncState,
 } from '@podcast/shared';
 import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
+
+/** One put or delete of a batch write. */
+type WriteRequest = NonNullable<BatchWriteCommandInput['RequestItems']>[string][number];
 
 /**
  * Single-table layout:
@@ -71,12 +76,14 @@ export class DynamoStore implements Store {
     return items;
   }
 
-  private async batchWrite(requests: Record<string, unknown>[]) {
+  private async batchWrite(requests: WriteRequest[]) {
     for (let i = 0; i < requests.length; i += 25) {
-      let pending: Record<string, unknown>[] | undefined = requests.slice(i, i + 25);
+      let pending: WriteRequest[] | undefined = requests.slice(i, i + 25);
       for (let attempt = 0; pending?.length && attempt < 8; attempt++) {
-        const res = await this.db.send(new BatchWriteCommand({ RequestItems: { [this.table]: pending as never } }));
-        pending = res.UnprocessedItems?.[this.table] as Record<string, unknown>[] | undefined;
+        const res: BatchWriteCommandOutput = await this.db.send(
+          new BatchWriteCommand({ RequestItems: { [this.table]: pending } }),
+        );
+        pending = res.UnprocessedItems?.[this.table];
         if (pending?.length) await new Promise((r) => setTimeout(r, 50 * 2 ** attempt));
       }
       if (pending?.length) throw new Error('DynamoDB batch write did not complete');

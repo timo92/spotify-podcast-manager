@@ -13,6 +13,7 @@ import { Icon } from './Icon';
 import styles from './Notes.module.css';
 import { NowPlayingTitle } from './NowPlaying';
 import { Cover, ErrorBox, IconButton, Spinner } from './ui';
+import { Sheet } from './Sheet';
 
 /**
  * The notes of an episode, ordered by position, each editable and deletable,
@@ -134,6 +135,7 @@ function NoteEdit({ note, onDone }: { note: EpisodeNote; onDone: () => void }) {
         className={styles.input}
         rows={4}
         value={text}
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- editing a note starts in its text
         autoFocus
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => submitOnModEnter(e, save)}
@@ -192,6 +194,7 @@ function NewNote({ item, autoFocus }: { item: PlayableItem; autoFocus?: boolean 
       const { text: value, stamp: positionMs } = draft.current;
       if (value.trim()) void create(value, positionMs).then(changed);
     },
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- runs only on unmount; the draft comes from a ref
     [],
   );
 
@@ -230,6 +233,7 @@ function NewNote({ item, autoFocus }: { item: PlayableItem; autoFocus?: boolean 
         className={styles.input}
         rows={3}
         value={text}
+        // oxlint-disable-next-line jsx-a11y/no-autofocus -- the player's note sheet opens to write
         autoFocus={autoFocus}
         placeholder={t('note.placeholder')}
         onChange={(e) => change(e.target.value)}
@@ -308,49 +312,35 @@ export function PlayerNoteSheet({ onClose }: { onClose: () => void }) {
   const player = usePlayer();
   const np = player.nowPlaying;
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   if (!np) return null;
   const local = np.target.kind === 'browser';
   // Portal: the player bar is its own stacking context below the navigation.
   return createPortal(
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('note.label')}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="row gap">
-          <Cover src={np.imageUrl} alt={np.showName} size={44} />
-          <div className="grow">
-            <NowPlayingTitle
-              np={np}
-              detail={local ? ` · ${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}` : ''}
-            />
-          </div>
-          <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
+    <Sheet label={t('note.label')} onClose={onClose}>
+      <div className="row gap">
+        <Cover src={np.imageUrl} alt={np.showName} size={44} />
+        <div className="grow">
+          <NowPlayingTitle
+            np={np}
+            detail={local ? ` · ${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}` : ''}
+          />
         </div>
-        {local && (
-          <div className={cx('row gap', styles.controls)}>
-            <IconButton icon="rewind" label={t('back15')} onClick={() => player.seekBy(-15_000)} />
-            <IconButton
-              icon={np.paused ? 'play' : 'pause'}
-              label={np.paused ? t('resume') : t('pause')}
-              variant="primary"
-              onClick={player.togglePause}
-            />
-            <IconButton icon="forward" label={t('forward30')} onClick={() => player.seekBy(30_000)} />
-          </div>
-        )}
-        <EpisodeNotes item={episodeItem({ ...np, episodeName: np.name })} autoFocus />
+        <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
       </div>
-    </div>,
+      {local && (
+        <div className={cx('row gap', styles.controls)}>
+          <IconButton icon="rewind" label={t('back15')} onClick={() => player.seekBy(-15_000)} />
+          <IconButton
+            icon={np.paused ? 'play' : 'pause'}
+            label={np.paused ? t('resume') : t('pause')}
+            variant="primary"
+            onClick={player.togglePause}
+          />
+          <IconButton icon="forward" label={t('forward30')} onClick={() => player.seekBy(30_000)} />
+        </div>
+      )}
+      <EpisodeNotes item={episodeItem({ ...np, episodeName: np.name })} autoFocus />
+    </Sheet>,
     document.body,
   );
 }

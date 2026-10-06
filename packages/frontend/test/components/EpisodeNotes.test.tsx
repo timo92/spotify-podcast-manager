@@ -55,7 +55,9 @@ describe('EpisodeNotes', () => {
     renderNotes([note('1', 90_000, 'später'), note('2', null, 'zur ganzen Folge'), note('3', 5_000, 'früh')]);
     await screen.findByText('später');
     expect(texts()).toEqual(['zur ganzen Folge', 'früh', 'später']);
-    expect(within(screen.getAllByRole('article')[2]!).getByRole('button', { name: '1:30' })).toBeInTheDocument();
+    expect(
+      within(screen.getAllByRole('article')[2]!).getByRole('button', { name: 'Ab 1:30 abspielen' }),
+    ).toBeInTheDocument();
   });
 
   it('adds a note and leaves its position to the server when the episode does not play in the browser', async () => {

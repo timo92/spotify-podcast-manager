@@ -48,6 +48,6 @@
     "cancel": "Cancel",
     "notSaved": "Note not saved: {{error}}",
     "copy": "Copy text",
-    "jump": "Play from here"
+    "jump": "Play from {{time}}"
   }
 }

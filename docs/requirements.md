@@ -165,6 +165,9 @@ Each podcast has exactly one mode.
   no Spotify-like name or icon).
 - **N7** The app is non-commercial: no ads, no paid access, no in-app
   monetisation (Spotify forbids commercial streaming apps).
+- **N8** The app can be used with the keyboard and a screen reader: dialogs,
+  menus and choices follow the usual keys (Tab, arrow keys, Escape), and
+  messages stay until they could be read and acted on.
 
 ## Out of scope
 

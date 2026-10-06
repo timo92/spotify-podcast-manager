@@ -12,6 +12,12 @@
   width: min(480px, calc(100vw - 32px));
   pointer-events: none;
 }
+/* The two live regions (errors, everything else) stay rendered, so new toasts in them are announced. */
+.region {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .toast {
   pointer-events: auto;
   display: flex;

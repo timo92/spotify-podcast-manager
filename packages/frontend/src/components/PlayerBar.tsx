@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
@@ -8,6 +8,7 @@ import i18n from '../i18n';
 import { BROWSER_DEVICE_NAME, deviceOf, usePlayer, type NowPlaying, type PlayTarget } from '../lib/player';
 import { useRun } from '../lib/actions';
 import { qk } from '../lib/queries';
+import { usePopover } from '../lib/use-popover';
 import { Icon } from './Icon';
 import { PlayerNoteSheet } from './Notes';
 import { NowPlayingTitle } from './NowPlaying';
@@ -116,32 +117,20 @@ export function PlayerBar() {
 export function PlayTargetPicker() {
   const { t } = useTranslation('player');
   const player = usePlayer();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const { open, close, rootProps, triggerProps } = usePopover();
   const devices = useQuery({ queryKey: qk.devices, queryFn: api.devices, enabled: open, staleTime: 10_000 });
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
 
   const target = player.target;
   const label = target.kind === 'browser' ? t('target.browser') : target.kind === 'app' ? t('target.app') : target.name;
   const choose = (next: PlayTarget) => {
     player.setTarget(next);
-    setOpen(false);
+    close();
   };
 
   return (
-    <div className="menu" ref={ref}>
-      <button
-        type="button"
-        className="pill-btn"
-        onClick={() => setOpen((o) => !o)}
-        aria-label={t('target.label', { target: label })}
-      >
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the keys are handled for the menu items inside
+    <div className="menu" {...rootProps}>
+      <button type="button" className="pill-btn" aria-label={t('target.label', { target: label })} {...triggerProps}>
         <Icon name="device" size={18} />
         <span className="pill-btn-label">{label}</span>
       </button>
@@ -187,7 +176,7 @@ export function PlayTargetPicker() {
                 <span className="muted small">{d.type}</span>
               </button>
             ))}
-          <button type="button" className="menu-item" onClick={() => void devices.refetch()}>
+          <button type="button" role="menuitem" className="menu-item" onClick={() => void devices.refetch()}>
             <Icon name="refresh" size={18} /> {t('target.refresh')}
           </button>
         </div>

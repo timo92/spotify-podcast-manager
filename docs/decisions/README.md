@@ -50,3 +50,4 @@ wish to keep operations close to zero.
 | [D24](d24-playback-read-back.md) | Playback outside the browser is read back on demand |
 | [D25](d25-oxfmt.md) | Formatting with oxfmt |
 | [D26](d26-oxlint.md) | Linting with oxlint, including type-aware rules |
+| [D27](d27-cloudfront-only-api-csp.md) | The API answers only CloudFront; the site sends a CSP |

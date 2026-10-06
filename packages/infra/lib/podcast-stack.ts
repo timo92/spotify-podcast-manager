@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, Fn, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
 import * as apigw from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
@@ -18,11 +18,30 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as cr from 'aws-cdk-lib/custom-resources';
-import { SPOTIFY_CLIENT_SECRET_PLACEHOLDER } from '@podcast/shared';
+import { ORIGIN_VERIFY_HEADER, SPOTIFY_CLIENT_SECRET_PLACEHOLDER } from '@podcast/shared';
 import { resourceTags } from './config.js';
 import type { Construct } from 'constructs';
 
 const ROOT = join(import.meta.dirname, '../../..');
+
+/**
+ * What the page may load: its own files, the Web Playback SDK (a script that
+ * opens an iframe) and Spotify's artwork. Sent as report-only until a
+ * deployment has played an episode without violations in the browser console.
+ */
+export const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' https://sdk.scdn.co",
+  'frame-src https://sdk.scdn.co',
+  "img-src 'self' data: https://i.scdn.co https://*.spotifycdn.com",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'self'",
+].join('; ');
+
+/** Browser features the app never uses. */
+export const PERMISSIONS_POLICY = 'camera=(), microphone=(), geolocation=(), payment=(), usb=()';
 
 export interface PodcastStackProps extends StackProps {
   /** e.g. podcasts.example.com – optional, the CloudFront domain works too. */
@@ -179,6 +198,10 @@ export class PodcastStack extends Stack {
     });
     table.grantReadWriteData(syncFn);
 
+    // Only CloudFront sends this value (see ORIGIN_VERIFY_HEADER). The stack's
+    // UUID is unguessable, never leaves the account and needs no extra secret.
+    const originSecret = Fn.select(2, Fn.split('/', this.stackId));
+
     const apiFn = new NodejsFunction(this, 'ApiFunction', {
       ...common,
       handler: 'handler',
@@ -187,6 +210,7 @@ export class PodcastStack extends Stack {
         ...common.environment,
         SYNC_FUNCTION_NAME: syncFn.functionName,
         PUBLIC_URL: props.domainName ? `https://${props.domainName}` : '',
+        ORIGIN_SECRET: originSecret,
       },
       logGroup: logGroup('ApiLogs'),
       description: 'Podcast cockpit API',
@@ -265,6 +289,27 @@ function handler(event) {
 
     const apiDomain = `${httpApi.apiId}.execute-api.${this.region}.amazonaws.com`;
 
+    // AWS's managed security headers, plus a CSP and a Permissions-Policy.
+    const securityHeaders = new cloudfront.ResponseHeadersPolicy(this, 'SecurityHeaders', {
+      comment: 'Podcast cockpit: security headers with CSP',
+      securityHeadersBehavior: {
+        strictTransportSecurity: { accessControlMaxAge: Duration.days(365), override: false },
+        contentTypeOptions: { override: false },
+        frameOptions: { frameOption: cloudfront.HeadersFrameOption.SAMEORIGIN, override: false },
+        referrerPolicy: {
+          referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: false,
+        },
+        xssProtection: { protection: true, modeBlock: true, override: false },
+      },
+      customHeadersBehavior: {
+        customHeaders: [
+          { header: 'Content-Security-Policy-Report-Only', value: CONTENT_SECURITY_POLICY, override: true },
+          { header: 'Permissions-Policy', value: PERMISSIONS_POLICY, override: true },
+        ],
+      },
+    });
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: 'Podcast cockpit',
       domainNames: props.domainName ? [props.domainName] : undefined,
@@ -277,18 +322,21 @@ function handler(event) {
         origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
-        responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+        responseHeadersPolicy: securityHeaders,
         compress: true,
         functionAssociations: [{ function: spaRewrite, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST }],
       },
       additionalBehaviors: {
         '/api/*': {
-          origin: new origins.HttpOrigin(apiDomain, { protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY }),
+          origin: new origins.HttpOrigin(apiDomain, {
+            protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+            customHeaders: { [ORIGIN_VERIFY_HEADER]: originSecret },
+          }),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-          responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+          responseHeadersPolicy: securityHeaders,
           functionAssociations: [{ function: forwardHost, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST }],
         },
       },

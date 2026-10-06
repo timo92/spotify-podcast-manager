@@ -6,6 +6,7 @@
   "invalid_field": "Invalid value for “{{field}}”.",
   "unsupported_media_type": "Invalid request.",
   "unauthorized": "Not logged in.",
+  "origin_forbidden": "The API can only be reached through the app.",
   "not_found": "Not found.",
   "show_not_found": "Podcast not found.",
   "episode_not_found": "Episode not found.",

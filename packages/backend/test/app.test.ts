@@ -120,6 +120,24 @@ describe('configuration and auth', () => {
     expect(new URL(redirect.headers.Location!).searchParams.get('client_id')).toBe(CLIENT_ID);
   });
 
+  it('refuses requests that bypass CloudFront', async () => {
+    const app = createApp({
+      store: new MemoryStore(),
+      spotify: () => new FakeSpotifyApi(),
+      credentials: staticCredentials(CLIENT_ID, 'b'.repeat(32)),
+      triggerSync: async () => {},
+      originSecret: 'from-cloudfront',
+    });
+    const direct = await app.request('/api/status');
+    expect(direct.status).toBe(StatusCodes.FORBIDDEN);
+    expect(await direct.json()).toMatchObject({ error: 'origin_forbidden' });
+    expect((await app.request('/api/status', { headers: { 'x-origin-verify': 'guess' } })).status).toBe(
+      StatusCodes.FORBIDDEN,
+    );
+    const viaCloudFront = await app.request('/api/status', { headers: { 'x-origin-verify': 'from-cloudfront' } });
+    expect(viaCloudFront.status).toBe(StatusCodes.OK);
+  });
+
   it('explains a missing client ID instead of starting the login', async () => {
     const t = setup({ credentials: credentialsFromEnv({}) });
     expect(((await t.call('GET', '/api/status')).body as AppStatus).configured).toBe(false);

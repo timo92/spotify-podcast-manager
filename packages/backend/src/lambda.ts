@@ -34,6 +34,7 @@ const app = createApp({
   credentials,
   triggerSync,
   publicUrl: process.env.PUBLIC_URL || undefined,
+  originSecret: process.env.ORIGIN_SECRET || undefined,
 });
 
 /** API Lambda behind API Gateway (HTTP API, payload v2) and CloudFront. */

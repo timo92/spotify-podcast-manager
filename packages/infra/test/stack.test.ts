@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { App, Tags } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
-import { SPOTIFY_CLIENT_SECRET_PLACEHOLDER } from '@podcast/shared';
+import { ORIGIN_VERIFY_HEADER, SPOTIFY_CLIENT_SECRET_PLACEHOLDER } from '@podcast/shared';
 import { resourceTags } from '../lib/config.js';
-import { PodcastStack } from '../lib/podcast-stack.js';
+import { CONTENT_SECURITY_POLICY, PERMISSIONS_POLICY, PodcastStack } from '../lib/podcast-stack.js';
 
 function fakeFrontend() {
   const dir = mkdtempSync(join(tmpdir(), 'frontend-'));
@@ -70,16 +70,52 @@ describe('PodcastStack', () => {
     });
   });
 
-  it('throttles the API and sends security headers', () => {
+  it('throttles the API and sends security headers with a CSP on the site and the API', () => {
     template.hasResourceProperties('AWS::ApiGatewayV2::Stage', {
       DefaultRouteSettings: { ThrottlingRateLimit: 20, ThrottlingBurstLimit: 40 },
     });
-    const managedSecurityHeaders = '67f7725c-6f97-4210-82d7-5512b31e9d03';
+    template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+      ResponseHeadersPolicyConfig: Match.objectLike({
+        SecurityHeadersConfig: Match.objectLike({
+          StrictTransportSecurity: Match.objectLike({ AccessControlMaxAgeSec: 31_536_000 }),
+          ContentTypeOptions: Match.anyValue(),
+          FrameOptions: Match.objectLike({ FrameOption: 'SAMEORIGIN' }),
+          ReferrerPolicy: Match.objectLike({ ReferrerPolicy: 'strict-origin-when-cross-origin' }),
+        }),
+        CustomHeadersConfig: {
+          Items: [
+            { Header: 'Content-Security-Policy-Report-Only', Value: CONTENT_SECURITY_POLICY, Override: true },
+            { Header: 'Permissions-Policy', Value: PERMISSIONS_POLICY, Override: true },
+          ],
+        },
+      }),
+    });
+    expect(CONTENT_SECURITY_POLICY).toContain("script-src 'self' https://sdk.scdn.co");
+    const policy = { Ref: Match.stringLikeRegexp('^SecurityHeaders') };
     template.hasResourceProperties('AWS::CloudFront::Distribution', {
       DistributionConfig: Match.objectLike({
-        DefaultCacheBehavior: Match.objectLike({ ResponseHeadersPolicyId: managedSecurityHeaders }),
-        CacheBehaviors: [Match.objectLike({ ResponseHeadersPolicyId: managedSecurityHeaders })],
+        DefaultCacheBehavior: Match.objectLike({ ResponseHeadersPolicyId: policy }),
+        CacheBehaviors: [Match.objectLike({ ResponseHeadersPolicyId: policy })],
       }),
+    });
+  });
+
+  it('lets the API be reached only through CloudFront', () => {
+    // The stack's UUID, from its ID: arn:aws:cloudformation:<region>:<account>:stack/<name>/<uuid>
+    const stackUuid = { 'Fn::Select': [2, { 'Fn::Split': ['/', { Ref: 'AWS::StackId' }] }] };
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        Origins: Match.arrayWith([
+          Match.objectLike({
+            CustomOriginConfig: Match.objectLike({ OriginProtocolPolicy: 'https-only' }),
+            OriginCustomHeaders: [{ HeaderName: ORIGIN_VERIFY_HEADER, HeaderValue: stackUuid }],
+          }),
+        ]),
+      }),
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Handler: 'index.handler',
+      Environment: { Variables: Match.objectLike({ ORIGIN_SECRET: stackUuid }) },
     });
   });
 

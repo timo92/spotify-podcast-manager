@@ -10,6 +10,7 @@ export interface ErrorParams {
   invalid_field: { field: string };
   unsupported_media_type: undefined;
   unauthorized: undefined;
+  origin_forbidden: undefined;
   not_found: undefined;
   show_not_found: undefined;
   episode_not_found: undefined;
@@ -56,6 +57,7 @@ export const ERROR_PARAMS = {
   invalid_field: ['field'],
   unsupported_media_type: [],
   unauthorized: [],
+  origin_forbidden: [],
   not_found: [],
   show_not_found: [],
   episode_not_found: [],

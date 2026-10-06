@@ -50,10 +50,6 @@
     pause() {
       return control('pause');
     }
-    async resume() {
-      const state = await this.getCurrentState();
-      if (state?.paused) await control('toggle');
-    }
     seek(positionMs) {
       return control('seek', positionMs);
     }

@@ -33,7 +33,6 @@ export function useSettings() {
   return useQuery({ queryKey: qk.settings, queryFn: api.settings, staleTime: 60_000 });
 }
 
-/** Refetch everything derived from shows/episodes/progress. */
 /**
  * Re-reads an episode from Spotify once when it is shown, so progress made in
  * the Spotify app or on another device appears without waiting for a sync.

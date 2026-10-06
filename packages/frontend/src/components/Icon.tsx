@@ -65,7 +65,8 @@ export type IconName = keyof typeof ICONS;
 /** Solid shapes read better for the transport controls. */
 const FILLED = new Set<IconName>(['play', 'pause']);
 
-export function Icon({ name, size = 20, title }: { name: IconName; size?: number; title?: string }) {
+/** A decorative icon; the element around it carries the accessible name. */
+export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const Component = ICONS[name];
   return (
     <Component
@@ -73,9 +74,7 @@ export function Icon({ name, size = 20, title }: { name: IconName; size?: number
       className="icon"
       strokeWidth={2}
       fill={FILLED.has(name) ? 'currentColor' : 'none'}
-      aria-hidden={title ? undefined : true}
-      aria-label={title}
-      role={title ? 'img' : undefined}
+      aria-hidden
     />
   );
 }

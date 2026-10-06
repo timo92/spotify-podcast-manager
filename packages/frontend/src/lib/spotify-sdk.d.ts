@@ -22,7 +22,6 @@ declare namespace Spotify {
     getCurrentState(): Promise<PlaybackState | null>;
     togglePlay(): Promise<void>;
     pause(): Promise<void>;
-    resume(): Promise<void>;
     seek(positionMs: number): Promise<void>;
     activateElement(): Promise<void>;
   }

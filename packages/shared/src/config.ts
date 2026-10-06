@@ -13,7 +13,7 @@ export const SPOTIFY_CLIENT_SECRET_PLACEHOLDER = 'REPLACE_WITH_SPOTIFY_CLIENT_SE
  */
 export const RETENTION_DAYS = 30;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * When data marked at `since` (unfollowed, disconnected) is deleted. The UI

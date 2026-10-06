@@ -94,11 +94,16 @@ export async function exchangeCode(
     credentials,
     new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
   );
+  return toTokens(json);
+}
+
+/** Tokens from a token response; Spotify may leave out a refresh token or the scope on a refresh. */
+function toTokens(json: TokenResponse, previous?: SpotifyTokens): SpotifyTokens {
   return {
     accessToken: json.access_token,
-    refreshToken: json.refresh_token ?? '',
+    refreshToken: json.refresh_token ?? previous?.refreshToken ?? '',
     expiresAt: Date.now() + json.expires_in * 1000,
-    scope: json.scope ?? '',
+    scope: json.scope ?? previous?.scope ?? '',
   };
 }
 
@@ -116,6 +121,10 @@ function retryAfterSeconds(header: string | null): number {
   const seconds = Number(header ?? '1');
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : 1;
 }
+
+/** Spotify answered with something the client can't use; `detail` names the request. */
+const unexpectedResponse = (message: string, detail: string) =>
+  new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', message, { detail });
 
 const unavailable = () =>
   new ApiError(
@@ -167,13 +176,8 @@ export class HttpSpotifyApi implements SpotifyApi {
       if (e instanceof ApiError && e.code === 'spotify_reauth') await this.disconnect(tokens.refreshToken);
       throw e;
     }
-    const refreshed = {
-      accessToken: json.access_token,
-      // Spotify may rotate refresh tokens – keep the new one if present.
-      refreshToken: json.refresh_token ?? tokens.refreshToken,
-      expiresAt: Date.now() + json.expires_in * 1000,
-      scope: json.scope ?? tokens.scope,
-    };
+    // Spotify may rotate the refresh token; the new one replaces the old.
+    const refreshed = toTokens(json, tokens);
     await this.store.putTokens(refreshed);
     return refreshed;
   }
@@ -196,9 +200,7 @@ export class HttpSpotifyApi implements SpotifyApi {
     const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${API}${pathOrUrl}`;
     // Paging links come from responses; the bearer token must not follow one elsewhere.
     if (!url.startsWith(`${API}/`)) {
-      throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', `Unerwartete URL: ${url}`, {
-        detail: url,
-      });
+      throw unexpectedResponse(`Unerwartete URL: ${url}`, url);
     }
     const deadline = Date.now() + REQUEST_DEADLINE_MS;
     let refreshed = false;
@@ -298,9 +300,7 @@ export class HttpSpotifyApi implements SpotifyApi {
   async getMe() {
     const me = await this.request<SpotifyUser>('GET', '/me');
     if (!me) {
-      throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', 'Leere Antwort von /me', {
-        detail: '/me',
-      });
+      throw unexpectedResponse('Leere Antwort von /me', '/me');
     }
     return me;
   }
@@ -326,14 +326,7 @@ export class HttpSpotifyApi implements SpotifyApi {
       const saved =
         (await this.request<boolean[]>('GET', `/me/library/contains?uris=${encodeURIComponent(uris)}`)) ?? [];
       if (saved.length !== ids.length) {
-        throw new ApiError(
-          StatusCodes.BAD_GATEWAY,
-          'spotify_unexpected_response',
-          'Unerwartete Antwort von /me/library/contains',
-          {
-            detail: '/me/library/contains',
-          },
-        );
+        throw unexpectedResponse('Unerwartete Antwort von /me/library/contains', '/me/library/contains');
       }
       // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare -- the JSON may hold anything
       ids.forEach((id, k) => result.set(id, saved[k] === true));
@@ -352,9 +345,7 @@ export class HttpSpotifyApi implements SpotifyApi {
     while (url) {
       const page: SpotifyPage<SpotifyEpisode> | undefined = await this.request('GET', url);
       if (!page) {
-        throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', `Leere Seite: ${url}`, {
-          detail: url,
-        });
+        throw unexpectedResponse(`Leere Seite: ${url}`, url);
       }
       const items = page.items.filter((e): e is SpotifyEpisode => !!e?.id);
       for (const item of items) if (!episodes.has(item.id)) episodes.set(item.id, item);

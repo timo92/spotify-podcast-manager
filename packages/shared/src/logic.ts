@@ -1,3 +1,4 @@
+import { DAY_MS } from './config.js';
 import {
   DONE_STATUSES,
   type Episode,
@@ -15,8 +16,6 @@ import {
   type TodayLabel,
   type TodayResponse,
 } from './types.js';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function isDone(status: EpisodeStatus): boolean {
   return DONE_STATUSES.includes(status);
@@ -60,15 +59,14 @@ export function effectiveStatus(
 
 export function buildEpisodeViews(
   episodes: Episode[],
-  progress: Map<string, EpisodeProgress> | Record<string, EpisodeProgress>,
+  progress: Map<string, EpisodeProgress>,
   settings: Pick<Settings, 'useSpotifyPlayedState' | 'newWindowDays'>,
   now: Date = new Date(),
 ): EpisodeView[] {
-  const get = (id: string) => (progress instanceof Map ? progress.get(id) : progress[id]);
   const newSince = now.getTime() - settings.newWindowDays * DAY_MS;
   const sorted = [...episodes].sort(compareEpisodesAsc);
   return sorted.map((ep, i) => {
-    const p = get(ep.id);
+    const p = progress.get(ep.id);
     const { status, source } = effectiveStatus(ep, p, settings);
     const resumeMs = ep.resumePoint && !ep.resumePoint.fullyPlayed ? ep.resumePoint.resumePositionMs : 0;
     const isRecent = releaseTime(ep.releaseDate) >= newSince - DAY_MS;

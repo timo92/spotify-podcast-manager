@@ -30,7 +30,7 @@ export class NoteService {
       this.library.requireShow(showId),
       this.store.getEpisode(showId, episodeId),
     ]);
-    if (!episode) throw notFound('episode_not_found', 'Folge nicht gefunden');
+    if (!episode) throw notFound('episode_not_found');
     const positionMs =
       'positionMs' in body ? validPosition(body.positionMs, episode.durationMs) : await this.playingPosition(episodeId);
     const now = new Date().toISOString();
@@ -56,7 +56,7 @@ export class NoteService {
       this.store.getNote(showId, episodeId, noteId),
       this.store.getEpisode(showId, episodeId),
     ]);
-    if (!note) throw notFound('note_not_found', 'Notiz nicht gefunden');
+    if (!note) throw notFound('note_not_found');
     const next: EpisodeNote = {
       ...note,
       text: patch.text === undefined ? note.text : validText(patch.text),

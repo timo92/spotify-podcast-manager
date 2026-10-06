@@ -9,7 +9,7 @@ import {
   type Show,
   type SyncState,
 } from '@podcast/shared';
-import { ApiError, notFound } from '../errors.js';
+import { ApiError } from '../errors.js';
 import type { SpotifyApi, SpotifyEpisode, SpotifyImage, SpotifyShow } from '../spotify/types.js';
 import type { Store } from '../store/types.js';
 import { LibraryService, mapLimit } from './library.js';
@@ -35,15 +35,26 @@ export const STALE_SYNC_MS = 16 * 60 * 1000;
  * STALE_SYNC_MS died without finishing (Lambda timeout or crash). Reported as
  * interrupted, so the UI doesn't wait for it; the next sync takes the lease over.
  */
-export function visibleSyncState(state: SyncState, now = new Date()): SyncState {
+export function visibleSyncState(state: SyncState): SyncState {
   if (state.status !== 'running' || !state.startedAt) return state;
-  if (Date.parse(state.startedAt) > now.getTime() - STALE_SYNC_MS) return state;
+  if (Date.parse(state.startedAt) > Date.now() - STALE_SYNC_MS) return state;
+  return endedState(
+    state,
+    new ApiError(StatusCodes.INTERNAL_SERVER_ERROR, 'sync_interrupted', 'Der letzte Sync wurde unterbrochen.'),
+  );
+}
+
+const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** `state` without its lease: idle, or failed with `error` (an ApiError keeps its code for the UI). */
+function endedState(state: SyncState, error?: unknown): SyncState {
+  const failed = error !== undefined;
   return {
     ...state,
-    status: 'error',
-    error: 'Der letzte Sync wurde unterbrochen.',
-    errorCode: 'sync_interrupted',
-    errorParams: undefined,
+    status: failed ? 'error' : 'idle',
+    error: failed ? messageOf(error) : undefined,
+    errorCode: error instanceof ApiError ? error.code : undefined,
+    errorParams: error instanceof ApiError ? error.params : undefined,
     showId: undefined,
     message: undefined,
     leaseId: undefined,
@@ -83,18 +94,19 @@ export async function acquireSyncLease(
 }
 
 /** Ends a lease without a sync result, e.g. when the triggered run could not start. */
-export async function releaseSyncLease(store: Store, lease: SyncState & { leaseId: string }, error?: ApiError) {
-  await store.releaseSyncLease(lease.leaseId, {
-    ...lease,
-    status: error ? 'error' : 'idle',
-    error: error?.message,
-    errorCode: error?.code,
-    errorParams: error?.params,
-    showId: undefined,
-    message: undefined,
-    leaseId: undefined,
-    finishedAt: new Date().toISOString(),
-  });
+export async function releaseSyncLease(store: Store, lease: SyncState & { leaseId: string }, error?: unknown) {
+  await store.releaseSyncLease(lease.leaseId, { ...endedState(lease, error), finishedAt: new Date().toISOString() });
+}
+
+/**
+ * Re-reads a stored episode from Spotify; returns the new version only if it
+ * changed (resume point, metadata), undefined otherwise.
+ */
+export async function refetchEpisode(spotify: SpotifyApi, stored: Episode, now: string): Promise<Episode | undefined> {
+  const fresh = await spotify.getEpisode(stored.id);
+  if (!fresh) return undefined;
+  const episode = toEpisode(fresh, stored.showId, stored.firstSeenAt, now);
+  return episodeChanged(stored, episode) ? episode : undefined;
 }
 
 export function pickImage(images: SpotifyImage[] | undefined): string | undefined {
@@ -144,11 +156,14 @@ export function episodeChanged(prev: Episode | undefined, next: Episode): boolea
  * be repeated any number of times (idempotent).
  */
 export class SyncService {
+  private readonly library: LibraryService;
+
   constructor(
     private readonly store: Store,
     private readonly spotify: SpotifyApi,
-    private readonly library = new LibraryService(store),
-  ) {}
+  ) {
+    this.library = new LibraryService(store);
+  }
 
   /** Runs a sync, or returns the current state unchanged if another sync holds the lease. */
   async run(opts: SyncOptions = {}): Promise<SyncState> {
@@ -174,18 +189,7 @@ export class SyncService {
             : `${result.shows} Podcasts synchronisiert, ${result.newEpisodes} neue Folgen.`,
       };
     } catch (e) {
-      state = {
-        ...lease,
-        status: 'error',
-        startedAt,
-        finishedAt: new Date().toISOString(),
-        error: e instanceof Error ? e.message : String(e),
-        errorCode: e instanceof ApiError ? e.code : undefined,
-        errorParams: e instanceof ApiError ? e.params : undefined,
-        showId: undefined,
-        message: undefined,
-        leaseId: undefined,
-      };
+      state = { ...endedState(lease, e), finishedAt: new Date().toISOString() };
     }
     // Retention is housekeeping: it runs after a library sync (not after a
     // single-show reload), and a failure there must not turn a successful sync
@@ -288,8 +292,7 @@ export class SyncService {
   }
 
   private async syncSingle(showId: string) {
-    const show = await this.store.getShow(showId);
-    if (!show) throw notFound('show_not_found', 'Podcast nicht gefunden');
+    const show = await this.library.requireShow(showId);
     const settings = await this.store.getSettings();
     const newEpisodes = await this.syncShow(showId, undefined, show, true, settings, () => show.priority);
     return { shows: 1, newEpisodes, failed: 0 };
@@ -320,12 +323,9 @@ export class SyncService {
     // of the current "next" episode explicitly – that's the one that matters.
     const nextId = prev?.summary?.nextEpisode?.id;
     const storedNext = nextId ? known.get(nextId) : undefined;
-    if (!doFull && nextId && storedNext && !episodes.some((e) => e.id === nextId)) {
-      const fresh = await this.spotify.getEpisode(nextId);
-      if (fresh) {
-        const ep = toEpisode(fresh, showId, storedNext.firstSeenAt, nowIso);
-        if (episodeChanged(storedNext, ep)) changed.push(ep);
-      }
+    if (!doFull && storedNext && !episodes.some((e) => e.id === nextId)) {
+      const refreshed = await refetchEpisode(this.spotify, storedNext, nowIso);
+      if (refreshed) changed.push(refreshed);
     }
     if (changed.length) await this.store.putEpisodes(changed);
 

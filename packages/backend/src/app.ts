@@ -65,6 +65,9 @@ function isJsonRequest(c: Context): boolean {
   return mediaType.trim().toLowerCase() === 'application/json';
 }
 
+/** Back to the login page, which explains the error codes it knows. */
+const toLogin = (c: Context, error: string) => c.redirect(`/login?error=${encodeURIComponent(error)}`);
+
 function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);
@@ -210,11 +213,10 @@ export function createApp(deps: AppDeps) {
   app.get('/api/auth/callback', async (c) => {
     const expected = getCookie(c, STATE_COOKIE);
     deleteCookie(c, STATE_COOKIE, stateCookieOptions(c));
-    const redirectError = (code: string) => c.redirect(`/login?error=${encodeURIComponent(code)}`);
-    const fail = (code: LoginErrorCode | ErrorCode) => redirectError(code);
+    const fail = (code: LoginErrorCode | ErrorCode) => toLogin(c, code);
     const { error, state, code } = c.req.query();
     // Spotify's own OAuth error is passed on as it is; the login page explains the ones it knows.
-    if (error) return redirectError(error);
+    if (error) return toLogin(c, error);
     if (!expected || !state || !safeEqual(expected, state)) return fail('state_mismatch');
     if (!code) return fail('token_exchange_failed');
 
@@ -236,12 +238,10 @@ export function createApp(deps: AppDeps) {
 
   /** Binds the owner, stores the tokens, opens a session and starts the first import. */
   async function completeLogin(c: Context, { tokens, user }: SpotifyLogin) {
-    const fail = (code: LoginErrorCode) => c.redirect(`/login?error=${code}`);
-
     // The first account that logs in becomes the owner. Only accounts listed under
     // "User Management" of the Spotify app can log in at all (development mode).
     const config = await store.getConfig();
-    if (config && config.ownerId !== user.id) return fail('wrong_account');
+    if (config && config.ownerId !== user.id) return toLogin(c, 'wrong_account' satisfies LoginErrorCode);
     // Writing the config without `disconnectedAt` also ends a revoked state, so
     // the retention rules no longer delete the data.
     if (!config || config.disconnectedAt || config.ownerName !== (user.display_name ?? undefined)) {

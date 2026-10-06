@@ -23,13 +23,13 @@ import type { Store } from '../store/types.js';
 export class LibraryService {
   constructor(private readonly store: Store) {}
 
-  async loadViews(show: Show, settings?: Settings, now = new Date()): Promise<EpisodeView[]> {
+  async loadViews(show: Show, settings?: Settings): Promise<EpisodeView[]> {
     const [episodes, progress, s] = await Promise.all([
       this.store.listEpisodes(show.id),
       this.store.listProgress(show.id),
       settings ?? this.store.getSettings(),
     ]);
-    return buildEpisodeViews(episodes, progress, s, now);
+    return buildEpisodeViews(episodes, progress, s);
   }
 
   async recompute(showId: string, settings?: Settings): Promise<Show> {
@@ -47,7 +47,7 @@ export class LibraryService {
 
   async requireShow(showId: string): Promise<Show> {
     const show = await this.store.getShow(showId);
-    if (!show) throw notFound('show_not_found', 'Podcast nicht gefunden');
+    if (!show) throw notFound('show_not_found');
     return show;
   }
 
@@ -64,7 +64,7 @@ export class LibraryService {
   async episode(showId: string, episodeId: string): Promise<EpisodeView> {
     const show = await this.requireShow(showId);
     const view = (await this.loadViews(show)).find((v) => v.id === episodeId);
-    if (!view) throw notFound('episode_not_found', 'Folge nicht gefunden');
+    if (!view) throw notFound('episode_not_found');
     return view;
   }
 
@@ -109,7 +109,7 @@ export class LibraryService {
     const show = await this.requireShow(showId);
     const episodes = new Map((await this.store.listEpisodes(showId)).map((e) => [e.id, e]));
     const selected = episodeIds.flatMap((id) => episodes.get(id) ?? []);
-    if (selected.length !== episodeIds.length) throw notFound('episode_not_found', 'Folge nicht gefunden');
+    if (selected.length !== episodeIds.length) throw notFound('episode_not_found');
 
     if (status === null) {
       for (const id of episodeIds) await this.store.deleteProgress(showId, id);
@@ -145,10 +145,8 @@ export class LibraryService {
     const show = await this.requireShow(showId);
     const views = await this.loadViews(show);
     const target = views.find((v) => v.id === episodeId);
-    if (!target) throw notFound('episode_not_found', 'Folge nicht gefunden');
-    const ids = views
-      .filter((v) => v.index < target.index && v.status !== 'COMPLETED' && v.status !== 'SKIPPED')
-      .map((v) => v.id);
+    if (!target) throw notFound('episode_not_found');
+    const ids = views.filter((v) => v.index < target.index && !isDone(v.status)).map((v) => v.id);
     if (!ids.length) return show;
     return this.setStatus(showId, ids, 'COMPLETED');
   }

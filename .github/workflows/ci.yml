@@ -26,6 +26,19 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+        if: runner.os != 'Linux'
+      # On Ubuntu the tests run with coverage; the job summary shows it per package.
+      - run: pnpm test:coverage
+        if: runner.os == 'Linux'
+      - name: Coverage summary
+        if: runner.os == 'Linux'
+        run: node scripts/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage report
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: packages/*/coverage/
       - run: pnpm build
       - run: pnpm exec cdk synth -q
         working-directory: packages/infra

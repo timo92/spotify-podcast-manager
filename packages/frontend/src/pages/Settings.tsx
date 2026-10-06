@@ -30,15 +30,13 @@ export function SettingsPage() {
   const qc = useQueryClient();
   const invalidate = useInvalidateLibrary();
   const toast = useToast();
-  const [draft, setDraft] = useState<Settings | null>(null);
+  // Unsaved edits (e.g. a slider being dragged) over the stored settings.
+  const [edited, setDraft] = useState<Settings | null>(null);
+  const draft = edited ?? settings.data;
   const [newCat, setNewCat] = useState('');
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [language, setLanguageChoice] = useState<Language | 'auto'>(() => storedLanguage() ?? 'auto');
   const [confirmDelete, setConfirmDelete] = useState('');
-
-  useEffect(() => {
-    if (settings.data && !draft) setDraft(settings.data);
-  }, [settings.data, draft]);
 
   useEffect(() => {
     try {
@@ -54,8 +52,8 @@ export function SettingsPage() {
     }
   }, [theme]);
 
-  if (settings.isLoading || !draft) return <Spinner />;
-  if (settings.error) return <ErrorBox error={settings.error} />;
+  if (settings.error) return <ErrorBox error={settings.error} onRetry={() => void settings.refetch()} />;
+  if (!draft) return <Spinner />;
 
   const current = draft;
   async function save(patch: Partial<Settings>) {
@@ -67,6 +65,9 @@ export function SettingsPage() {
       await invalidate();
     } catch (e) {
       toast({ message: (e as Error).message, tone: 'error' });
+    } finally {
+      // Show what is stored: the saved value, or the old one after a failure.
+      setDraft(null);
     }
   }
 

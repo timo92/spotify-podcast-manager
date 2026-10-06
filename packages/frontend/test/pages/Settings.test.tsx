@@ -39,4 +39,24 @@ describe('SettingsPage', () => {
     expect(localStorage.getItem('pm.lang')).toBeNull();
     expect(i18n.language).toBe('en');
   });
+
+  it('explains a failed load instead of loading forever', async () => {
+    vi.spyOn(api, 'settings').mockRejectedValue(new Error('Server nicht erreichbar'));
+    vi.spyOn(api, 'status').mockResolvedValue(status);
+    renderWithProviders(<SettingsPage />);
+    expect(await screen.findByText('Server nicht erreichbar')).toBeInTheDocument();
+  });
+
+  it('shows the stored value again when saving a setting fails', async () => {
+    vi.spyOn(api, 'settings').mockResolvedValue(settings);
+    vi.spyOn(api, 'status').mockResolvedValue(status);
+    vi.spyOn(api, 'saveSettings').mockRejectedValue(new Error('Speichern fehlgeschlagen'));
+    const { user } = renderWithProviders(<SettingsPage />);
+    const toggle = await screen.findByRole('checkbox', { name: /Automatisch als gehört markieren/ });
+    expect(toggle).toBeChecked();
+
+    await user.click(toggle);
+    expect(await screen.findByText('Speichern fehlgeschlagen')).toBeInTheDocument();
+    expect(toggle).toBeChecked();
+  });
 });

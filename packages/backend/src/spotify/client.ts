@@ -185,6 +185,12 @@ export class HttpSpotifyApi implements SpotifyApi {
 
   private async request<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T | undefined> {
     const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${API}${pathOrUrl}`;
+    // Paging links come from responses; the bearer token must not follow one elsewhere.
+    if (!url.startsWith(`${API}/`)) {
+      throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', `Unerwartete URL: ${url}`, {
+        detail: url,
+      });
+    }
     const deadline = Date.now() + REQUEST_DEADLINE_MS;
     let refreshed = false;
     for (let attempt = 0; attempt < 5; attempt++) {

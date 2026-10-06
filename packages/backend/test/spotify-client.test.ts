@@ -33,6 +33,16 @@ describe('HttpSpotifyApi', () => {
     expect(fetchMock.mock.calls[0]![1].headers.Authorization).toBe('Bearer old');
   });
 
+  it('never sends the access token to a host other than the Spotify API', async () => {
+    const store = await storeWithTokens();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, { items: [], next: 'https://elsewhere.example/v1/me/shows?offset=1' }));
+    const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
+    await expect(api.getSavedShows()).rejects.toMatchObject({ code: 'spotify_unexpected_response' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes an expired token and keeps a rotated refresh token', async () => {
     const store = await storeWithTokens(Date.now() - 1000);
     const realFetch = globalThis.fetch;

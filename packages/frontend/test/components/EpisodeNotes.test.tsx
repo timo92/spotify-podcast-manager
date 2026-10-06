@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { screen, within } from '@testing-library/react';
 import { byPosition, type EpisodeNote } from '@podcast/shared';
 import { describe, expect, it, vi } from 'vitest';
@@ -78,6 +79,29 @@ describe('EpisodeNotes', () => {
     await user.type(field, 'Nicht abgeschickt');
     unmount();
     expect(createNote).toHaveBeenLastCalledWith('wissen', 'ep-1', { text: 'Nicht abgeschickt' });
+  });
+
+  it('offers the text of a draft that could not be saved when it closed', async () => {
+    // the mocked endpoints, but rendered inside something that can close it
+    const { createNote, unmount } = renderNotes([]);
+    unmount();
+    createNote.mockRejectedValue(new Error('Server nicht erreichbar'));
+    function Closable() {
+      const [open, setOpen] = useState(true);
+      return (
+        <>
+          {open && <EpisodeNotes item={ITEM} />}
+          <button onClick={() => setOpen(false)}>Schließen</button>
+        </>
+      );
+    }
+    const { user } = renderWithProviders(<Closable />);
+    await user.type(await screen.findByRole('textbox', { name: 'Neue Notiz' }), 'Nicht verlieren');
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
+
+    expect(await screen.findByText('Notiz nicht gespeichert: Server nicht erreichbar')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Text kopieren' }));
+    expect(await navigator.clipboard.readText()).toBe('Nicht verlieren');
   });
 
   it('edits the text and position of a single note', async () => {

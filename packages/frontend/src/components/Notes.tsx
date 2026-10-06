@@ -188,11 +188,21 @@ function NewNote({ item, autoFocus }: { item: PlayableItem; autoFocus?: boolean 
     [item.show.id, item.episode.id],
   );
 
-  // A draft left when the sheet closes is saved, so closing never loses text.
+  // A draft left when the sheet closes is saved, so closing never loses text;
+  // if saving fails, the error toast offers to copy it.
   useEffect(
     () => () => {
       const { text: value, stamp: positionMs } = draft.current;
-      if (value.trim()) void create(value, positionMs).then(changed);
+      if (!value.trim()) return;
+      create(value, positionMs)
+        .then(changed)
+        .catch((e: Error) =>
+          toast({
+            message: t('note.notSaved', { error: e.message }),
+            tone: 'error',
+            action: { label: t('note.copy'), onClick: () => void navigator.clipboard.writeText(value) },
+          }),
+        );
     },
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- runs only on unmount; the draft comes from a ref
     [],

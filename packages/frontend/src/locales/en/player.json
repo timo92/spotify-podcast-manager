@@ -47,6 +47,7 @@
     "deleted": "Note deleted",
     "cancel": "Cancel",
     "notSaved": "Note not saved: {{error}}",
+    "copy": "Copy text",
     "jump": "Play from here"
   }
 }

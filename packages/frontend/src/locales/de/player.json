@@ -47,6 +47,7 @@
     "deleted": "Notiz gelöscht",
     "cancel": "Abbrechen",
     "notSaved": "Notiz nicht gespeichert: {{error}}",
+    "copy": "Text kopieren",
     "jump": "Ab hier abspielen"
   }
 }

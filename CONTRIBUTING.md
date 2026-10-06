@@ -157,7 +157,9 @@ There is no formatter yet; match the surrounding code:
   code belong in its comments and tests. Don't rewrite an old entry; mark it
   superseded.
 - Behaviour changes update `docs/requirements.md` and, where relevant, the
-  README.
+  README. A requirement says what the user can do, in a sentence or two;
+  how exactly a screen looks or behaves is pinned down by the tests. New
+  requirements get the next free ID of their section; IDs are never reused.
 
 ## Commits
 

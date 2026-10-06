@@ -21,6 +21,7 @@ import { episodeItem } from '../lib/player';
 import { qk } from '../lib/queries';
 import { readStored, readStoredJson, writeStored } from '../lib/storage';
 import styles from './NotesTab.module.css';
+import { matchesQuery } from '../lib/search';
 
 type Grouping = 'list' | 'show';
 type Period = { preset: 'all' | PeriodPreset } | { preset: 'custom'; from?: string; to?: string };
@@ -73,15 +74,8 @@ export function NotesTab({ onOpen }: { onOpen: (showId: string, episodeId: strin
   }, [grouping, period]);
 
   const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
     const inPeriod = notesInRange(notes.data ?? [], rangeOf(period, localDate(Date.now(), TIME_ZONE)), TIME_ZONE);
-    return inPeriod.filter(
-      (n) =>
-        !q ||
-        n.text.toLowerCase().includes(q) ||
-        (n.episodeName ?? '').toLowerCase().includes(q) ||
-        (n.showName ?? '').toLowerCase().includes(q),
-    );
+    return inPeriod.filter((n) => matchesQuery(query, n.text, n.episodeName, n.showName));
   }, [notes.data, period, query]);
   const covers = useMemo(() => new Map((shows.data ?? []).map((s) => [s.id, s.imageUrl])), [shows.data]);
 

@@ -12,6 +12,7 @@ import styles from './EpisodePicker.module.css';
 import { SpotifyAttribution } from './SpotifyAttribution';
 import { Cover, Empty, ErrorBox, Spinner, StatusBadge } from './ui';
 import { Sheet } from './Sheet';
+import { matchesQuery } from '../lib/search';
 
 /**
  * Picks the next episode of a podcast in place (pins it, like "Als nächste
@@ -24,11 +25,7 @@ export function EpisodePickerSheet({ show, onClose }: { show: ShowLite; onClose:
   const [query, setQuery] = useState('');
 
   const open = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (detail.data?.episodes ?? [])
-      .filter((e) => !isDone(e.status))
-      .filter((e) => !q || e.name.toLowerCase().includes(q))
-      .reverse();
+    return (detail.data?.episodes ?? []).filter((e) => !isDone(e.status) && matchesQuery(query, e.name)).reverse();
   }, [detail.data, query]);
 
   return (

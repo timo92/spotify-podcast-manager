@@ -24,6 +24,7 @@ import {
 import { qk, useInvalidateLibrary, useSettings } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import styles from './ShowDetail.module.css';
+import { matchesQuery } from '../lib/search';
 
 type Filter = 'alle' | 'ungehoert' | 'gehoert' | 'uebersprungen' | 'neu' | 'begonnen';
 
@@ -61,10 +62,7 @@ export function ShowDetailPage() {
   const episodes = useMemo(() => {
     const all = detail.data?.episodes ?? [];
     const test = FILTERS.find((x) => x.value === filter)?.test ?? (() => true);
-    const q = query.trim().toLowerCase();
-    const list = all.filter(
-      (e) => test(e) && (!q || e.name.toLowerCase().includes(q) || e.description.toLowerCase().includes(q)),
-    );
+    const list = all.filter((e) => test(e) && matchesQuery(query, e.name, e.description));
     return asc ? list : [...list].reverse();
   }, [detail.data, filter, query, asc]);
 

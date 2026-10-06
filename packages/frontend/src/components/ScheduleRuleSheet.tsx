@@ -7,6 +7,7 @@ import { dayPartLabel, formatRule, weekdayShort } from '../lib/format';
 import { qk } from '../lib/queries';
 import { Chip, Cover, Segmented, Spinner } from './ui';
 import { Sheet } from './Sheet';
+import { matchesQuery } from '../lib/search';
 
 const ALL_DAYS: Weekday[] = [1, 2, 3, 4, 5, 6, 7];
 
@@ -47,8 +48,7 @@ export function ScheduleRuleSheet({
   const [query, setQuery] = useState('');
 
   const list = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (shows.data ?? []).filter((s) => s.followed && (!q || s.name.toLowerCase().includes(q)));
+    return (shows.data ?? []).filter((s) => s.followed && matchesQuery(query, s.name));
   }, [shows.data, query]);
   const chosen = shows.data?.find((s) => s.id === showId);
   const title = rule ? t('rule.edit') : t('rule.add');

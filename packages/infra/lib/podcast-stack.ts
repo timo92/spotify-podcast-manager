@@ -26,8 +26,7 @@ const ROOT = join(import.meta.dirname, '../../..');
 
 /**
  * What the page may load: its own files, the Web Playback SDK (a script that
- * opens an iframe) and Spotify's artwork. Sent as report-only until a
- * deployment has played an episode without violations in the browser console.
+ * opens an iframe) and Spotify's artwork. The browser blocks anything else.
  */
 export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -301,12 +300,10 @@ function handler(event) {
           override: false,
         },
         xssProtection: { protection: true, modeBlock: true, override: false },
+        contentSecurityPolicy: { contentSecurityPolicy: CONTENT_SECURITY_POLICY, override: true },
       },
       customHeadersBehavior: {
-        customHeaders: [
-          { header: 'Content-Security-Policy-Report-Only', value: CONTENT_SECURITY_POLICY, override: true },
-          { header: 'Permissions-Policy', value: PERMISSIONS_POLICY, override: true },
-        ],
+        customHeaders: [{ header: 'Permissions-Policy', value: PERMISSIONS_POLICY, override: true }],
       },
     });
 

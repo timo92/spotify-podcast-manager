@@ -96,4 +96,13 @@ describe('WeekPage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(saveSchedule).toHaveBeenCalledWith({ rules: [], expectedUpdatedAt: null });
   });
+
+  it('explains a failed load of the plan', async () => {
+    vi.spyOn(api, 'settings').mockResolvedValue(settings);
+    vi.spyOn(api, 'shows').mockResolvedValue([show()]);
+    vi.spyOn(api, 'week').mockResolvedValue({ days: week([RULE]) });
+    vi.spyOn(api, 'schedule').mockRejectedValue(new Error('Wochenplan nicht erreichbar'));
+    renderWithProviders(<WeekPage />);
+    expect(await screen.findByText('Wochenplan nicht erreichbar')).toBeInTheDocument();
+  });
 });

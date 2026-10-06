@@ -41,12 +41,7 @@ export function PlanItemRow({
   const open = ep && !item.paused && (item.state === 'next' || item.state === 'upcoming');
   const started = ep && ep.remainingMs < ep.durationMs && !done;
   const showPath = `/podcasts/${encodeURIComponent(item.show.id)}`;
-  const emptyText =
-    item.state === 'latest'
-      ? t('slot.latest')
-      : item.show.mode === 'MANUAL'
-        ? t('slot.noneChosen')
-        : t('slot.allHeard');
+  const emptyText = item.show.mode === 'MANUAL' ? t('slot.noneChosen') : t('slot.allHeard');
 
   return (
     <li className={cx(styles.item, done && styles.isDone, item.paused && styles.isPaused)}>

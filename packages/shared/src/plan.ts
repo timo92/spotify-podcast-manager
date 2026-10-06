@@ -66,9 +66,9 @@ export interface PlanInput {
  *
  * Slots of a series consume its queue in order, so planning a series on
  * Monday and Wednesday shows episode n on Monday and n+1 on Wednesday. Manual
- * and news-like shows have only one next episode, which every slot shows
- * until it is heard (news-like shows only on today; later days show whatever
- * is newest then). On today, episodes already finished today fill the slots
+ * and news-like shows have only one next episode (for news, the newest one not
+ * heard yet), which every slot shows until it is heard. On today, episodes
+ * already finished today fill the slots
  * first – that's how a planned item turns into "done" instead of jumping to
  * the next episode.
  */
@@ -112,10 +112,6 @@ export function buildWeek(
       const doneEpisode = isToday ? done.get(rule.showId)?.shift() : undefined;
       if (doneEpisode) {
         items.push({ ...base, episode: doneEpisode, state: 'done' });
-        continue;
-      }
-      if (input.show.mode === 'LATEST' && !isToday) {
-        items.push({ ...base, episode: null, state: 'latest' });
         continue;
       }
       const queue = queues.get(rule.showId) ?? [];

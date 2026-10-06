@@ -95,7 +95,8 @@ describe('buildWeek', () => {
       ['series', 'next', 'series-2'],
       ['series', 'upcoming', 'series-3'],
     ]);
-    expect(tue!.items.map((i) => [i.show.id, i.state])).toEqual([['news', 'latest']]);
+    // a news podcast offers its newest unheard episode until it is heard, on later days too
+    expect(tue!.items.map((i) => [i.show.id, i.state, i.episode?.id])).toEqual([['news', 'next', 'news-5']]);
     expect(wed!.items.map((i) => i.episode?.id)).toEqual(['series-4']);
     expect(mon!.openMs).toBe(90 * 60_000);
   });

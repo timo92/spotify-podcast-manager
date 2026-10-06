@@ -357,10 +357,9 @@ export interface ScheduleSave {
  * done     – an episode of this show was finished on that day (today only)
  * next     – the episode that is actually next right now (in every slot showing it)
  * upcoming – projected later episode of a series (after the ones planned before)
- * latest   – news-like show on a future day: whatever is newest then
  * none     – nothing open (all heard / nothing pinned)
  */
-export type PlannedState = 'done' | 'next' | 'upcoming' | 'latest' | 'none';
+export type PlannedState = 'done' | 'next' | 'upcoming' | 'none';
 
 export interface PlannedItem {
   /** The rule this slot comes from; unique within a day. */

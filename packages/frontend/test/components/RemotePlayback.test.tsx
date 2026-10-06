@@ -88,7 +88,9 @@ describe('playback outside the browser', () => {
   it('shows the read-back position once Spotify no longer reports the paused playback', async () => {
     rememberRemoteEpisode({ ...entryFor(), startedAt: Date.now() - 30 * MIN });
     const state = vi.spyOn(api, 'playerState').mockResolvedValue(playing(29_000));
-    const refresh = vi.spyOn(api, 'refreshEpisode').mockResolvedValue(episode(1, { status: 'IN_PROGRESS', remainingMs: 20 * MIN }));
+    const refresh = vi
+      .spyOn(api, 'refreshEpisode')
+      .mockResolvedValue(episode(1, { status: 'IN_PROGRESS', remainingMs: 20 * MIN }));
     renderPlayer();
     expect(within(await playerBar()).getByText(/0:29 \/ 20:00/)).toBeInTheDocument();
 

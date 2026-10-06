@@ -56,7 +56,12 @@ describe('PlayButton for an episode playing outside the browser', () => {
     localStorage.setItem('pm.playTarget', JSON.stringify({ kind: 'app' }));
     vi.spyOn(api, 'settings').mockResolvedValue(settings);
     vi.spyOn(api, 'refreshEpisode').mockResolvedValue(episode(1, { status: 'IN_PROGRESS' }));
-    vi.spyOn(api, 'playerState').mockResolvedValue({ episodeId: 'ep-1', positionMs: 60_000, paused, deviceName: 'iPhone' });
+    vi.spyOn(api, 'playerState').mockResolvedValue({
+      episodeId: 'ep-1',
+      positionMs: 60_000,
+      paused,
+      deviceName: 'iPhone',
+    });
     return renderWithProviders(
       <>
         <PlayButton item={ITEM} />

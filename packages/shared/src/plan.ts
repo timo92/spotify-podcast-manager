@@ -76,7 +76,10 @@ export function buildWeek(
   const done = new Map<string, EpisodeView[]>();
   for (const [id, input] of inputs) {
     queues.set(id, upcomingEpisodes(input.show, input.views));
-    done.set(id, input.doneToday.filter((e) => isDone(e.status)));
+    done.set(
+      id,
+      input.doneToday.filter((e) => isDone(e.status)),
+    );
   }
   const heads = new Map([...queues].map(([id, queue]) => [id, queue[0]?.id]));
   const order = (part: string) => DAY_PARTS.indexOf(part as (typeof DAY_PARTS)[number]);

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import i18n from '../src/i18n';
-import { formatClock, formatDayMonth, formatDuration, formatRelative, formatReleaseDate, formatWeekdays } from '../src/lib/format';
+import {
+  formatClock,
+  formatDayMonth,
+  formatDuration,
+  formatRelative,
+  formatReleaseDate,
+  formatWeekdays,
+} from '../src/lib/format';
 
 describe('format', () => {
   it('formats durations', () => {

@@ -79,7 +79,12 @@ export function ScheduleRuleSheet({
             <Spinner />
           ) : (
             <>
-              <input type="search" placeholder={t('rule.searchPodcast')} value={query} onChange={(e) => setQuery(e.target.value)} />
+              <input
+                type="search"
+                placeholder={t('rule.searchPodcast')}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
               {shows.isLoading && <Spinner />}
               <ul className="pick-list">
                 {list.map((s) => (
@@ -132,7 +137,11 @@ export function ScheduleRuleSheet({
           disabled={!chosen || days.length === 0}
           onClick={() => chosen && onSave({ id: rule?.id ?? '', showId: chosen.id, weekdays: days, part }, chosen.name)}
         >
-          {!chosen ? t('rule.choosePodcast') : rule ? t('ui.save', { ns: 'common' }) : t('rule.plan', { show: chosen.name })}
+          {!chosen
+            ? t('rule.choosePodcast')
+            : rule
+              ? t('ui.save', { ns: 'common' })
+              : t('rule.plan', { show: chosen.name })}
         </button>
         {onDelete && (
           <button className="btn btn-block" onClick={onDelete}>

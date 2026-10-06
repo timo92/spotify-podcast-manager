@@ -60,7 +60,9 @@ export class PodcastStack extends Stack {
 
     const certificate =
       props.certificate ??
-      (props.certificateArn ? acm.Certificate.fromCertificateArn(this, 'Certificate', props.certificateArn) : undefined);
+      (props.certificateArn
+        ? acm.Certificate.fromCertificateArn(this, 'Certificate', props.certificateArn)
+        : undefined);
     if (props.domainName && !certificate) {
       throw new Error('domainName needs either a Route 53 hosted zone or a certificateArn');
     }
@@ -190,13 +192,17 @@ export class PodcastStack extends Stack {
     const every = props.syncEveryHours ?? 2;
     new events.Rule(this, 'IncrementalSync', {
       schedule: events.Schedule.cron({ minute: '7', hour: `*/${every}` }),
-      targets: [new targets.LambdaFunction(syncFn, { event: events.RuleTargetInput.fromObject({ source: 'schedule' }) })],
+      targets: [
+        new targets.LambdaFunction(syncFn, { event: events.RuleTargetInput.fromObject({ source: 'schedule' }) }),
+      ],
       description: 'Fetch new episodes from Spotify',
     });
     new events.Rule(this, 'FullSync', {
       schedule: events.Schedule.cron({ minute: '37', hour: '3' }),
       targets: [
-        new targets.LambdaFunction(syncFn, { event: events.RuleTargetInput.fromObject({ source: 'schedule', full: true }) }),
+        new targets.LambdaFunction(syncFn, {
+          event: events.RuleTargetInput.fromObject({ source: 'schedule', full: true }),
+        }),
       ],
       description: 'Daily full refresh (metadata, Spotify resume points of older episodes)',
     });

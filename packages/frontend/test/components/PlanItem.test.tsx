@@ -58,7 +58,9 @@ describe('PlanItemRow', () => {
 
   it('renders in English', async () => {
     await i18n.changeLanguage('en');
-    renderSlot(plannedItem({ show: showLite(show({ mode: 'MANUAL' })), episode: null, state: 'none', part: 'MORNING' }));
+    renderSlot(
+      plannedItem({ show: showLite(show({ mode: 'MANUAL' })), episode: null, state: 'none', part: 'MORNING' }),
+    );
     expect(screen.getByText('Morning')).toBeInTheDocument();
     expect(screen.getByText('No episode chosen')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Choose episode' })).toBeInTheDocument();

@@ -80,5 +80,8 @@ function byEpisode(a: EpisodeNote, b: EpisodeNote, latest: Map<string, string>):
   }
   if (a.episodeReleaseDate) return -1;
   if (b.episodeReleaseDate) return 1;
-  return (latest.get(b.episodeId) ?? '').localeCompare(latest.get(a.episodeId) ?? '') || a.episodeId.localeCompare(b.episodeId);
+  return (
+    (latest.get(b.episodeId) ?? '').localeCompare(latest.get(a.episodeId) ?? '') ||
+    a.episodeId.localeCompare(b.episodeId)
+  );
 }

@@ -72,9 +72,7 @@ function Listened({ onOpen }: { onOpen: (showId: string, episodeId: string) => v
       <p className="muted">{totalMs > 0 ? t('lastWeek', { time: formatDuration(totalMs) }) : t('recent')}</p>
       {history.isLoading && <Spinner />}
       {history.error && <ErrorBox error={history.error} />}
-      {history.data?.length === 0 && (
-        <Empty title={t('emptyTitle')}>{t('emptyText')}</Empty>
-      )}
+      {history.data?.length === 0 && <Empty title={t('emptyTitle')}>{t('emptyText')}</Empty>}
       {groups.map(([label, items]) => (
         <section key={label} className="section">
           <h2 className="h3">{label}</h2>

@@ -15,7 +15,15 @@ import { EpisodeNotes } from './Notes';
 import { Badge, Cover, ErrorBox, IconButton, ProgressBar, Spinner, StatusBadge } from './ui';
 
 /** Modal with the full episode: description, status and all actions. */
-export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; episodeId: string; onClose: () => void }) {
+export function EpisodeSheet({
+  showId,
+  episodeId,
+  onClose,
+}: {
+  showId: string;
+  episodeId: string;
+  onClose: () => void;
+}) {
   const { t } = useTranslation('episode');
   const actions = useEpisodeActions();
   const episode = useQuery({ queryKey: qk.episode(showId, episodeId), queryFn: () => api.episode(showId, episodeId) });
@@ -38,7 +46,13 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={t('sheet.label')} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('sheet.label')}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.head}>
           <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
         </div>
@@ -56,7 +70,8 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
                 )}
                 <h2 className={styles.title}>{ep.name}</h2>
                 <div className="muted small">
-                  {t('episode.number', { ns: 'common', index: ep.index })} · {formatReleaseDate(ep.releaseDate)} · {formatDuration(ep.durationMs)}
+                  {t('episode.number', { ns: 'common', index: ep.index })} · {formatReleaseDate(ep.releaseDate)} ·{' '}
+                  {formatDuration(ep.durationMs)}
                 </div>
                 <div className="badges">
                   <StatusBadge status={ep.status} isNew={ep.isNew} />
@@ -76,7 +91,9 @@ export function EpisodeSheet({ showId, episodeId, onClose }: { showId: string; e
                 </span>
               </div>
             )}
-            {ep.listenedAt && <p className="muted small">{t('sheet.playedOn', { date: formatDateTime(ep.listenedAt) })}</p>}
+            {ep.listenedAt && (
+              <p className="muted small">{t('sheet.playedOn', { date: formatDateTime(ep.listenedAt) })}</p>
+            )}
             {ep.skippedAt && ep.status === 'SKIPPED' && (
               <p className="muted small">{t('sheet.skippedOn', { date: formatDateTime(ep.skippedAt) })}</p>
             )}

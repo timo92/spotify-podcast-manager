@@ -10,7 +10,15 @@ import { renderWithProviders } from '../support/render';
 const ITEM = episodeItem({ showId: 'wissen', showName: 'Wissensreise', episodeId: 'ep-1', episodeName: 'Island' });
 
 function note(id: string, positionMs: number | null, text: string): EpisodeNote {
-  return { id, showId: 'wissen', episodeId: 'ep-1', positionMs, text, createdAt: `2026-10-0${id}T10:00:00Z`, updatedAt: 'u' };
+  return {
+    id,
+    showId: 'wissen',
+    episodeId: 'ep-1',
+    positionMs,
+    text,
+    createdAt: `2026-10-0${id}T10:00:00Z`,
+    updatedAt: 'u',
+  };
 }
 
 /** Mocks the note endpoints with a list that each call changes, as the server does. */
@@ -88,7 +96,10 @@ describe('EpisodeNotes', () => {
     await user.type(position, '0');
     await user.click(screen.getByRole('button', { name: 'Speichern' }));
 
-    expect(updateNote).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }), { text: 'korrigiert', positionMs: 80_000 });
+    expect(updateNote).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }), {
+      text: 'korrigiert',
+      positionMs: 80_000,
+    });
     expect(await screen.findByText('korrigiert')).toBeInTheDocument();
     expect(texts()).toEqual(['früh', 'korrigiert']);
   });

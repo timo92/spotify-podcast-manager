@@ -90,7 +90,8 @@ export function Layout() {
         <div className="banner banner-error container">
           <span>
             {t('banner.disconnected')}
-            {status.disconnectedAt && ` ${t('banner.deletionDate', { date: formatDeletionDate(status.disconnectedAt) })}`}
+            {status.disconnectedAt &&
+              ` ${t('banner.deletionDate', { date: formatDeletionDate(status.disconnectedAt) })}`}
           </span>
           <a className="btn btn-small" href="/api/auth/login">
             {t('banner.reconnect')}

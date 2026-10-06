@@ -92,7 +92,9 @@ export function SettingsPage() {
         <label className={styles.field}>
           <span>
             {t('budget.perDay', {
-              value: draft.audioBudgetMinutes ? t('budget.minutes', { count: draft.audioBudgetMinutes }) : t('budget.unlimited'),
+              value: draft.audioBudgetMinutes
+                ? t('budget.minutes', { count: draft.audioBudgetMinutes })
+                : t('budget.unlimited'),
             })}
           </span>
           <input
@@ -167,7 +169,10 @@ export function SettingsPage() {
               setNewCat('');
             }}
           >
-            <input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder={t('ui.categoryPlaceholder', { ns: 'common' })}
+            <input
+              value={newCat}
+              onChange={(e) => setNewCat(e.target.value)}
+              placeholder={t('ui.categoryPlaceholder', { ns: 'common' })}
               aria-label={t('ui.newCategory', { ns: 'common' })}
             />
           </form>
@@ -211,10 +216,18 @@ export function SettingsPage() {
         </p>
         {sync?.status === 'error' && <ErrorBox error={syncError(sync)} />}
         <div className="row gap wrap">
-          <button className="btn" disabled={sync?.status === 'running'} onClick={() => void run(() => api.sync(false), t('sync.started'))}>
+          <button
+            className="btn"
+            disabled={sync?.status === 'running'}
+            onClick={() => void run(() => api.sync(false), t('sync.started'))}
+          >
             <Icon name="refresh" size={18} /> {t('sync.now')}
           </button>
-          <button className="btn" disabled={sync?.status === 'running'} onClick={() => void run(() => api.sync(true), t('sync.fullStarted'))}>
+          <button
+            className="btn"
+            disabled={sync?.status === 'running'}
+            onClick={() => void run(() => api.sync(true), t('sync.fullStarted'))}
+          >
             {t('sync.full')}
           </button>
         </div>
@@ -231,7 +244,9 @@ export function SettingsPage() {
           />
         </p>
         {status?.missingScopes && status.missingScopes.length > 0 && (
-          <div className="banner banner-warn">{t('spotify.missingScopes', { scopes: status.missingScopes.join(', ') })}</div>
+          <div className="banner banner-warn">
+            {t('spotify.missingScopes', { scopes: status.missingScopes.join(', ') })}
+          </div>
         )}
         <div className="row gap wrap">
           <a className="btn" href="/api/auth/login">
@@ -269,7 +284,11 @@ export function SettingsPage() {
             />
           </p>
           <div className="row gap">
-            <input value={confirmDelete} onChange={(e) => setConfirmDelete(e.target.value)} aria-label={t('data.confirmation')} />
+            <input
+              value={confirmDelete}
+              onChange={(e) => setConfirmDelete(e.target.value)}
+              aria-label={t('data.confirmation')}
+            />
             <button
               className="btn btn-danger"
               disabled={confirmDelete !== t('data.confirmWord')}

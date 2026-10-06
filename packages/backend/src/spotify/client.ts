@@ -61,14 +61,24 @@ async function tokenRequest(credentials: SpotifyCredentials, body: URLSearchPara
   if (!res.ok) {
     const detail = json.error_description ?? json.error ?? res.statusText;
     if (json.error === 'invalid_client') {
-      throw new ApiError(StatusCodes.BAD_REQUEST, 'spotify_invalid_client', `Spotify lehnt Client-ID/Secret ab (${detail}).`, {
-        detail,
-      });
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'spotify_invalid_client',
+        `Spotify lehnt Client-ID/Secret ab (${detail}).`,
+        {
+          detail,
+        },
+      );
     }
     if (json.error === 'invalid_grant') {
-      throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_reauth', `Spotify-Anmeldung abgelaufen, bitte neu anmelden (${detail}).`, {
-        detail,
-      });
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        'spotify_reauth',
+        `Spotify-Anmeldung abgelaufen, bitte neu anmelden (${detail}).`,
+        {
+          detail,
+        },
+      );
     }
     throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_token_error', `Spotify-Token-Fehler: ${detail}`, { detail });
   }
@@ -114,7 +124,8 @@ export class HttpSpotifyApi implements SpotifyApi {
 
   private async validToken(forceRefresh = false): Promise<string> {
     this.tokens ??= await this.store.getTokens();
-    if (!this.tokens) throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_not_connected', 'Spotify ist nicht verbunden.');
+    if (!this.tokens)
+      throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_not_connected', 'Spotify ist nicht verbunden.');
     if (forceRefresh || this.tokens.expiresAt - 60_000 < Date.now()) {
       let json: TokenResponse;
       try {
@@ -198,9 +209,14 @@ export class HttpSpotifyApi implements SpotifyApi {
       const err = (await res.json().catch(() => ({}))) as { error?: { message?: string; reason?: string } };
       const message = err.error?.message ?? res.statusText;
       if (res.status === StatusCodes.UNAUTHORIZED) {
-        throw new ApiError(StatusCodes.UNAUTHORIZED, 'spotify_reauth', `Spotify-Zugriff abgelaufen, bitte neu anmelden. (${message})`, {
-          detail: message,
-        });
+        throw new ApiError(
+          StatusCodes.UNAUTHORIZED,
+          'spotify_reauth',
+          `Spotify-Zugriff abgelaufen, bitte neu anmelden. (${message})`,
+          {
+            detail: message,
+          },
+        );
       }
       if (res.status === StatusCodes.FORBIDDEN) {
         throw new ApiError(
@@ -212,7 +228,11 @@ export class HttpSpotifyApi implements SpotifyApi {
         );
       }
       if (res.status === StatusCodes.NOT_FOUND && err.error?.reason === 'NO_ACTIVE_DEVICE') {
-        throw new ApiError(StatusCodes.CONFLICT, 'no_active_device', 'Kein aktives Spotify-Gerät gefunden. Öffne Spotify auf einem Gerät.');
+        throw new ApiError(
+          StatusCodes.CONFLICT,
+          'no_active_device',
+          'Kein aktives Spotify-Gerät gefunden. Öffne Spotify auf einem Gerät.',
+        );
       }
       throw new ApiError(
         res.status === StatusCodes.NOT_FOUND ? StatusCodes.NOT_FOUND : StatusCodes.BAD_GATEWAY,
@@ -221,7 +241,11 @@ export class HttpSpotifyApi implements SpotifyApi {
         { status: res.status, detail: message },
       );
     }
-    throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unavailable', 'Spotify antwortet nicht – bitte später erneut versuchen.');
+    throw new ApiError(
+      StatusCodes.BAD_GATEWAY,
+      'spotify_unavailable',
+      'Spotify antwortet nicht – bitte später erneut versuchen.',
+    );
   }
 
   async getMe() {
@@ -246,11 +270,17 @@ export class HttpSpotifyApi implements SpotifyApi {
     for (let i = 0; i < showIds.length; i += 40) {
       const ids = showIds.slice(i, i + 40);
       const uris = ids.map((id) => `spotify:show:${id}`).join(',');
-      const saved = (await this.request<boolean[]>('GET', `/me/library/contains?uris=${encodeURIComponent(uris)}`)) ?? [];
+      const saved =
+        (await this.request<boolean[]>('GET', `/me/library/contains?uris=${encodeURIComponent(uris)}`)) ?? [];
       if (saved.length !== ids.length) {
-        throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', 'Unerwartete Antwort von /me/library/contains', {
-          detail: '/me/library/contains',
-        });
+        throw new ApiError(
+          StatusCodes.BAD_GATEWAY,
+          'spotify_unexpected_response',
+          'Unerwartete Antwort von /me/library/contains',
+          {
+            detail: '/me/library/contains',
+          },
+        );
       }
       ids.forEach((id, k) => result.set(id, saved[k] === true));
     }

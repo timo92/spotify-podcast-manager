@@ -33,12 +33,19 @@ export function EpisodeRow({
         <div className={cx(styles.meta, 'muted small')}>
           <span>{formatReleaseDate(episode.releaseDate)}</span>
           <span>{formatDuration(episode.durationMs)}</span>
-          {(episode.status !== 'UNSEEN' || episode.isNew) && <StatusBadge status={episode.status} isNew={episode.isNew} />}
+          {(episode.status !== 'UNSEEN' || episode.isNew) && (
+            <StatusBadge status={episode.status} isNew={episode.isNew} />
+          )}
           {isNext && <Badge tone="next">{t('row.next')}</Badge>}
           {pinned && <Badge tone="pinned">{t('row.chosen')}</Badge>}
           {episode.statusSource === 'spotify' && <span title={t('row.fromSpotify')}>· Spotify</span>}
           {episode.hasNote && (
-            <button type="button" className={styles.noteFlag} onClick={() => onOpen(episode.id)} title={t('row.noteExists')}>
+            <button
+              type="button"
+              className={styles.noteFlag}
+              onClick={() => onOpen(episode.id)}
+              title={t('row.noteExists')}
+            >
               <Icon name="note" size={14} /> {t('row.note')}
             </button>
           )}
@@ -54,15 +61,35 @@ export function EpisodeRow({
         />
         <Menu
           items={[
-            { label: t('action.skip'), icon: 'skip', onClick: () => actions.setStatus(episode, 'SKIPPED'), hidden: episode.status === 'SKIPPED' },
-            { label: t('action.markUnplayed'), icon: 'undo', onClick: () => actions.setStatus(episode, 'UNSEEN'), hidden: episode.status === 'UNSEEN' },
+            {
+              label: t('action.skip'),
+              icon: 'skip',
+              onClick: () => actions.setStatus(episode, 'SKIPPED'),
+              hidden: episode.status === 'SKIPPED',
+            },
+            {
+              label: t('action.markUnplayed'),
+              icon: 'undo',
+              onClick: () => actions.setStatus(episode, 'UNSEEN'),
+              hidden: episode.status === 'UNSEEN',
+            },
             {
               label: pinned ? t('action.unpin') : t('action.pin'),
               icon: 'pin',
               onClick: () => actions.pin(show.id, pinned ? null : episode.id, show.pinnedEpisodeId),
             },
-            { label: t('action.completeBeforeMenu'), icon: 'check', onClick: () => actions.completeBefore(episode), hidden: episode.index <= 1 },
-            { label: t('action.resetStatus'), icon: 'refresh', onClick: () => actions.resetStatus(episode), hidden: episode.statusSource !== 'local' },
+            {
+              label: t('action.completeBeforeMenu'),
+              icon: 'check',
+              onClick: () => actions.completeBefore(episode),
+              hidden: episode.index <= 1,
+            },
+            {
+              label: t('action.resetStatus'),
+              icon: 'refresh',
+              onClick: () => actions.resetStatus(episode),
+              hidden: episode.statusSource !== 'local',
+            },
             { label: 'LISTEN ON SPOTIFY', icon: 'external', href: episode.spotifyUrl },
           ]}
         />

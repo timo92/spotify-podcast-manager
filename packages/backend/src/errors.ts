@@ -28,8 +28,7 @@ export const badRequest = <C extends ErrorCode>(code: C, message: string, ...par
 export const notFound = (
   code: 'not_found' | 'show_not_found' | 'episode_not_found' | 'note_not_found' = 'not_found',
   message = 'Nicht gefunden',
-) =>
-  new ApiError(StatusCodes.NOT_FOUND, code, message);
+) => new ApiError(StatusCodes.NOT_FOUND, code, message);
 /** A listed Spotify Connect device that Spotify can't reach (e.g. a suspended phone app). Kept at 404. */
 export const deviceUnavailable = () =>
   new ApiError(

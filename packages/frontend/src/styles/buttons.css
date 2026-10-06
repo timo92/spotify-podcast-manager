@@ -15,7 +15,9 @@
   font-size: 0.92rem;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 .btn:hover {
   background: var(--surface-2);

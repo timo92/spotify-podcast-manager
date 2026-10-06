@@ -1,5 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
-import { localDate, weekdayOf, type AppStatus, type EpisodeNote, type EpisodeView, type Schedule, type Show, type SyncState, type ShowDetailResponse, type TodayResponse, type WeekResponse } from '@podcast/shared';
+import {
+  localDate,
+  weekdayOf,
+  type AppStatus,
+  type EpisodeNote,
+  type EpisodeView,
+  type Schedule,
+  type Show,
+  type SyncState,
+  type ShowDetailResponse,
+  type TodayResponse,
+  type WeekResponse,
+} from '@podcast/shared';
 import { StatusCodes } from 'http-status-codes';
 import { createApp } from '../src/app.js';
 import { ApiError } from '../src/errors.js';
@@ -43,7 +55,12 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
     },
   });
   let cookies: Record<string, string> = {};
-  async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<TestResponse> {
+  async function call(
+    method: string,
+    path: string,
+    body?: unknown,
+    headers: Record<string, string> = {},
+  ): Promise<TestResponse> {
     const res = await app.request(path, {
       method,
       headers: {
@@ -260,7 +277,11 @@ describe('library flow', () => {
     expect(detail.show.summary!.skipped).toBe(1);
 
     // pin an episode, then sync again: personal state must survive
-    await t.call('PATCH', `/api/shows/${id}`, { pinnedEpisodeId: `${id}-20`, mode: 'MANUAL', categories: ['Geographie'] });
+    await t.call('PATCH', `/api/shows/${id}`, {
+      pinnedEpisodeId: `${id}-20`,
+      mode: 'MANUAL',
+      categories: ['Geographie'],
+    });
     await t.sync(true);
     const show = (await t.call('GET', `/api/shows/${id}`)).body as ShowDetailResponse;
     expect(show.show.mode).toBe('MANUAL');
@@ -295,7 +316,7 @@ describe('library flow', () => {
     expect([...today.recommended, ...today.more].some((i) => i.show.id === 'demo-dertag')).toBe(false);
   });
 
-  it('plans the week and puts today\'s slots on top of Heute', async () => {
+  it("plans the week and puts today's slots on top of Heute", async () => {
     const t = await ready();
     const tz = 'Europe/Berlin';
     const weekday = weekdayOf(localDate(Date.now(), tz));
@@ -416,7 +437,11 @@ describe('library flow', () => {
     });
     await t.call('POST', path, { text: 'Zur ganzen Folge', positionMs: null });
     await t.call('POST', path, { text: 'Am Anfang', positionMs: 5_000 });
-    expect(((await t.call('GET', path)).body as EpisodeNote[]).map((n) => n.positionMs)).toEqual([null, 5_000, 130_401]);
+    expect(((await t.call('GET', path)).body as EpisodeNote[]).map((n) => n.positionMs)).toEqual([
+      null,
+      5_000,
+      130_401,
+    ]);
 
     const detail = (await t.call('GET', '/api/shows/demo-wissensreise')).body as ShowDetailResponse;
     expect(detail.episodes.find((e) => e.id === 'demo-wissensreise-1')!.hasNote).toBe(true);
@@ -448,7 +473,9 @@ describe('library flow', () => {
     const t = await ready();
     const path = '/api/shows/demo-wissensreise/episodes/demo-wissensreise-1/notes';
     expect((await t.call('POST', path, { text: '  ' })).body).toMatchObject({ error: 'invalid_note' });
-    expect((await t.call('POST', path, { text: 'x', positionMs: -1 })).body).toMatchObject({ error: 'invalid_note_position' });
+    expect((await t.call('POST', path, { text: 'x', positionMs: -1 })).body).toMatchObject({
+      error: 'invalid_note_position',
+    });
     expect((await t.call('POST', path, { text: 'x', positionMs: '1:00' })).body).toMatchObject({
       error: 'invalid_note_position',
     });
@@ -528,7 +555,10 @@ describe('library flow', () => {
     expect(halfway.remainingMs).toBeCloseTo(durationMs / 2, -3);
 
     t.spotify.controlPlayback('seek', durationMs);
-    expect((await t.call('POST', `${path}/refresh`)).body).toMatchObject({ status: 'COMPLETED', statusSource: 'spotify' });
+    expect((await t.call('POST', `${path}/refresh`)).body).toMatchObject({
+      status: 'COMPLETED',
+      statusSource: 'spotify',
+    });
     // The show's summary follows: the finished episode is no longer the next one.
     const shows = (await t.call('GET', '/api/shows')).body as Show[];
     expect(shows.find((s) => s.id === 'demo-wissensreise')!.summary?.nextEpisode?.id).not.toBe('demo-wissensreise-1');

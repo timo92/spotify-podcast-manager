@@ -83,7 +83,8 @@ export function createApp(deps: AppDeps) {
   const baseUrl = (c: Context) => {
     if (deps.publicUrl) return deps.publicUrl.replace(/\/$/, '');
     // CloudFront sets x-public-host to the viewer's host (see infra ForwardHost function).
-    const host = c.req.header('x-public-host') ?? c.req.header('x-forwarded-host') ?? c.req.header('host') ?? 'localhost';
+    const host =
+      c.req.header('x-public-host') ?? c.req.header('x-forwarded-host') ?? c.req.header('host') ?? 'localhost';
     const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
     return `${local ? 'http' : 'https'}://${host}`;
   };
@@ -358,7 +359,12 @@ export function createApp(deps: AppDeps) {
 
   app.patch('/api/shows/:id/episodes/:episodeId/notes/:noteId', async (c) =>
     c.json(
-      await notes.update(c.req.param('id'), c.req.param('episodeId'), c.req.param('noteId'), await readBody<NotePatch>(c)),
+      await notes.update(
+        c.req.param('id'),
+        c.req.param('episodeId'),
+        c.req.param('noteId'),
+        await readBody<NotePatch>(c),
+      ),
     ),
   );
 
@@ -386,7 +392,12 @@ export function createApp(deps: AppDeps) {
       return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
     };
     const next: Settings = {
-      audioBudgetMinutes: num(input.audioBudgetMinutes ?? current.audioBudgetMinutes, 0, 600, current.audioBudgetMinutes),
+      audioBudgetMinutes: num(
+        input.audioBudgetMinutes ?? current.audioBudgetMinutes,
+        0,
+        600,
+        current.audioBudgetMinutes,
+      ),
       budgetTolerancePercent: num(input.budgetTolerancePercent ?? current.budgetTolerancePercent, 0, 100, 10),
       newWindowDays: num(input.newWindowDays ?? current.newWindowDays, 1, 90, current.newWindowDays),
       useSpotifyPlayedState: Boolean(input.useSpotifyPlayedState ?? current.useSpotifyPlayedState),
@@ -417,7 +428,13 @@ export function createApp(deps: AppDeps) {
   });
 
   app.post('/api/player/play', async (c) => {
-    const { showId, episodeId, deviceId, fromStart, positionMs: requested } = await readBody<{
+    const {
+      showId,
+      episodeId,
+      deviceId,
+      fromStart,
+      positionMs: requested,
+    } = await readBody<{
       showId: string;
       episodeId: string;
       deviceId?: string;

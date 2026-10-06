@@ -203,7 +203,13 @@ export class FakeSpotifyApi implements SpotifyApi {
 
   private deviceName = 'Podcast-Cockpit';
 
-  private playback = { episodeId: null as string | null, durationMs: 0, positionMs: 0, paused: true, since: Date.now() };
+  private playback = {
+    episodeId: null as string | null,
+    durationMs: 0,
+    positionMs: 0,
+    paused: true,
+    since: Date.now(),
+  };
 
   async play(episodeId: string, deviceId: string | undefined, positionMs: number) {
     if (deviceId === SLEEPING_DEVICE) throw deviceUnavailable();

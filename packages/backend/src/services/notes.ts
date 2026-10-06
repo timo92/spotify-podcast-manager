@@ -26,7 +26,10 @@ export class NoteService {
    */
   async create(showId: string, episodeId: string, body: Partial<NoteCreate>): Promise<EpisodeNote> {
     const text = validText(body.text);
-    const [show, episode] = await Promise.all([this.library.requireShow(showId), this.store.getEpisode(showId, episodeId)]);
+    const [show, episode] = await Promise.all([
+      this.library.requireShow(showId),
+      this.store.getEpisode(showId, episodeId),
+    ]);
     if (!episode) throw notFound('episode_not_found', 'Folge nicht gefunden');
     const positionMs =
       'positionMs' in body ? validPosition(body.positionMs, episode.durationMs) : await this.playingPosition(episodeId);

@@ -20,7 +20,12 @@ describe('HttpSpotifyApi', () => {
     const store = await storeWithTokens();
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response(200, { items: [{ show: { id: '1', name: 'A' } }], next: 'https://api.spotify.com/v1/me/shows?offset=1' }))
+      .mockResolvedValueOnce(
+        response(200, {
+          items: [{ show: { id: '1', name: 'A' } }],
+          next: 'https://api.spotify.com/v1/me/shows?offset=1',
+        }),
+      )
       .mockResolvedValueOnce(response(200, { items: [{ show: { id: '2', name: 'B' } }, null], next: null }));
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     // entries without show data (taken down) are skipped
@@ -32,7 +37,13 @@ describe('HttpSpotifyApi', () => {
     const store = await storeWithTokens(Date.now() - 1000);
     const realFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockResolvedValue(
-      response(200, { access_token: 'new', expires_in: 3600, refresh_token: 'rotated', scope: 's', token_type: 'Bearer' }),
+      response(200, {
+        access_token: 'new',
+        expires_in: 3600,
+        refresh_token: 'rotated',
+        scope: 's',
+        token_type: 'Bearer',
+      }),
     ) as typeof fetch;
     try {
       const apiFetch = vi.fn().mockResolvedValue(response(200, { id: 'me' }));
@@ -51,7 +62,9 @@ describe('HttpSpotifyApi', () => {
     const realFetch = globalThis.fetch;
     globalThis.fetch = vi
       .fn()
-      .mockResolvedValue(response(400, { error: 'invalid_grant', error_description: 'Refresh token revoked' })) as typeof fetch;
+      .mockResolvedValue(
+        response(400, { error: 'invalid_grant', error_description: 'Refresh token revoked' }),
+      ) as typeof fetch;
     try {
       const apiFetch = vi.fn();
       const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
@@ -71,7 +84,12 @@ describe('HttpSpotifyApi', () => {
     globalThis.fetch = vi.fn().mockImplementation(async () => {
       // While this client refreshes with its cached (now outdated) token, a login
       // or another Lambda stores new tokens.
-      await store.putTokens({ accessToken: 'new', refreshToken: 'rotated', expiresAt: Date.now() + 3600_000, scope: '' });
+      await store.putTokens({
+        accessToken: 'new',
+        refreshToken: 'rotated',
+        expiresAt: Date.now() + 3600_000,
+        scope: '',
+      });
       return response(400, { error: 'invalid_grant' });
     }) as typeof fetch;
     try {
@@ -89,7 +107,12 @@ describe('HttpSpotifyApi', () => {
     const ids = Array.from({ length: 41 }, (_, i) => `s${i}`);
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response(200, ids.slice(0, 40).map((_, i) => i % 2 === 0)))
+      .mockResolvedValueOnce(
+        response(
+          200,
+          ids.slice(0, 40).map((_, i) => i % 2 === 0),
+        ),
+      )
       .mockResolvedValueOnce(response(200, [true]));
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     const saved = await api.libraryContains(ids);
@@ -118,7 +141,12 @@ describe('HttpSpotifyApi', () => {
       )
       .mockResolvedValueOnce(response(204));
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
-    expect(await api.getPlayingEpisode()).toEqual({ episodeId: 'ep1', positionMs: 61_000, paused: true, deviceName: 'iPhone' });
+    expect(await api.getPlayingEpisode()).toEqual({
+      episodeId: 'ep1',
+      positionMs: 61_000,
+      paused: true,
+      deviceName: 'iPhone',
+    });
     const url = new URL(fetchMock.mock.calls[0][0]);
     expect(url.pathname).toBe('/v1/me/player');
     expect(url.searchParams.get('additional_types')).toBe('episode');
@@ -128,7 +156,8 @@ describe('HttpSpotifyApi', () => {
 
   it('reports a listed device that Spotify cannot reach as device_unavailable', async () => {
     const store = await storeWithTokens();
-    const notFound = (reason?: string) => response(404, { error: { status: 404, message: 'Device not found', reason } });
+    const notFound = (reason?: string) =>
+      response(404, { error: { status: 404, message: 'Device not found', reason } });
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(notFound())

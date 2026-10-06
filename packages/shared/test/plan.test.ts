@@ -197,8 +197,19 @@ describe('buildToday with a plan', () => {
     const inputs = new Map([['series', input(series, eps('series', 3, 20))]]);
     series.summary = summarizeShow(series, inputs.get('series')!.views, now);
     other.summary = summarizeShow(other, buildEpisodeViews(eps('other', 3, 15), new Map(), DEFAULT_SETTINGS, now), now);
-    const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, { rules: [{ id: 'x', showId: 'series', weekdays: [1], part: 'ANYTIME' }] }, inputs);
-    const today = buildToday([series, other], { ...DEFAULT_SETTINGS, audioBudgetMinutes: 30, budgetTolerancePercent: 0 }, [], mon.items);
+    const [mon] = buildWeek(
+      '2026-10-05',
+      '2026-10-05',
+      1,
+      { rules: [{ id: 'x', showId: 'series', weekdays: [1], part: 'ANYTIME' }] },
+      inputs,
+    );
+    const today = buildToday(
+      [series, other],
+      { ...DEFAULT_SETTINGS, audioBudgetMinutes: 30, budgetTolerancePercent: 0 },
+      [],
+      mon.items,
+    );
     expect(today.plan).toHaveLength(1);
     expect(today.recommended).toHaveLength(0);
     expect(today.more.map((m) => m.show.id)).toEqual(['other']);

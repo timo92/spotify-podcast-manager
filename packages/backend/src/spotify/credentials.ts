@@ -54,7 +54,9 @@ export function credentialsFromEnv(
       const res = await ssm.send(new GetParameterCommand({ Name: name, WithDecryption: true }));
       const value = res.Parameter?.Value?.trim();
       if (!value || value === SPOTIFY_CLIENT_SECRET_PLACEHOLDER) {
-        throw notConfigured(`Das Client-Secret in ${name} ist noch nicht gesetzt (nach dem Deploy: pnpm run secret:put).`);
+        throw notConfigured(
+          `Das Client-Secret in ${name} ist noch nicht gesetzt (nach dem Deploy: pnpm run secret:put).`,
+        );
       }
       return value;
     } catch (e) {

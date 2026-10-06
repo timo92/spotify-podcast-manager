@@ -95,7 +95,9 @@ export function resolveConfig(context: (key: string) => unknown, env: NodeJS.Pro
 }
 
 /** Throws with instructions when the deployment would not be able to talk to Spotify. */
-export function assertSpotifyConfigured(config: DeployConfig): asserts config is DeployConfig & { spotifyClientId: string } {
+export function assertSpotifyConfigured(
+  config: DeployConfig,
+): asserts config is DeployConfig & { spotifyClientId: string } {
   if (!config.spotifyClientId) {
     throw new Error(
       'SPOTIFY_CLIENT_ID is not set. Put the client ID of your Spotify app into .env (see .env.example), ' +

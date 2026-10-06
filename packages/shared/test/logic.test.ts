@@ -195,7 +195,9 @@ describe('buildToday', () => {
 describe('heuristics', () => {
   it('guesses LATEST for frequently published shows', () => {
     const daily = Array.from({ length: 10 }, (_, i) => ({ releaseDate: `2026-09-${String(10 + i).padStart(2, '0')}` }));
-    const monthly = Array.from({ length: 10 }, (_, i) => ({ releaseDate: `2025-${String(i + 1).padStart(2, '0')}-01` }));
+    const monthly = Array.from({ length: 10 }, (_, i) => ({
+      releaseDate: `2025-${String(i + 1).padStart(2, '0')}-01`,
+    }));
     expect(guessMode(daily)).toBe('LATEST');
     expect(guessMode(monthly)).toBe('SEQUENTIAL');
     expect(guessMode(monthly, 'Die Nachrichten des Tages')).toBe('LATEST');

@@ -9,10 +9,7 @@ import { LISTEN_ON_SPOTIFY } from '../components/SpotifyAttribution';
 import { useToast } from './toast';
 
 /** Where "Abspielen" sends an episode. */
-export type PlayTarget =
-  | { kind: 'browser' }
-  | { kind: 'app' }
-  | { kind: 'device'; id: string; name: string };
+export type PlayTarget = { kind: 'browser' } | { kind: 'app' } | { kind: 'device'; id: string; name: string };
 
 export interface NowPlaying {
   showId: string;
@@ -318,7 +315,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       player.addListener('player_state_changed', (state) => {
         const cur = nowRef.current;
         if (!state || !cur || cur.target.kind !== 'browser') return;
-        setNowPlaying({ ...cur, paused: state.paused, positionMs: state.position, durationMs: state.duration || cur.durationMs });
+        setNowPlaying({
+          ...cur,
+          paused: state.paused,
+          positionMs: state.position,
+          durationMs: state.duration || cur.durationMs,
+        });
       });
       return deviceId;
     })();
@@ -382,7 +384,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           toast({
             message: i18n.t('target.unavailable', { ns: 'player', device: t.name }),
             tone: 'error',
-            action: { label: LISTEN_ON_SPOTIFY, onClick: () => window.open(item.episode.spotifyUrl, '_blank', 'noopener') },
+            action: {
+              label: LISTEN_ON_SPOTIFY,
+              onClick: () => window.open(item.episode.spotifyUrl, '_blank', 'noopener'),
+            },
           });
         } else {
           toast({ message: (e as Error).message, tone: 'error' });
@@ -401,7 +406,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const state = await playerRef.current?.getCurrentState();
       if (state) {
         setNowPlaying((cur) =>
-          cur ? { ...cur, positionMs: state.position, paused: state.paused, durationMs: state.duration || cur.durationMs } : cur,
+          cur
+            ? { ...cur, positionMs: state.position, paused: state.paused, durationMs: state.duration || cur.durationMs }
+            : cur,
         );
       }
     }, 1000);
@@ -446,16 +453,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setNowPlaying({ ...cur, paused: !cur.paused });
   }, []);
 
-  const seekTo = useCallback(
-    (ms: number) => {
-      const cur = nowRef.current;
-      if (!cur) return;
-      const pos = Math.max(0, Math.min(cur.durationMs - 1000, ms));
-      void playerRef.current?.seek(pos);
-      setNowPlaying({ ...cur, positionMs: pos });
-    },
-    [],
-  );
+  const seekTo = useCallback((ms: number) => {
+    const cur = nowRef.current;
+    if (!cur) return;
+    const pos = Math.max(0, Math.min(cur.durationMs - 1000, ms));
+    void playerRef.current?.seek(pos);
+    setNowPlaying({ ...cur, positionMs: pos });
+  }, []);
 
   const seekBy = useCallback((delta: number) => seekTo((nowRef.current?.positionMs ?? 0) + delta), [seekTo]);
 

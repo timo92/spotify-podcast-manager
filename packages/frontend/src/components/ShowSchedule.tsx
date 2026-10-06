@@ -41,7 +41,11 @@ export function ShowSchedule({ showId, showName }: { showId: string; showName: s
             <li key={r.id}>
               <Icon name="calendar" size={18} />
               <span className={cx('grow', styles.rule)}>{formatRule(r)}</span>
-              <IconButton icon="note" label={t('show.editRule', { rule: formatRule(r) })} onClick={() => setEditing(r)} />
+              <IconButton
+                icon="note"
+                label={t('show.editRule', { rule: formatRule(r) })}
+                onClick={() => setEditing(r)}
+              />
               <IconButton
                 icon="close"
                 label={t('show.removeRule', { rule: formatRule(r) })}

@@ -156,7 +156,12 @@ export function NotesTab({ onOpen }: { onOpen: (showId: string, episodeId: strin
         )}
         <label className="search">
           <Icon name="search" size={18} />
-          <input type="search" placeholder={t('notesSearch')} value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input
+            type="search"
+            placeholder={t('notesSearch')}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </label>
       </div>
 

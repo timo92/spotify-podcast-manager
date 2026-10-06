@@ -63,12 +63,19 @@ export function PlayerBar() {
         <div className={styles.text}>
           <NowPlayingTitle
             np={np}
-            detail={local ? ` · ${formatClock(dragging ?? np.positionMs)} / ${formatClock(np.durationMs)}` : remoteDetail(np)}
+            detail={
+              local ? ` · ${formatClock(dragging ?? np.positionMs)} / ${formatClock(np.durationMs)}` : remoteDetail(np)
+            }
           />
         </div>
         <div className={styles.controls}>
           {local && (
-            <IconButton icon="rewind" label={t('back15')} className={styles.hideNarrow} onClick={() => player.seekBy(-15_000)} />
+            <IconButton
+              icon="rewind"
+              label={t('back15')}
+              className={styles.hideNarrow}
+              onClick={() => player.seekBy(-15_000)}
+            />
           )}
           {local && (
             <IconButton
@@ -80,7 +87,12 @@ export function PlayerBar() {
             />
           )}
           {local && (
-            <IconButton icon="forward" label={t('forward30')} className={styles.hideNarrow} onClick={() => player.seekBy(30_000)} />
+            <IconButton
+              icon="forward"
+              label={t('forward30')}
+              className={styles.hideNarrow}
+              onClick={() => player.seekBy(30_000)}
+            />
           )}
           <IconButton icon="note" label={t('writeNote')} onClick={() => setNotesOpen(true)} />
           <IconButton
@@ -129,7 +141,12 @@ export function PlayTargetPicker() {
 
   return (
     <div className="menu" ref={ref}>
-      <button type="button" className="pill-btn" onClick={() => setOpen((o) => !o)} aria-label={t('target.label', { target: label })}>
+      <button
+        type="button"
+        className="pill-btn"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={t('target.label', { target: label })}
+      >
         <Icon name="device" size={18} />
         <span className="pill-btn-label">{label}</span>
       </button>
@@ -137,11 +154,23 @@ export function PlayTargetPicker() {
         <div className="menu-pop" role="menu">
           <div className="menu-heading">{t('target.heading')}</div>
           {player.browserSupported && (
-            <button type="button" role="menuitemradio" aria-checked={target.kind === 'browser'} className="menu-item" onClick={() => choose({ kind: 'browser' })}>
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={target.kind === 'browser'}
+              className="menu-item"
+              onClick={() => choose({ kind: 'browser' })}
+            >
               <Radio on={target.kind === 'browser'} /> {t('target.thisBrowser')}
             </button>
           )}
-          <button type="button" role="menuitemradio" aria-checked={target.kind === 'app'} className="menu-item" onClick={() => choose({ kind: 'app' })}>
+          <button
+            type="button"
+            role="menuitemradio"
+            aria-checked={target.kind === 'app'}
+            className="menu-item"
+            onClick={() => choose({ kind: 'app' })}
+          >
             <Radio on={target.kind === 'app'} /> {t('target.openApp')}
           </button>
           <div className="menu-heading">{t('target.connect')}</div>

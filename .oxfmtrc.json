@@ -7,8 +7,5 @@
   "singleQuote": true,
   "trailingComma": "all",
   "endOfLine": "lf",
-  "ignorePatterns": [
-    "pnpm-lock.yaml",
-    "**/*.md"
-  ]
+  "ignorePatterns": ["pnpm-lock.yaml", "**/*.md"]
 }

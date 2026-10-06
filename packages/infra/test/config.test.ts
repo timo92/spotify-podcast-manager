@@ -44,7 +44,9 @@ describe('stage', () => {
 
 describe('contextFromArgs', () => {
   it('reads -c / --context arguments like the cdk CLI', () => {
-    expect(contextFromArgs(['-c', 'stage=prod', '--context', 'stackName=X', '--context=domainName=a=b', 'other'])).toEqual({
+    expect(
+      contextFromArgs(['-c', 'stage=prod', '--context', 'stackName=X', '--context=domainName=a=b', 'other']),
+    ).toEqual({
       stage: 'prod',
       stackName: 'X',
       domainName: 'a=b',

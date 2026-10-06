@@ -237,8 +237,6 @@ export function buildToday(
     else if (show.mode === 'LATEST') noNewEpisode.push(toShowLite(show));
   }
 
-  const ordered = candidates;
-
   const budgetMs = settings.audioBudgetMinutes * 60_000;
   const limitMs = budgetMs * (1 + settings.budgetTolerancePercent / 100);
   const recommended: TodayItem[] = [];
@@ -247,10 +245,10 @@ export function buildToday(
   let usedMs = plannedOpenMs(plan);
 
   if (budgetMs <= 0) {
-    recommended.push(...ordered);
-    usedMs += ordered.reduce((sum, c) => sum + c.episode.remainingMs, 0);
+    recommended.push(...candidates);
+    usedMs += candidates.reduce((sum, c) => sum + c.episode.remainingMs, 0);
   } else {
-    for (const c of ordered) {
+    for (const c of candidates) {
       if (usedMs + c.episode.remainingMs <= limitMs) {
         recommended.push(c);
         usedMs += c.episode.remainingMs;

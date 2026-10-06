@@ -14,6 +14,8 @@ export const CONSUMPTION_MODES: ConsumptionMode[] = ['LATEST', 'SEQUENTIAL', 'MA
 
 export type EpisodeStatus = 'UNSEEN' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED';
 
+export const EPISODE_STATUSES: EpisodeStatus[] = ['UNSEEN', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED'];
+
 /** Statuses that mean "done with this one, don't suggest it again". */
 export const DONE_STATUSES: EpisodeStatus[] = ['COMPLETED', 'SKIPPED'];
 

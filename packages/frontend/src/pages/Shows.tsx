@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import type { ConsumptionMode, Show } from '@podcast/shared';
+import { CONSUMPTION_MODES, type Show } from '@podcast/shared';
 import { Icon } from '../components/Icon';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, IconButton, ProgressBar, Segmented, Spinner } from '../components/ui';
@@ -17,10 +17,8 @@ import styles from './Shows.module.css';
 
 type ProgressKey = keyof (typeof resources)['de']['shows']['progress'];
 
-const MODES: ConsumptionMode[] = ['LATEST', 'SEQUENTIAL', 'MANUAL'];
-
 /** The modes as options of a Segmented control, in the active language. */
-export const modeOptions = () => MODES.map((m) => ({ value: m, label: modeLabel(m), hint: modeHint(m) }));
+export const modeOptions = () => CONSUMPTION_MODES.map((m) => ({ value: m, label: modeLabel(m), hint: modeHint(m) }));
 
 export function progressText(show: Show): { text: string; tone?: 'new' | 'muted' } {
   const t = (key: ProgressKey, values?: Record<string, number>) =>

@@ -93,6 +93,35 @@ export async function acquireSyncLease(
   return acquired ? state : undefined;
 }
 
+/**
+ * Starts syncs on request (button, login): acquires the lease here, so the UI
+ * shows "running" immediately and a second click can't start a parallel sync,
+ * then hands it to the run (`trigger`: async Lambda invocation, or in-process
+ * locally).
+ */
+export class SyncLauncher {
+  constructor(
+    private readonly store: Store,
+    private readonly trigger: (opts: SyncOptions) => Promise<void>,
+  ) {}
+
+  /** The running sync's state; the one already running if another holds the lease. */
+  async start(opts: SyncOptions): Promise<SyncState> {
+    const lease = await acquireSyncLease(this.store, { message: 'Gestartet…', showId: opts.showId });
+    if (!lease) return this.store.getSyncState();
+    try {
+      await this.trigger({ ...opts, leaseId: lease.leaseId });
+    } catch (e) {
+      console.error('Sync could not be started', e);
+      // Nothing will run under this lease, so free it instead of blocking syncs.
+      const failure = new ApiError(StatusCodes.BAD_GATEWAY, 'sync_start_failed', 'Sync konnte nicht gestartet werden.');
+      await releaseSyncLease(this.store, lease, failure);
+      throw failure;
+    }
+    return lease;
+  }
+}
+
 /** Ends a lease without a sync result, e.g. when the triggered run could not start. */
 export async function releaseSyncLease(store: Store, lease: SyncState & { leaseId: string }, error?: unknown) {
   await store.releaseSyncLease(lease.leaseId, { ...endedState(lease, error), finishedAt: new Date().toISOString() });

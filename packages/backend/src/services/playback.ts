@@ -1,4 +1,4 @@
-import type { Episode, EpisodeView, PlaybackState } from '@podcast/shared';
+import type { Episode, EpisodeView, PlaybackState, PlayerDevice } from '@podcast/shared';
 import { notFound } from '../errors.js';
 import type { SpotifyApi } from '../spotify/types.js';
 import type { Store } from '../store/types.js';
@@ -55,6 +55,18 @@ export class PlaybackService {
     await this.store.putEpisodes([changed]);
     await this.library.recompute(showId);
     return changed;
+  }
+
+  /** Connect devices playback can be sent to; restricted ones (Spotify can't control them) are left out. */
+  async devices(): Promise<PlayerDevice[]> {
+    return (await this.spotify().getDevices()).flatMap((d) =>
+      d.id && !d.is_restricted ? [{ id: d.id, name: d.name, type: d.type, isActive: d.is_active }] : [],
+    );
+  }
+
+  /** A Spotify access token for the browser player. */
+  accessToken() {
+    return this.spotify().getAccessToken();
   }
 
   /** The episode Spotify plays right now on any device, or null. */

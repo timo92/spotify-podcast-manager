@@ -208,6 +208,18 @@ export function plannedOpenMs(items: PlannedItem[]): number {
   return [...open.values()].reduce((sum, ms) => sum + ms, 0);
 }
 
+/** A history entry as Today lists it: when it was heard, or last changed. */
+export function toHistoryItem(p: EpisodeProgress): HistoryItem {
+  return {
+    showId: p.showId,
+    episodeId: p.episodeId,
+    showName: p.showName,
+    episodeName: p.episodeName,
+    status: p.status,
+    at: p.listenedAt ?? p.updatedAt,
+  };
+}
+
 /**
  * Builds the "Heute" view from the shows' denormalised summaries.
  *
@@ -219,7 +231,7 @@ export function plannedOpenMs(items: PlannedItem[]): number {
 export function buildToday(
   shows: Show[],
   settings: Settings,
-  recent: HistoryItem[] = [],
+  history: EpisodeProgress[] = [],
   slots: PlannedItem[] = [],
 ): TodayResponse {
   // Paused podcasts keep their slots in the week, but Today leaves them out.
@@ -273,7 +285,7 @@ export function buildToday(
     recommended,
     more,
     noNewEpisode,
-    recent,
+    recent: history.map(toHistoryItem),
     needsReviewCount: shows.filter((s) => s.needsReview).length,
     // An unfollowed show's summary is no longer updated, so its count would stay frozen.
     newCount: shows.filter((s) => s.followed && !s.paused).reduce((n, s) => n + (s.summary?.newCount ?? 0), 0),

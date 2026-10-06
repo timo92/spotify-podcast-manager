@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  buildToday,
   buildWeek,
   DAY_PARTS,
   localDate,
@@ -8,6 +9,7 @@ import {
   type PlanInput,
   type Schedule,
   type ScheduleRule,
+  type TodayResponse,
   type Weekday,
 } from '@podcast/shared';
 import { StatusCodes } from 'http-status-codes';
@@ -80,6 +82,17 @@ export class PlanService {
       throw new ApiError(StatusCodes.CONFLICT, 'schedule_conflict', 'Der Wochenplan wurde inzwischen geändert.');
     }
     return schedule;
+  }
+
+  /** The Today view in time zone `tz`: today's slots, suggestions within the budget, recently heard. */
+  async today(tz: string): Promise<TodayResponse> {
+    const [shows, settings, history, [today]] = await Promise.all([
+      this.store.listShows(),
+      this.store.getSettings(),
+      this.store.listHistory(5),
+      this.week(tz, 1),
+    ]);
+    return buildToday(shows, settings, history, today?.items ?? []);
   }
 
   /** Projects the plan for `days` days starting at `start` (defaults to today in `tz`). */

@@ -51,8 +51,9 @@ README).
 - **`packages/shared`**: domain types and pure logic (next-episode selection,
   budget, weekly plan, retention dates). No I/O. Anything both the frontend and
   backend need, or any rule worth unit-testing on its own, belongs here.
-- **`packages/backend`**: the Hono API (`src/app.ts`), the Lambda handlers,
-  services, the Spotify client and the stores. `dev/` holds the local server,
+- **`packages/backend`**: the Hono API (`src/app.ts` with the route modules
+  in `src/routes`), the Lambda handlers, services, the Spotify client and the
+  stores. `dev/` holds the local server,
   `test/` the tests and fakes.
 - **`packages/frontend`**: the React SPA. Pages in `src/pages`, components in
   `src/components`, API calls and queries in `src/lib`. A component's
@@ -109,8 +110,11 @@ rule disagrees, disable it for that line with the reason:
 
 ### Backend
 
-- Routes live in `src/app.ts`. Business logic goes into services
-  (`src/services`), not into route handlers.
+- Routes live in `src/routes`, one module per area, mounted by `src/app.ts`,
+  which also holds the guards every request passes. A route reads the request
+  (body fields through `field` in `routes/http.ts`, which rejects wrong types)
+  and calls a service; business logic goes into services (`src/services`),
+  not into route handlers.
 - Errors are `ApiError`s created with the helpers in `src/errors.ts`
   (`badRequest`, `notFound`, …), each with a stable `code`. Status codes come
   from `http-status-codes`.

@@ -275,6 +275,29 @@ describe('buildToday', () => {
     expect(fit(40, 10)).toBe('none');
   });
 
+  it('lists the recently heard episodes with when they were heard', () => {
+    const heard = { ...prog('a', 'COMPLETED'), showName: 'Show', episodeName: 'Episode a' };
+    const changed = { ...prog('b', 'SKIPPED'), listenedAt: undefined };
+    expect(buildToday([], DEFAULT_SETTINGS, [heard, changed]).recent).toEqual([
+      {
+        showId: 's1',
+        episodeId: 'a',
+        showName: 'Show',
+        episodeName: 'Episode a',
+        status: 'COMPLETED',
+        at: heard.listenedAt,
+      },
+      {
+        showId: 's1',
+        episodeId: 'b',
+        showName: undefined,
+        episodeName: undefined,
+        status: 'SKIPPED',
+        at: changed.updatedAt,
+      },
+    ]);
+  });
+
   it('lists LATEST shows without a new episode', () => {
     const s = show({ id: 'n', mode: 'LATEST' });
     s.summary = summarizeShow(s, [], now);

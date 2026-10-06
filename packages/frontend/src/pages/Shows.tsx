@@ -83,11 +83,13 @@ export function ShowsPage() {
     if (!moving || !other) return;
     next[index] = other;
     next[target] = moving;
+    const previous = order;
     setOrder(next);
     try {
       await api.reorder(next.map((s) => s.id));
       await invalidate();
     } catch (e) {
+      setOrder(previous);
       toast({ message: (e as Error).message, tone: 'error' });
     }
   }

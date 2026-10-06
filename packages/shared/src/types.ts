@@ -135,6 +135,8 @@ export interface Show {
 
   /** Denormalised summary, recomputed after every change. */
   summary?: ShowSummary;
+  /** Counts summary writes, so one computed from older data can't replace a newer one. */
+  summaryRevision?: number;
 }
 
 /** Fields of a show the user may change. */

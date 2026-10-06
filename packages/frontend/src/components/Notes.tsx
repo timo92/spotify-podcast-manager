@@ -6,7 +6,7 @@ import type { EpisodeNote } from '@podcast/shared';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
 import { formatClock, formatPosition, formatRelative, parseClock, splitTimestamps } from '../lib/format';
-import { episodeItem, playsInBrowser, usePlayer, type PlayableItem } from '../lib/player';
+import { controlsInBrowser, episodeItem, playsInBrowser, usePlayer, type PlayableItem } from '../lib/player';
 import { qk } from '../lib/queries';
 import { useRun } from '../lib/actions';
 import { useToast } from '../lib/toast';
@@ -256,12 +256,12 @@ function submitOnModEnter(e: ReactKeyboardEvent<HTMLTextAreaElement>, save: () =
   }
 }
 
-/** Plays `item` from `ms`, or seeks there if it already plays in the browser. */
+/** Plays `item` from `ms` on the chosen target, or seeks there if the browser is the target and already plays it. */
 function useJump(item: PlayableItem) {
   const player = usePlayer();
   return (ms: number) => {
     const np = player.nowPlaying;
-    if (playsInBrowser(np, item.episode.id)) player.seekTo(ms);
+    if (controlsInBrowser(np, player.target, item.episode.id)) player.seekTo(ms);
     else void player.play(item, { positionMs: ms });
   };
 }

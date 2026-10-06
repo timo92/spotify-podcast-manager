@@ -227,6 +227,19 @@ describe('configuration and auth', () => {
     const res = await t.call('POST', '/api/auth/logout', undefined, { 'content-type': 'text/plain' });
     expect(res.status).toBe(415);
   });
+
+  it('accepts only the JSON media type itself, not a simple type that mentions it', async () => {
+    const t = setup();
+    // Browsers send text/plain with any parameters without a CORS preflight.
+    const sneaky = await t.call('POST', '/api/auth/logout', undefined, {
+      'content-type': 'text/plain;x=application/json',
+    });
+    expect(sneaky.status).toBe(415);
+    const json = await t.call('POST', '/api/auth/logout', undefined, {
+      'content-type': 'Application/JSON; charset=utf-8',
+    });
+    expect(json.status).not.toBe(415);
+  });
 });
 
 describe('library flow', () => {

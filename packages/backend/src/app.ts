@@ -53,6 +53,16 @@ const SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60;
 const PUBLIC_PATHS = new Set(['/api/status', '/api/auth/login', '/api/auth/callback', '/api/auth/logout']);
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+/**
+ * Whether the request body is declared as JSON. Compares the media type itself:
+ * browsers send `text/plain` with arbitrary parameters cross-site without a
+ * preflight, so a substring match would let such a request through.
+ */
+function isJsonRequest(c: Context): boolean {
+  const mediaType = (c.req.header('content-type') ?? '').split(';')[0] ?? '';
+  return mediaType.trim().toLowerCase() === 'application/json';
+}
+
 function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);
@@ -133,7 +143,7 @@ export function createApp(deps: AppDeps) {
   app.use('/api/*', async (c, next) => {
     c.header('Cache-Control', 'no-store');
     // Simple CSRF guard: cross-site forms cannot send JSON without a CORS preflight.
-    if (MUTATING_METHODS.has(c.req.method) && !(c.req.header('content-type') ?? '').includes('application/json')) {
+    if (MUTATING_METHODS.has(c.req.method) && !isJsonRequest(c)) {
       throw new ApiError(
         StatusCodes.UNSUPPORTED_MEDIA_TYPE,
         'unsupported_media_type',

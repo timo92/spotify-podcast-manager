@@ -9,7 +9,7 @@ import {
   type Show,
   type SyncState,
 } from '@podcast/shared';
-import { ApiError, notFound } from '../errors.js';
+import { ApiError } from '../errors.js';
 import type { SpotifyApi, SpotifyEpisode, SpotifyImage, SpotifyShow } from '../spotify/types.js';
 import type { Store } from '../store/types.js';
 import { LibraryService, mapLimit } from './library.js';
@@ -278,8 +278,7 @@ export class SyncService {
   }
 
   private async syncSingle(showId: string) {
-    const show = await this.store.getShow(showId);
-    if (!show) throw notFound('show_not_found', 'Podcast nicht gefunden');
+    const show = await this.library.requireShow(showId);
     const settings = await this.store.getSettings();
     const newEpisodes = await this.syncShow(showId, undefined, show, true, settings, () => show.priority);
     return { shows: 1, newEpisodes, failed: 0 };

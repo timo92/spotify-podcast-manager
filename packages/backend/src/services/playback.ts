@@ -49,7 +49,7 @@ export class PlaybackService {
   /** Stores what Spotify reports for one episode, like the sync does, and returns it. */
   private async syncEpisode(spotify: SpotifyApi, showId: string, episodeId: string): Promise<Episode> {
     const cached = await this.store.getEpisode(showId, episodeId);
-    if (!cached) throw notFound('episode_not_found', 'Folge nicht gefunden');
+    if (!cached) throw notFound('episode_not_found');
     const fresh = await spotify.getEpisode(episodeId);
     if (!fresh) return cached;
     const episode = toEpisode(fresh, showId, cached.firstSeenAt, new Date().toISOString());

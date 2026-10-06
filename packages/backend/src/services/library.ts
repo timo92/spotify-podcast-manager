@@ -47,7 +47,7 @@ export class LibraryService {
 
   async requireShow(showId: string): Promise<Show> {
     const show = await this.store.getShow(showId);
-    if (!show) throw notFound('show_not_found', 'Podcast nicht gefunden');
+    if (!show) throw notFound('show_not_found');
     return show;
   }
 
@@ -64,7 +64,7 @@ export class LibraryService {
   async episode(showId: string, episodeId: string): Promise<EpisodeView> {
     const show = await this.requireShow(showId);
     const view = (await this.loadViews(show)).find((v) => v.id === episodeId);
-    if (!view) throw notFound('episode_not_found', 'Folge nicht gefunden');
+    if (!view) throw notFound('episode_not_found');
     return view;
   }
 
@@ -109,7 +109,7 @@ export class LibraryService {
     const show = await this.requireShow(showId);
     const episodes = new Map((await this.store.listEpisodes(showId)).map((e) => [e.id, e]));
     const selected = episodeIds.flatMap((id) => episodes.get(id) ?? []);
-    if (selected.length !== episodeIds.length) throw notFound('episode_not_found', 'Folge nicht gefunden');
+    if (selected.length !== episodeIds.length) throw notFound('episode_not_found');
 
     if (status === null) {
       for (const id of episodeIds) await this.store.deleteProgress(showId, id);
@@ -145,7 +145,7 @@ export class LibraryService {
     const show = await this.requireShow(showId);
     const views = await this.loadViews(show);
     const target = views.find((v) => v.id === episodeId);
-    if (!target) throw notFound('episode_not_found', 'Folge nicht gefunden');
+    if (!target) throw notFound('episode_not_found');
     const ids = views
       .filter((v) => v.index < target.index && v.status !== 'COMPLETED' && v.status !== 'SKIPPED')
       .map((v) => v.id);

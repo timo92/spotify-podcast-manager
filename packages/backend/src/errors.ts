@@ -25,10 +25,14 @@ export class ApiError<C extends ErrorCode = ErrorCode> extends Error {
 
 export const badRequest = <C extends ErrorCode>(code: C, message: string, ...params: ParamsArg<C>) =>
   new ApiError(StatusCodes.BAD_REQUEST, code, message, ...params);
-export const notFound = (
-  code: 'not_found' | 'show_not_found' | 'episode_not_found' | 'note_not_found' = 'not_found',
-  message = 'Nicht gefunden',
-) => new ApiError(StatusCodes.NOT_FOUND, code, message);
+const NOT_FOUND_MESSAGES = {
+  show_not_found: 'Podcast nicht gefunden',
+  episode_not_found: 'Folge nicht gefunden',
+  note_not_found: 'Notiz nicht gefunden',
+} satisfies Partial<Record<ErrorCode, string>>;
+
+export const notFound = (code: keyof typeof NOT_FOUND_MESSAGES) =>
+  new ApiError(StatusCodes.NOT_FOUND, code, NOT_FOUND_MESSAGES[code]);
 /** A listed Spotify Connect device that Spotify can't reach (e.g. a suspended phone app). Kept at 404. */
 export const deviceUnavailable = () =>
   new ApiError(
@@ -36,5 +40,4 @@ export const deviceUnavailable = () =>
     'device_unavailable',
     'Das Gerät ist bei Spotify gerade nicht erreichbar. Öffne Spotify dort und versuche es erneut.',
   );
-export const unauthorized = (message = 'Nicht angemeldet') =>
-  new ApiError(StatusCodes.UNAUTHORIZED, 'unauthorized', message);
+export const unauthorized = () => new ApiError(StatusCodes.UNAUTHORIZED, 'unauthorized', 'Nicht angemeldet');

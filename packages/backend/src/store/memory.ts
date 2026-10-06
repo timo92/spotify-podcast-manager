@@ -110,10 +110,6 @@ export class MemoryStore implements Store {
     this.save();
     return true;
   }
-  async putSyncState(state: SyncState) {
-    this.data.sync = clone(state);
-    this.save();
-  }
   async putSession(session: Session) {
     this.data.sessions[session.id] = clone(session);
     this.save();

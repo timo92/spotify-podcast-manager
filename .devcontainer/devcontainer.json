@@ -1,6 +1,6 @@
 // GitHub Codespaces: opening a codespace on a branch starts `pnpm dev:demo`
 // for that branch and opens the UI (fake Spotify, no credentials needed).
-// See "Preview a branch in Codespaces" in the README.
+// See "Preview a branch in Codespaces" in docs/development.md.
 {
   "name": "Podcast-Cockpit demo",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",

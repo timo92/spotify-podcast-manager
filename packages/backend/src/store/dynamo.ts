@@ -73,17 +73,49 @@ export class DynamoStore implements Store {
     await this.db.send(new PutCommand({ TableName: this.table, Item: { ...item, ...extra, PK: pk, SK: sk } }));
   }
 
-  private async queryAll(input: Omit<QueryCommandInput, 'TableName'>): Promise<Record<string, unknown>[]> {
+  /** The items a query matches, across pages; at most `limit` of them. */
+  private async queryAll(
+    input: Omit<QueryCommandInput, 'TableName'>,
+    limit = Infinity,
+  ): Promise<Record<string, unknown>[]> {
     const items: Record<string, unknown>[] = [];
     let ExclusiveStartKey: Record<string, unknown> | undefined;
     do {
       const res = await this.db.send(
-        new QueryCommand({ TableName: this.table, ConsistentRead: !input.IndexName, ...input, ExclusiveStartKey }),
+        new QueryCommand({
+          TableName: this.table,
+          ConsistentRead: !input.IndexName,
+          ...input,
+          Limit: Number.isFinite(limit) ? limit - items.length : undefined,
+          ExclusiveStartKey,
+        }),
       );
       items.push(...(res.Items ?? []));
       ExclusiveStartKey = res.LastEvaluatedKey;
-    } while (ExclusiveStartKey);
+    } while (ExclusiveStartKey && items.length < limit);
     return items;
+  }
+
+  /** All items of one partition, optionally only some attributes. */
+  private partition(pk: string, projection?: string) {
+    return this.queryAll({
+      KeyConditionExpression: 'PK = :pk',
+      ExpressionAttributeValues: { ':pk': pk },
+      ProjectionExpression: projection,
+    });
+  }
+
+  /** The newest items of a GSI1 partition (history, notes). */
+  private newestInIndex(gsi1pk: string, limit: number) {
+    return this.queryAll(
+      {
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk',
+        ExpressionAttributeValues: { ':pk': gsi1pk },
+        ScanIndexForward: false,
+      },
+      limit,
+    );
   }
 
   private async batchWrite(requests: WriteRequest[]) {
@@ -219,10 +251,7 @@ export class DynamoStore implements Store {
   }
 
   async listShows() {
-    const items = await this.queryAll({
-      KeyConditionExpression: 'PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'SHOW' },
-    });
+    const items = await this.partition('SHOW');
     return items.map((i) => strip(i) as Show);
   }
   getShow(id: string) {
@@ -263,10 +292,7 @@ export class DynamoStore implements Store {
   }
 
   async listEpisodes(showId: string) {
-    const items = await this.queryAll({
-      KeyConditionExpression: 'PK = :pk',
-      ExpressionAttributeValues: { ':pk': `EP#${showId}` },
-    });
+    const items = await this.partition(`EP#${showId}`);
     return items.map((i) => strip(i) as Episode);
   }
   getEpisode(showId: string, episodeId: string) {
@@ -274,7 +300,7 @@ export class DynamoStore implements Store {
   }
   async putEpisodes(episodes: Episode[]) {
     await this.batchWrite(
-      episodes.map((ep) => ({ PutRequest: { Item: { ...dropUndefined(ep), PK: `EP#${ep.showId}`, SK: ep.id } } })),
+      episodes.map((ep) => ({ PutRequest: { Item: { ...ep, PK: `EP#${ep.showId}`, SK: ep.id } } })),
     );
   }
   async deleteEpisodes(showId: string, episodeIds: string[]) {
@@ -282,17 +308,14 @@ export class DynamoStore implements Store {
   }
 
   async listProgress(showId: string) {
-    const items = await this.queryAll({
-      KeyConditionExpression: 'PK = :pk',
-      ExpressionAttributeValues: { ':pk': `PROG#${showId}` },
-    });
+    const items = await this.partition(`PROG#${showId}`);
     return new Map(items.map((i) => [i.SK as string, strip(i) as EpisodeProgress]));
   }
   async putProgress(progress: EpisodeProgress[]) {
     await this.batchWrite(
       progress.map((p) => {
         const history = p.status === 'COMPLETED' && p.listenedAt ? { GSI1PK: 'HISTORY', GSI1SK: p.listenedAt } : {};
-        return { PutRequest: { Item: { ...dropUndefined(p), ...history, PK: `PROG#${p.showId}`, SK: p.episodeId } } };
+        return { PutRequest: { Item: { ...p, ...history, PK: `PROG#${p.showId}`, SK: p.episodeId } } };
       }),
     );
   }
@@ -300,17 +323,7 @@ export class DynamoStore implements Store {
     await this.db.send(new DeleteCommand({ TableName: this.table, Key: { PK: `PROG#${showId}`, SK: episodeId } }));
   }
   async listHistory(limit: number) {
-    const res = await this.db.send(
-      new QueryCommand({
-        TableName: this.table,
-        IndexName: 'GSI1',
-        KeyConditionExpression: 'GSI1PK = :pk',
-        ExpressionAttributeValues: { ':pk': 'HISTORY' },
-        ScanIndexForward: false,
-        Limit: limit,
-      }),
-    );
-    return (res.Items ?? []).map((i) => strip(i) as EpisodeProgress);
+    return (await this.newestInIndex('HISTORY', limit)).map((i) => strip(i) as EpisodeProgress);
   }
 
   async getSchedule(): Promise<Schedule> {
@@ -359,41 +372,17 @@ export class DynamoStore implements Store {
     return items.map((i) => strip(i) as EpisodeNote);
   }
   async listShowNotes(showId: string) {
-    const items = await this.queryAll({
-      KeyConditionExpression: 'PK = :pk',
-      ExpressionAttributeValues: { ':pk': `NOTE#${showId}` },
-    });
+    const items = await this.partition(`NOTE#${showId}`);
     return items.map((i) => strip(i) as EpisodeNote);
   }
   async listNotes(limit: number) {
-    const items: Record<string, unknown>[] = [];
-    let ExclusiveStartKey: Record<string, unknown> | undefined;
-    do {
-      const res = await this.db.send(
-        new QueryCommand({
-          TableName: this.table,
-          IndexName: 'GSI1',
-          KeyConditionExpression: 'GSI1PK = :pk',
-          ExpressionAttributeValues: { ':pk': 'NOTES' },
-          ScanIndexForward: false,
-          Limit: limit - items.length,
-          ExclusiveStartKey,
-        }),
-      );
-      items.push(...(res.Items ?? []));
-      ExclusiveStartKey = res.LastEvaluatedKey;
-    } while (ExclusiveStartKey && items.length < limit);
-    return items.map((i) => strip(i) as EpisodeNote);
+    return (await this.newestInIndex('NOTES', limit)).map((i) => strip(i) as EpisodeNote);
   }
 
   async deleteShow(showId: string) {
     await Promise.all(
       ['EP', 'PROG', 'NOTE'].map(async (prefix) => {
-        const items = await this.queryAll({
-          KeyConditionExpression: 'PK = :pk',
-          ExpressionAttributeValues: { ':pk': `${prefix}#${showId}` },
-          ProjectionExpression: 'PK, SK',
-        });
+        const items = await this.partition(`${prefix}#${showId}`, 'PK, SK');
         await this.batchWrite(items.map((i) => ({ DeleteRequest: { Key: { PK: i.PK, SK: i.SK } } })));
       }),
     );
@@ -416,8 +405,4 @@ export class DynamoStore implements Store {
 function strip(item: Record<string, unknown>): object {
   const { PK: _pk, SK: _sk, GSI1PK: _g1, GSI1SK: _g2, ttl: _ttl, ...rest } = item;
   return rest;
-}
-
-function dropUndefined<T extends object>(obj: T): T {
-  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
 }

@@ -46,6 +46,59 @@ describe('PodcastStack', () => {
     template.hasResource('AWS::DynamoDB::GlobalTable', { DeletionPolicy: 'Retain' });
   });
 
+  it('keeps point-in-time recovery for the table', () => {
+    template.hasResourceProperties('AWS::DynamoDB::GlobalTable', {
+      Replicas: [Match.objectLike({ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true } })],
+    });
+  });
+
+  it('keeps the site bucket private and reachable over TLS only', () => {
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      PublicAccessBlockConfiguration: {
+        BlockPublicAcls: true,
+        BlockPublicPolicy: true,
+        IgnorePublicAcls: true,
+        RestrictPublicBuckets: true,
+      },
+    });
+    template.hasResourceProperties('AWS::S3::BucketPolicy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({ Effect: 'Deny', Condition: { Bool: { 'aws:SecureTransport': 'false' } } }),
+        ]),
+      },
+    });
+  });
+
+  it('throttles the API and sends security headers', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Stage', {
+      DefaultRouteSettings: { ThrottlingRateLimit: 20, ThrottlingBurstLimit: 40 },
+    });
+    const managedSecurityHeaders = '67f7725c-6f97-4210-82d7-5512b31e9d03';
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        DefaultCacheBehavior: Match.objectLike({ ResponseHeadersPolicyId: managedSecurityHeaders }),
+        CacheBehaviors: [Match.objectLike({ ResponseHeadersPolicyId: managedSecurityHeaders })],
+      }),
+    });
+  });
+
+  it('syncs every two hours and fully once a night', () => {
+    template.hasResourceProperties('AWS::Events::Rule', { ScheduleExpression: 'cron(7 */2 * * ? *)' });
+    template.hasResourceProperties('AWS::Events::Rule', { ScheduleExpression: 'cron(37 3 * * ? *)' });
+  });
+
+  it("keeps the functions' logs for a month", () => {
+    const groups = Object.values(template.findResources('AWS::Logs::LogGroup'));
+    expect(groups.length).toBeGreaterThanOrEqual(3);
+    for (const group of groups) expect(group.Properties.RetentionInDays).toBe(30);
+    // Every function, CDK's deployment helpers included, logs into one of them –
+    // except the bucket's auto-delete handler, which CDK offers no setting for.
+    const functions = template.findResources('AWS::Lambda::Function');
+    const withoutGroup = Object.keys(functions).filter((id) => !functions[id]?.Properties.LoggingConfig?.LogGroup);
+    expect(withoutGroup).toEqual([expect.stringMatching(/^CustomS3AutoDeleteObjects/)]);
+  });
+
   it('wires the API and sync Lambdas', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Handler: 'index.handler',
@@ -77,6 +130,18 @@ describe('PodcastStack', () => {
     expect(create).toContain('/PodcastCockpit/test/spotify-client-secret');
     // CloudFormation never manages the value itself.
     template.resourceCountIs('AWS::SSM::Parameter', 0);
+    // Stack tags don't reach a resource created by an SDK call, so it is tagged there.
+    const call = JSON.parse(Object.values(resources)[0]!.Properties.Create) as { parameters: { Tags: unknown } };
+    expect(call.parameters.Tags).toEqual([
+      { Key: 'app', Value: 'podcast-cockpit' },
+      { Key: 'stage', Value: 'test' },
+      { Key: 'managed-by', Value: 'cdk' },
+    ]);
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([Match.objectLike({ Action: Match.arrayWith(['ssm:AddTagsToResource']) })]),
+      },
+    });
     const reads = Object.values(template.findResources('AWS::IAM::Policy')).filter((p) => {
       const json = JSON.stringify(p);
       return json.includes(':parameter/PodcastCockpit/test/spotify-client-secret') && json.includes('ssm:GetParameter');

@@ -35,6 +35,13 @@ describe('stage', () => {
     expect(config).toMatchObject({ appName: 'Cockpit', stage: 'prod', stackName: 'Cockpit-prod' });
   });
 
+  it('rejects stack names that CloudFormation or the SSM path would not accept', () => {
+    for (const name of ['Podcast Cockpit', '1Cockpit', 'Cockpit/dev', 'a'.repeat(65)]) {
+      expect(() => resolveConfig(() => undefined, { STACK_NAME: name })).toThrow(/STACK_NAME/);
+    }
+    expect(resolveConfig(() => undefined, { STACK_NAME: 'My-Cockpit2' }).stackName).toBe('My-Cockpit2-dev');
+  });
+
   it('rejects stages that would break stack names or the SSM path', () => {
     for (const stage of ['Prod', 'dev/1', '-dev', 'a'.repeat(21)]) {
       expect(() => resolveConfig(() => undefined, { STAGE: stage })).toThrow(/STAGE/);

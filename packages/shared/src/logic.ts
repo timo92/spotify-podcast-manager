@@ -114,17 +114,18 @@ export function selectNextEpisode(
       // 2. otherwise continue after the last finished episode – unmarked
       //    episodes before it count as "left behind", not as next,
       // 3. otherwise fill gaps from the beginning.
-      const started = episodes.filter((e) => e.status === 'IN_PROGRESS');
-      const furthest = started.at(-1);
+      // Episodes Spotify no longer plays are never suggested.
+      const playable = (e: EpisodeView) => e.isPlayable !== false;
+      const furthest = episodes.findLast((e) => e.status === 'IN_PROGRESS' && playable(e));
       if (furthest) return furthest;
-      const open = (e: EpisodeView) => e.status === 'UNSEEN' && e.isPlayable !== false;
+      const open = (e: EpisodeView) => e.status === 'UNSEEN' && playable(e);
       let anchor = -1;
       episodes.forEach((e, i) => {
         if (isDone(e.status)) anchor = i;
       });
       const next = episodes.slice(anchor + 1).find(open) ?? episodes.find(open);
       if (next) return next;
-      if (show.reofferSkipped) return episodes.find((e) => e.status === 'SKIPPED') ?? null;
+      if (show.reofferSkipped) return episodes.find((e) => e.status === 'SKIPPED' && playable(e)) ?? null;
       return null;
     }
     case 'MANUAL':

@@ -119,6 +119,27 @@ describe('selectNextEpisode', () => {
     expect(selectNextEpisode(show({ reofferSkipped: true }), views)?.id).toBe('a');
   });
 
+  it('SEQUENTIAL never suggests an episode Spotify no longer plays', () => {
+    const gone = (id: string, date: string) => ep(id, date, 30, { isPlayable: false });
+    const started = buildEpisodeViews(
+      [gone('a', '2026-10-01'), ep('b', '2026-10-02')],
+      new Map([['a', { ...prog('a', 'IN_PROGRESS'), listenedAt: undefined }]]),
+      DEFAULT_SETTINGS,
+      now,
+    );
+    expect(selectNextEpisode(show(), started)?.id).toBe('b');
+    const skipped = buildEpisodeViews(
+      [gone('a', '2026-10-01'), ep('b', '2026-10-02')],
+      new Map([
+        ['a', prog('a', 'SKIPPED')],
+        ['b', prog('b', 'COMPLETED')],
+      ]),
+      DEFAULT_SETTINGS,
+      now,
+    );
+    expect(selectNextEpisode(show({ reofferSkipped: true }), skipped)).toBeNull();
+  });
+
   it('LATEST picks the newest episode', () => {
     const views = buildEpisodeViews(episodes, new Map(), DEFAULT_SETTINGS, now);
     expect(selectNextEpisode(show({ mode: 'LATEST' }), views)?.id).toBe('c');

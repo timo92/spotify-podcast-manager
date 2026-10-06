@@ -19,6 +19,7 @@ import { cx } from '../lib/cx';
 import { formatRelative } from '../lib/format';
 import { episodeItem } from '../lib/player';
 import { qk } from '../lib/queries';
+import { readStored, readStoredJson, writeStored } from '../lib/storage';
 import styles from './NotesTab.module.css';
 
 type Grouping = 'list' | 'show';
@@ -30,23 +31,18 @@ const PERIOD_KEY = 'pm.notes.period';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The grouping and period chosen last in this browser. */
-function readStored(): { grouping: Grouping; period: Period } {
-  let grouping: Grouping = 'list';
+function readChoices(): { grouping: Grouping; period: Period } {
+  const grouping: Grouping = readStored(GROUPING_KEY) === 'show' ? 'show' : 'list';
   let period: Period = { preset: 'all' };
-  try {
-    if (localStorage.getItem(GROUPING_KEY) === 'show') grouping = 'show';
-    const raw: unknown = JSON.parse(localStorage.getItem(PERIOD_KEY) ?? 'null');
-    if (raw && typeof raw === 'object' && 'preset' in raw) {
-      const p = raw as { preset: unknown; from?: unknown; to?: unknown };
-      if (p.preset === 'custom') {
-        const date = (v: unknown) => (typeof v === 'string' && DATE_RE.test(v) ? v : undefined);
-        period = { preset: 'custom', from: date(p.from), to: date(p.to) };
-      } else if (PRESETS.includes(p.preset as PeriodPreset)) {
-        period = { preset: p.preset as PeriodPreset };
-      }
+  const raw = readStoredJson(PERIOD_KEY);
+  if (raw && typeof raw === 'object' && 'preset' in raw) {
+    const p = raw as { preset: unknown; from?: unknown; to?: unknown };
+    if (p.preset === 'custom') {
+      const date = (v: unknown) => (typeof v === 'string' && DATE_RE.test(v) ? v : undefined);
+      period = { preset: 'custom', from: date(p.from), to: date(p.to) };
+    } else if (PRESETS.includes(p.preset as PeriodPreset)) {
+      period = { preset: p.preset as PeriodPreset };
     }
-  } catch {
-    // ignore
   }
   return { grouping, period };
 }
@@ -66,18 +62,14 @@ export function NotesTab({ onOpen }: { onOpen: (showId: string, episodeId: strin
   const { t } = useTranslation('history');
   const notes = useQuery({ queryKey: qk.notes, queryFn: api.notes });
   const shows = useQuery({ queryKey: qk.shows, queryFn: api.shows });
-  const [stored] = useState(readStored);
+  const [stored] = useState(readChoices);
   const [grouping, setGrouping] = useState<Grouping>(stored.grouping);
   const [period, setPeriod] = useState<Period>(stored.period);
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    try {
-      localStorage.setItem(GROUPING_KEY, grouping);
-      localStorage.setItem(PERIOD_KEY, JSON.stringify(period));
-    } catch {
-      // ignore
-    }
+    writeStored(GROUPING_KEY, grouping);
+    writeStored(PERIOD_KEY, JSON.stringify(period));
   }, [grouping, period]);
 
   const list = useMemo(() => {

@@ -1,4 +1,5 @@
 import type { PlayTarget } from './player';
+import { readStoredJson, writeStored } from './storage';
 
 /**
  * An episode started outside the browser player (Spotify app or a Connect
@@ -22,21 +23,13 @@ const MAX = 5;
 
 /** The remembered episodes started within the last 24 hours, newest first. */
 export function loadRemoteEpisodes(now = Date.now()): RemoteEpisode[] {
-  try {
-    const raw: unknown = JSON.parse(localStorage.getItem(KEY) ?? '[]');
-    if (!Array.isArray(raw)) return [];
-    return (raw as RemoteEpisode[]).filter((e) => typeof e?.episodeId === 'string' && now - e.startedAt < KEEP_MS);
-  } catch {
-    return [];
-  }
+  const raw = readStoredJson(KEY);
+  if (!Array.isArray(raw)) return [];
+  return (raw as RemoteEpisode[]).filter((e) => typeof e?.episodeId === 'string' && now - e.startedAt < KEEP_MS);
 }
 
 function save(list: RemoteEpisode[]) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(list));
-  } catch {
-    // ignore
-  }
+  writeStored(KEY, JSON.stringify(list));
 }
 
 export function rememberRemoteEpisode(episode: RemoteEpisode) {

@@ -6,6 +6,7 @@ import { useInvalidateLibrary, useSettings } from './queries';
 import { playbackEnded } from './playback-end';
 import { forgetRemoteEpisode, loadRemoteEpisodes, rememberRemoteEpisode, type RemoteEpisode } from './remote-episodes';
 import { LISTEN_ON_SPOTIFY } from '../components/SpotifyAttribution';
+import { readStoredJson, writeStored } from './storage';
 import { useToast } from './toast';
 
 /** Where "Abspielen" sends an episode. */
@@ -123,13 +124,7 @@ function detectBrowserSupport(): boolean {
 }
 
 function loadTarget(fallback: PlayTarget): PlayTarget {
-  try {
-    const raw = localStorage.getItem(TARGET_KEY);
-    if (raw) return JSON.parse(raw) as PlayTarget;
-  } catch {
-    // ignore
-  }
-  return fallback;
+  return (readStoredJson(TARGET_KEY) as PlayTarget | undefined) ?? fallback;
 }
 
 let sdkPromise: Promise<void> | null = null;
@@ -283,11 +278,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const setTarget = useCallback((t: PlayTarget) => {
     setTargetState(t);
-    try {
-      localStorage.setItem(TARGET_KEY, JSON.stringify(t));
-    } catch {
-      // ignore
-    }
+    writeStored(TARGET_KEY, JSON.stringify(t));
   }, []);
 
   const discardPlayer = useCallback((player: Spotify.Player) => {

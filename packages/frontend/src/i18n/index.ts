@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { readStored, writeStored } from '../lib/storage';
 import { resources } from './resources';
 
 export const LANGUAGES = ['de', 'en'] as const;
@@ -11,12 +12,8 @@ const isLanguage = (value: unknown): value is Language => LANGUAGES.includes(val
 
 /** The language chosen in the settings, or undefined to follow the browser. */
 export function storedLanguage(): Language | undefined {
-  try {
-    const value = localStorage.getItem(STORAGE_KEY);
-    return isLanguage(value) ? value : undefined;
-  } catch {
-    return undefined;
-  }
+  const value = readStored(STORAGE_KEY);
+  return isLanguage(value) ? value : undefined;
 }
 
 /** The first browser language the app supports; English for any other. */
@@ -30,12 +27,7 @@ export function browserLanguage(): Language {
 
 /** Switches the language and remembers the choice in this browser; undefined follows the browser again. */
 export function setLanguage(lang: Language | undefined) {
-  try {
-    if (lang) localStorage.setItem(STORAGE_KEY, lang);
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // ignore
-  }
+  writeStored(STORAGE_KEY, lang);
   void i18n.changeLanguage(lang ?? browserLanguage());
 }
 

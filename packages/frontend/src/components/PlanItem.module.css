@@ -79,3 +79,10 @@
     grid-column: 1 / -1;
   }
 }
+/* A paused podcast's slot: kept in the plan, but visibly out of play. */
+.isPaused {
+  & .cover,
+  & .body {
+    opacity: 0.55;
+  }
+}

@@ -107,7 +107,7 @@ export function buildWeek(
       if (date < today) continue;
       const input = inputs.get(rule.showId);
       if (!input) continue;
-      const base = { ruleId: rule.id, part: rule.part, show: toShowLite(input.show) };
+      const base = { ruleId: rule.id, part: rule.part, show: toShowLite(input.show), paused: input.show.paused };
       const doneEpisode = isToday ? done.get(rule.showId)?.shift() : undefined;
       if (doneEpisode) {
         items.push({ ...base, episode: doneEpisode, state: 'done' });

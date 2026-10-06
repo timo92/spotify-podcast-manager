@@ -138,7 +138,7 @@ Each podcast has exactly one mode.
 - **D2** All personal data (settings, progress, plan, notes) can be exported
   as JSON.
 - **D3** All data, including credentials and tokens, can be deleted from
-  within the app.
+  within the app (once a running sync has finished).
 - **D4** Personal data is backed up continuously (point-in-time recovery) and
   survives the removal of the stack.
 - **D5** Podcasts removed from the Spotify library are deleted, with their

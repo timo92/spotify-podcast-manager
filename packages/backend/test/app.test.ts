@@ -701,4 +701,17 @@ describe('library flow', () => {
     expect(await t.store.listShows()).toHaveLength(0);
     expect(await t.store.getConfig()).toBeUndefined();
   });
+
+  it('refuses to delete all data while a sync runs, which could write it back', async () => {
+    const t = await ready();
+    await t.call('POST', '/api/sync', { full: true });
+    const refused = await t.call('DELETE', '/api/data');
+    expect(refused.status).toBe(409);
+    expect(refused.body).toMatchObject({ error: 'sync_running' });
+    expect(await t.store.listShows()).toHaveLength(5);
+
+    await t.sync(); // the running sync finishes
+    expect((await t.call('DELETE', '/api/data')).status).toBe(200);
+    expect(await t.store.listShows()).toHaveLength(0);
+  });
 });

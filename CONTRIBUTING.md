@@ -1,7 +1,7 @@
 # Contributing
 
 How code, commits and pull requests are written in this repo. The reasons
-behind the architecture are in [docs/decisions.md](docs/decisions.md); what
+behind the architecture are in [docs/decisions/](docs/decisions/README.md); what
 the app does is in [docs/requirements.md](docs/requirements.md).
 
 ## Commands
@@ -150,11 +150,16 @@ There is no formatter yet; match the surrounding code:
 
 ### Docs
 
-- A new or changed architectural decision gets an entry in
-  `docs/decisions.md` (next free number; **Decision**, **Why**,
-  **Alternatives**). Don't rewrite an old entry; mark it superseded.
+- A new or changed architectural decision gets its own file in
+  `docs/decisions/` (next free number; **Decision**, **Why**,
+  **Alternatives**) and a line in its index. Only choices with real
+  alternatives and lasting consequences get one; details of a single piece of
+  code belong in its comments and tests. Don't rewrite an old entry; mark it
+  superseded.
 - Behaviour changes update `docs/requirements.md` and, where relevant, the
-  README.
+  README. A requirement says what the user can do, in a sentence or two;
+  how exactly a screen looks or behaves is pinned down by the tests. New
+  requirements get the next free ID of their section; IDs are never reused.
 
 ## Commits
 

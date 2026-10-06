@@ -61,7 +61,7 @@ packages/
 docs/          requirements, architecture decisions, Spotify API notes
 ```
 
-Why it is built this way: [docs/decisions.md](docs/decisions.md). What it
+Why it is built this way: [docs/decisions/](docs/decisions/README.md). What it
 does: [docs/requirements.md](docs/requirements.md). How code, commits and pull
 requests are written: [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -238,7 +238,7 @@ The app uses the Spotify Platform under Spotify's
 [Developer Terms](https://developer.spotify.com/terms),
 [Developer Policy](https://developer.spotify.com/policy) and
 [Design & Branding Guidelines](https://developer.spotify.com/documentation/design).
-In short (details in [docs/decisions.md](docs/decisions.md), D16):
+In short (details in [D16](docs/decisions/d16-spotify-compliance.md)):
 
 - **Non-commercial.** It plays episodes in the browser, which makes it a
   *streaming* app, and those may not be commercial: no ads, no paid access.

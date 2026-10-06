@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Podcast-Cockpit: a personal, non-commercial web app in front of Spotify. See
-[README.md](README.md) for what it does, [docs/decisions.md](docs/decisions.md)
+[README.md](README.md) for what it does, [docs/decisions/](docs/decisions/README.md)
 for why it is built this way (read the relevant entries before changing the
 architecture) and [docs/requirements.md](docs/requirements.md) for the
 expected behaviour.

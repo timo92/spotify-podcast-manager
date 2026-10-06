@@ -71,13 +71,15 @@ export function buildEpisodeViews(
     const p = get(ep.id);
     const { status, source } = effectiveStatus(ep, p, settings);
     const resumeMs = ep.resumePoint && !ep.resumePoint.fullyPlayed ? ep.resumePoint.resumePositionMs : 0;
+    const isRecent = releaseTime(ep.releaseDate) >= newSince - DAY_MS;
     return {
       ...ep,
       status,
       statusSource: source,
       listenedAt: p?.listenedAt,
       skippedAt: p?.skippedAt,
-      isNew: status === 'UNSEEN' && releaseTime(ep.releaseDate) >= newSince - DAY_MS,
+      isRecent,
+      isNew: status === 'UNSEEN' && isRecent,
       remainingMs: Math.max(0, ep.durationMs - resumeMs),
       index: i + 1,
     };
@@ -99,14 +101,13 @@ export function selectNextEpisode(
 
   switch (show.mode) {
     case 'LATEST': {
-      // The newest episode that is newer than anything already finished.
-      // Once today's episode is done, yesterday's is not suggested anymore.
-      for (let i = episodes.length - 1; i >= 0; i--) {
-        const ep = episodes[i];
-        if (isDone(ep.status)) return null;
-        if (ep.isPlayable !== false) return ep;
-      }
-      return null;
+      // The newest episode not heard or skipped yet. Beyond the very newest,
+      // only recent episodes count, so older news stays buried instead of
+      // turning the show into a backlog.
+      const playable = episodes.filter((e) => e.isPlayable !== false);
+      const newest = playable.at(-1);
+      if (newest && !isDone(newest.status)) return newest;
+      return playable.findLast((e) => e.isRecent && !isDone(e.status)) ?? null;
     }
     case 'SEQUENTIAL': {
       // 1. something already started wins (the most advanced one),

@@ -65,6 +65,9 @@ export interface EpisodeView extends Episode {
   statusSource: StatusSource;
   listenedAt?: string;
   skippedAt?: string;
+  /** Released within the "new" window (`newWindowDays`), whatever its status. */
+  isRecent: boolean;
+  /** Recent and not started yet. */
   isNew: boolean;
   /** Remaining listening time, taking Spotify's resume point into account. */
   remainingMs: number;

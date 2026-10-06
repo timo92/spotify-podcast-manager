@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildEpisodeViews, buildToday, selectNextEpisode, summarizeShow } from '../src/logic.js';
 import { guessCategories, guessMode } from '../src/heuristics.js';
-import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type Show } from '../src/types.js';
+import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type EpisodeStatus, type Show } from '../src/types.js';
 
 const now = new Date('2026-10-05T08:00:00Z');
 
@@ -119,11 +119,61 @@ describe('selectNextEpisode', () => {
     expect(selectNextEpisode(show({ reofferSkipped: true }), views)?.id).toBe('a');
   });
 
-  it('LATEST picks the newest episode and nothing once it is done', () => {
+  it('LATEST picks the newest episode', () => {
     const views = buildEpisodeViews(episodes, new Map(), DEFAULT_SETTINGS, now);
     expect(selectNextEpisode(show({ mode: 'LATEST' }), views)?.id).toBe('c');
     const done = buildEpisodeViews(episodes, new Map([['c', prog('c', 'COMPLETED')]]), DEFAULT_SETTINGS, now);
     expect(selectNextEpisode(show({ mode: 'LATEST' }), done)).toBeNull();
+  });
+
+  it('LATEST offers the newest unheard recent episode once the newest is heard', () => {
+    // A daily show: the 4th is the newest, heard right away; the 3rd was never heard.
+    const daily = [ep('d1', '2026-10-01'), ep('d2', '2026-10-02'), ep('d3', '2026-10-03'), ep('d4', '2026-10-04')];
+    const latest = show({ mode: 'LATEST' });
+    const pick = (p: [string, EpisodeStatus][]) =>
+      selectNextEpisode(
+        latest,
+        buildEpisodeViews(daily, new Map(p.map(([id, st]) => [id, prog(id, st)])), DEFAULT_SETTINGS, now),
+      )?.id;
+
+    expect(pick([['d4', 'COMPLETED']])).toBe('d3');
+    expect(
+      pick([
+        ['d4', 'COMPLETED'],
+        ['d3', 'IN_PROGRESS'],
+      ]),
+    ).toBe('d3');
+    expect(
+      pick([
+        ['d4', 'COMPLETED'],
+        ['d3', 'SKIPPED'],
+      ]),
+    ).toBe('d2');
+    expect(
+      pick([
+        ['d4', 'COMPLETED'],
+        ['d3', 'COMPLETED'],
+        ['d2', 'COMPLETED'],
+        ['d1', 'COMPLETED'],
+      ]),
+    ).toBeUndefined();
+  });
+
+  it('LATEST leaves episodes older than the new window buried', () => {
+    const views = buildEpisodeViews(
+      episodes,
+      new Map([['c', prog('c', 'COMPLETED')]]),
+      { ...DEFAULT_SETTINGS, newWindowDays: 7 },
+      now,
+    );
+    expect(selectNextEpisode(show({ mode: 'LATEST' }), views)).toBeNull();
+    const wide = buildEpisodeViews(
+      episodes,
+      new Map([['c', prog('c', 'COMPLETED')]]),
+      { ...DEFAULT_SETTINGS, newWindowDays: 30 },
+      now,
+    );
+    expect(selectNextEpisode(show({ mode: 'LATEST' }), wide)?.id).toBe('b');
   });
 
   it('MANUAL only returns the pinned episode; pins override every mode', () => {

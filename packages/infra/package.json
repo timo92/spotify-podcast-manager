@@ -11,6 +11,7 @@
     "diff": "node --env-file-if-exists=../../.env node_modules/aws-cdk/bin/cdk diff --all",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "secret:put": "tsx --env-file-if-exists=../../.env scripts/put-spotify-secret.ts"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "@aws-sdk/client-cloudformation": "^3.1146.0",
     "@aws-sdk/client-ssm": "^3.1146.0",
     "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "5.0.3",
     "aws-cdk": "^2.1144.0",
     "esbuild": "^0.28.2",
     "tsx": "^4.23.15",

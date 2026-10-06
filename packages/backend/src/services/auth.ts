@@ -52,15 +52,17 @@ export class AuthService {
     const config = await this.store.getConfig();
     if (config && config.ownerId !== user.id) return undefined;
     // Writing the config without `disconnectedAt` also ends a revoked state, so
-    // the retention rules no longer delete the data.
+    // the retention rules no longer delete the data. The claim is conditional:
+    // another account may have become the owner since the read above.
     if (!config || config.disconnectedAt || config.ownerName !== (user.display_name ?? undefined)) {
       const now = new Date().toISOString();
-      await this.store.putConfig({
+      const claimed = await this.store.claimConfig({
         ownerId: user.id,
         ownerName: user.display_name ?? undefined,
         createdAt: config?.createdAt ?? now,
         updatedAt: now,
       });
+      if (!claimed) return undefined;
     }
     const previous = await this.store.getTokens();
     await this.store.putTokens({ ...tokens, refreshToken: tokens.refreshToken || previous?.refreshToken || '' });

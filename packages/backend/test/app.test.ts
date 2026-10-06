@@ -153,6 +153,20 @@ describe('configuration and auth', () => {
     expect((await t.call('GET', '/api/today')).status).toBe(401);
   });
 
+  it('lets only one of two accounts logging in at the same time become the owner', async () => {
+    const t = setup();
+    // Both logins read the config before either has written it.
+    const getConfig = t.store.getConfig.bind(t.store);
+    t.store.getConfig = async () => undefined;
+    expect((await login(t)).headers.Location).toBe('/?welcome=1');
+    t.clearCookies();
+    t.setUser('intruder');
+    expect((await login(t)).headers.Location).toBe('/login?error=wrong_account');
+    t.store.getConfig = getConfig;
+    expect((await t.store.getConfig())?.ownerId).toBe('owner');
+    expect((await t.call('GET', '/api/today')).status).toBe(401);
+  });
+
   it('rejects a callback with a wrong state', async () => {
     const t = setup();
     await t.call('GET', '/api/auth/login');

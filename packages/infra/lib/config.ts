@@ -57,6 +57,7 @@ export function contextFromArgs(argv: string[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (arg === undefined) break;
     let pair: string | undefined;
     if (arg === '-c' || arg === '--context') pair = argv[++i];
     else if (arg.startsWith('--context=')) pair = arg.slice('--context='.length);

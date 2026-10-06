@@ -205,7 +205,7 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.getTokens()).toBeUndefined();
 
       await store.putShow({ ...show, id: 'gone' });
-      await store.putEpisodes([{ ...episodes[0], showId: 'gone', id: 'g1' }]);
+      await store.putEpisodes([{ ...episodes[0]!, showId: 'gone', id: 'g1' }]);
       await store.putProgress([
         { showId: 'gone', episodeId: 'g1', status: 'COMPLETED', listenedAt: 'x', updatedAt: 'u' },
       ]);

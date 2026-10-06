@@ -274,7 +274,7 @@ export function createApp(deps: AppDeps) {
       status: p.status,
       at: p.listenedAt ?? p.updatedAt,
     }));
-    return c.json(buildToday(shows, settings, recent, today.items));
+    return c.json(buildToday(shows, settings, recent, today?.items ?? []));
   });
 
   app.get('/api/history', async (c) => {
@@ -421,9 +421,9 @@ export function createApp(deps: AppDeps) {
   app.get('/api/player/state', async (c) => c.json(await playback.state()));
 
   app.get('/api/player/devices', async (c) => {
-    const devices: PlayerDevice[] = (await deps.spotify().getDevices())
-      .filter((d) => d.id && !d.is_restricted)
-      .map((d) => ({ id: d.id!, name: d.name, type: d.type, isActive: d.is_active }));
+    const devices: PlayerDevice[] = (await deps.spotify().getDevices()).flatMap((d) =>
+      d.id && !d.is_restricted ? [{ id: d.id, name: d.name, type: d.type, isActive: d.is_active }] : [],
+    );
     return c.json(devices);
   });
 

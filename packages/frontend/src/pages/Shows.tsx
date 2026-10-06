@@ -80,8 +80,11 @@ export function ShowsPage() {
   async function move(index: number, delta: number) {
     const next = [...list];
     const target = index + delta;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
+    const moving = next[index];
+    const other = next[target];
+    if (!moving || !other) return;
+    next[index] = other;
+    next[target] = moving;
     setOrder(next);
     try {
       await api.reorder(next.map((s) => s.id));

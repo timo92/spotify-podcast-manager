@@ -57,8 +57,9 @@ export function SettingsPage() {
   if (settings.isLoading || !draft) return <Spinner />;
   if (settings.error) return <ErrorBox error={settings.error} />;
 
+  const current = draft;
   async function save(patch: Partial<Settings>) {
-    const next = { ...draft!, ...patch };
+    const next = { ...current, ...patch };
     setDraft(next);
     try {
       const saved = await api.saveSettings(next);

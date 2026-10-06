@@ -30,7 +30,7 @@ describe('HttpSpotifyApi', () => {
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     // entries without show data (taken down) are skipped
     expect((await api.getSavedShows()).map((s) => s.id)).toEqual(['1', '2']);
-    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer old');
+    expect(fetchMock.mock.calls[0]![1].headers.Authorization).toBe('Bearer old');
   });
 
   it('refreshes an expired token and keeps a rotated refresh token', async () => {
@@ -49,7 +49,7 @@ describe('HttpSpotifyApi', () => {
       const apiFetch = vi.fn().mockResolvedValue(response(200, { id: 'me' }));
       const api = new HttpSpotifyApi(store, credentials, apiFetch as typeof fetch);
       await api.getMe();
-      expect(apiFetch.mock.calls[0][1].headers.Authorization).toBe('Bearer new');
+      expect(apiFetch.mock.calls[0]![1].headers.Authorization).toBe('Bearer new');
       expect((await store.getTokens())!.refreshToken).toBe('rotated');
     } finally {
       globalThis.fetch = realFetch;
@@ -117,7 +117,7 @@ describe('HttpSpotifyApi', () => {
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     const saved = await api.libraryContains(ids);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const first = new URL(fetchMock.mock.calls[0][0]);
+    const first = new URL(fetchMock.mock.calls[0]![0]);
     expect(first.pathname).toBe('/v1/me/library/contains');
     expect(first.searchParams.get('uris')!.split(',')).toEqual(ids.slice(0, 40).map((id) => `spotify:show:${id}`));
     expect([saved.get('s0'), saved.get('s1'), saved.get('s40')]).toEqual([true, false, true]);
@@ -147,7 +147,7 @@ describe('HttpSpotifyApi', () => {
       paused: true,
       deviceName: 'iPhone',
     });
-    const url = new URL(fetchMock.mock.calls[0][0]);
+    const url = new URL(fetchMock.mock.calls[0]![0]);
     expect(url.pathname).toBe('/v1/me/player');
     expect(url.searchParams.get('additional_types')).toBe('episode');
     expect(await api.getPlayingEpisode()).toBeUndefined();
@@ -165,7 +165,7 @@ describe('HttpSpotifyApi', () => {
       .mockResolvedValueOnce(notFound('NO_ACTIVE_DEVICE'));
     const api = new HttpSpotifyApi(store, credentials, fetchMock as typeof fetch);
     await expect(api.play('ep1', 'phone', 0)).rejects.toMatchObject({ status: 404, code: 'device_unavailable' });
-    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('device_id')).toBe('phone');
+    expect(new URL(fetchMock.mock.calls[0]![0]).searchParams.get('device_id')).toBe('phone');
     // Without a device id, a 404 is not about a device.
     await expect(api.play('ep1', undefined, 0)).rejects.toMatchObject({ code: 'spotify_error' });
     await expect(api.play('ep1', undefined, 0)).rejects.toMatchObject({ code: 'no_active_device' });

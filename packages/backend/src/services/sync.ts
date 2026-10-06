@@ -80,7 +80,7 @@ export async function releaseSyncLease(store: Store, lease: SyncState & { leaseI
 export function pickImage(images: SpotifyImage[] | undefined): string | undefined {
   if (!images?.length) return undefined;
   const sorted = [...images].sort((a, b) => Math.abs((a.width ?? 300) - 300) - Math.abs((b.width ?? 300) - 300));
-  return sorted[0].url;
+  return sorted[0]?.url;
 }
 
 export function toEpisode(raw: SpotifyEpisode, showId: string, firstSeenAt: string, now: string): Episode {
@@ -289,11 +289,12 @@ export class SyncService {
     // Incremental syncs only see the newest page, so refresh the resume point
     // of the current "next" episode explicitly – that's the one that matters.
     const nextId = prev?.summary?.nextEpisode?.id;
-    if (!doFull && nextId && known.has(nextId) && !episodes.some((e) => e.id === nextId)) {
+    const storedNext = nextId ? known.get(nextId) : undefined;
+    if (!doFull && nextId && storedNext && !episodes.some((e) => e.id === nextId)) {
       const fresh = await this.spotify.getEpisode(nextId);
       if (fresh) {
-        const ep = toEpisode(fresh, showId, known.get(nextId)!.firstSeenAt, nowIso);
-        if (episodeChanged(known.get(nextId), ep)) changed.push(ep);
+        const ep = toEpisode(fresh, showId, storedNext.firstSeenAt, nowIso);
+        if (episodeChanged(storedNext, ep)) changed.push(ep);
       }
     }
     if (changed.length) await this.store.putEpisodes(changed);

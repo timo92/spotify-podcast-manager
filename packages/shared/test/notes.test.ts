@@ -85,7 +85,7 @@ describe('groupNotesByShow', () => {
       note('s', 'e2', '2026-10-03T00:00:00Z', '2026-02-01', 10_000),
       note('s', 'e1', '2026-10-04T00:00:00Z', '2026-01-01', null),
     ]);
-    expect(group.notes.map((n) => [n.episodeId, n.positionMs])).toEqual([
+    expect(group!.notes.map((n) => [n.episodeId, n.positionMs])).toEqual([
       ['e1', null],
       ['e1', 30_000],
       ['e2', 10_000],

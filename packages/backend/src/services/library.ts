@@ -106,8 +106,8 @@ export class LibraryService {
     }
     const show = await this.requireShow(showId);
     const episodes = new Map((await this.store.listEpisodes(showId)).map((e) => [e.id, e]));
-    const unknown = episodeIds.filter((id) => !episodes.has(id));
-    if (unknown.length) throw notFound('episode_not_found', 'Folge nicht gefunden');
+    const selected = episodeIds.flatMap((id) => episodes.get(id) ?? []);
+    if (selected.length !== episodeIds.length) throw notFound('episode_not_found', 'Folge nicht gefunden');
 
     if (status === null) {
       for (const id of episodeIds) await this.store.deleteProgress(showId, id);
@@ -115,12 +115,11 @@ export class LibraryService {
       const now = new Date().toISOString();
       const existing = await this.store.listProgress(showId);
       await this.store.putProgress(
-        episodeIds.map((id): EpisodeProgress => {
-          const ep = episodes.get(id)!;
-          const prev = existing.get(id);
+        selected.map((ep): EpisodeProgress => {
+          const prev = existing.get(ep.id);
           return {
             showId,
-            episodeId: id,
+            episodeId: ep.id,
             status,
             listenedAt: status === 'COMPLETED' ? (prev?.status === 'COMPLETED' ? prev.listenedAt : now) : undefined,
             skippedAt: status === 'SKIPPED' ? now : undefined,
@@ -163,12 +162,10 @@ export async function mapLimit<T, R>(
   fn: (item: T, index: number) => Promise<R>,
 ): Promise<R[]> {
   const results: R[] = [];
-  let next = 0;
+  // One iterator shared by all workers: each takes the next item when it is free.
+  const queue = items.entries();
   async function worker() {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i], i);
-    }
+    for (const [i, item] of queue) results[i] = await fn(item, i);
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;

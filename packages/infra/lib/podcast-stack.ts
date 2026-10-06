@@ -215,7 +215,8 @@ export class PodcastStack extends Stack {
       createDefaultStage: true,
     });
     // Modest throttling – this is a single-user app.
-    const stage = httpApi.defaultStage!.node.defaultChild as apigw.CfnStage;
+    const stage = httpApi.defaultStage?.node.defaultChild;
+    if (!(stage instanceof apigw.CfnStage)) throw new Error('HTTP API has no default stage');
     stage.defaultRouteSettings = { throttlingRateLimit: 20, throttlingBurstLimit: 40 };
 
     // ----------------------------------------------------------- frontend

@@ -88,16 +88,16 @@ describe('buildWeek', () => {
     const week = buildWeek('2026-10-05', '2026-10-05', 7, schedule, inputs);
     expect(week).toHaveLength(7);
     const [mon, tue, wed] = week;
-    expect(mon.isToday).toBe(true);
+    expect(mon!.isToday).toBe(true);
     // ordered by part of day
-    expect(mon.items.map((i) => [i.show.id, i.state, i.episode?.id])).toEqual([
+    expect(mon!.items.map((i) => [i.show.id, i.state, i.episode?.id])).toEqual([
       ['news', 'next', 'news-5'],
       ['series', 'next', 'series-2'],
       ['series', 'upcoming', 'series-3'],
     ]);
-    expect(tue.items.map((i) => [i.show.id, i.state])).toEqual([['news', 'latest']]);
-    expect(wed.items.map((i) => i.episode?.id)).toEqual(['series-4']);
-    expect(mon.openMs).toBe(90 * 60_000);
+    expect(tue!.items.map((i) => [i.show.id, i.state])).toEqual([['news', 'latest']]);
+    expect(wed!.items.map((i) => i.episode?.id)).toEqual(['series-4']);
+    expect(mon!.openMs).toBe(90 * 60_000);
   });
 
   it('turns slots into "done" for episodes finished today', () => {
@@ -109,12 +109,12 @@ describe('buildWeek', () => {
       ['news', input(show('news', 'LATEST'), eps('news', 5), [completed('news', 'news-5')], ['news-5'])],
     ]);
     const [mon, , wed] = buildWeek('2026-10-05', '2026-10-05', 7, schedule, inputs);
-    expect(mon.items.map((i) => [i.show.id, i.state, i.episode?.id])).toEqual([
+    expect(mon!.items.map((i) => [i.show.id, i.state, i.episode?.id])).toEqual([
       ['news', 'done', 'news-5'],
       ['series', 'done', 'series-1'],
       ['series', 'next', 'series-2'],
     ]);
-    expect(wed.items[0].episode?.id).toBe('series-3');
+    expect(wed!.items[0]!.episode?.id).toBe('series-3');
   });
 
   it('shows the chosen episode of a manual show in every slot', () => {
@@ -128,8 +128,8 @@ describe('buildWeek', () => {
     };
     const inputs = new Map([['manual', input(manual, eps('manual', 3))]]);
     const [, tue, , thu] = buildWeek('2026-10-05', '2026-10-05', 7, twice, inputs);
-    expect(tue.items.map((i) => [i.state, i.episode?.id])).toEqual([['next', 'manual-2']]);
-    expect(thu.items.map((i) => [i.state, i.episode?.id])).toEqual([['next', 'manual-2']]);
+    expect(tue!.items.map((i) => [i.state, i.episode?.id])).toEqual([['next', 'manual-2']]);
+    expect(thu!.items.map((i) => [i.state, i.episode?.id])).toEqual([['next', 'manual-2']]);
   });
 
   it('shows the newest episode of a news show in every slot of today, counting it once', () => {
@@ -141,11 +141,11 @@ describe('buildWeek', () => {
     };
     const inputs = new Map([['news', input(show('news', 'LATEST'), eps('news', 5))]]);
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, twice, inputs);
-    expect(mon.items.map((i) => [i.state, i.episode?.id])).toEqual([
+    expect(mon!.items.map((i) => [i.state, i.episode?.id])).toEqual([
       ['next', 'news-5'],
       ['next', 'news-5'],
     ]);
-    expect(mon.openMs).toBe(30 * 60_000);
+    expect(mon!.openMs).toBe(30 * 60_000);
   });
 
   it('ticks off only one slot when a repeated episode was heard today', () => {
@@ -159,7 +159,7 @@ describe('buildWeek', () => {
       ['news', input(show('news', 'LATEST'), eps('news', 5), [completed('news', 'news-5')], ['news-5'])],
     ]);
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, twice, inputs);
-    expect(mon.items.map((i) => [i.state, i.episode?.id])).toEqual([
+    expect(mon!.items.map((i) => [i.state, i.episode?.id])).toEqual([
       ['done', 'news-5'],
       ['none', undefined],
     ]);
@@ -168,7 +168,7 @@ describe('buildWeek', () => {
   it('marks shows with nothing left', () => {
     const inputs = new Map([['news', input(show('news', 'MANUAL'), eps('news', 2))]]);
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, schedule, inputs);
-    expect(mon.items[0].state).toBe('none');
+    expect(mon!.items[0]!.state).toBe('none');
   });
 });
 
@@ -179,7 +179,7 @@ describe('rule edits', () => {
   ];
 
   it('replaces and removes rules', () => {
-    const changed = { ...rules[0], weekdays: [5 as const] };
+    const changed = { ...rules[0]!, weekdays: [5 as const] };
     expect(replaceRule(rules, changed)).toEqual([changed, rules[1]]);
     expect(removeRule(rules, 'a')).toEqual([rules[1]]);
   });
@@ -208,7 +208,7 @@ describe('buildToday with a plan', () => {
       [series, other],
       { ...DEFAULT_SETTINGS, audioBudgetMinutes: 30, budgetTolerancePercent: 0 },
       [],
-      mon.items,
+      mon!.items,
     );
     expect(today.plan).toHaveLength(1);
     expect(today.recommended).toHaveLength(0);
@@ -227,7 +227,7 @@ describe('buildToday with a plan', () => {
       ],
     };
     const [mon] = buildWeek('2026-10-05', '2026-10-05', 1, twice, inputs);
-    const today = buildToday([manual], DEFAULT_SETTINGS, [], mon.items);
+    const today = buildToday([manual], DEFAULT_SETTINGS, [], mon!.items);
     expect(today.plan).toHaveLength(2);
     expect(today.recommendedMinutes).toBe(20);
   });

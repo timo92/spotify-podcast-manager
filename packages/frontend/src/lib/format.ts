@@ -111,11 +111,13 @@ export function formatWeekdays(days: Weekday[]): string {
     else runs.push([d]);
   }
   return runs
-    .flatMap((run) =>
-      run.length >= 3
-        ? [`${weekdayShort(run[0])}–${weekdayShort(run[run.length - 1])}`]
-        : run.map((d) => weekdayShort(d)),
-    )
+    .flatMap((run) => {
+      const first = run[0];
+      const last = run.at(-1);
+      return run.length >= 3 && first && last
+        ? [`${weekdayShort(first)}–${weekdayShort(last)}`]
+        : run.map((d) => weekdayShort(d));
+    })
     .join(', ');
 }
 
@@ -131,7 +133,7 @@ export function formatRule(rule: { weekdays: Weekday[]; part: DayPart }): string
 
 /** "5. Okt." / "5 Oct" for a YYYY-MM-DD calendar date. */
 export function formatDayMonth(date: string): string {
-  const [y, m, d] = date.split('-').map(Number);
+  const [y = 1970, m = 1, d = 1] = date.split('-').map(Number);
   return dateFormat({ day: 'numeric', month: 'short' }).format(new Date(y, m - 1, d));
 }
 

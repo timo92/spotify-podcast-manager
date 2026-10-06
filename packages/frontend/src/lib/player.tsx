@@ -232,7 +232,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const entry = state && remembered.find((r) => r.episodeId === state.episodeId);
       if (!state || !entry) {
         // Right after starting, Spotify may not report the new playback yet.
-        const justStarted = Date.now() - remembered[0].startedAt < 2 * REMOTE_POLL_MS;
+        const latest = remembered[0];
+        const justStarted = !!latest && Date.now() - latest.startedAt < 2 * REMOTE_POLL_MS;
         return justStarted ? undefined : stopFollowing();
       }
       const prev = followRef.current?.entry.episodeId === entry.episodeId ? followRef.current : null;

@@ -136,7 +136,7 @@ export class FakeSpotifyApi implements SpotifyApi {
           release_date: date,
           release_date_precision: 'day',
           duration_ms: durationMs,
-          images: this.shows[s].images,
+          images: [{ url: cover(def), width: 300, height: 300 }],
           external_urls: { spotify: `https://open.spotify.com/episode/${def.id}-${number}` },
           is_playable: true,
           // "Sein und Streit": 1–2 heard, 3 started; "Der Rest ist Geschichte": 1–2 heard.

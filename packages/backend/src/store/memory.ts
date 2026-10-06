@@ -172,7 +172,7 @@ export class MemoryStore implements Store {
     return Object.values(this.data.progress)
       .flatMap((m) => Object.values(m))
       .filter((p) => p.status === 'COMPLETED' && p.listenedAt)
-      .sort((a, b) => (b.listenedAt! > a.listenedAt! ? 1 : -1))
+      .sort((a, b) => ((b.listenedAt ?? '') > (a.listenedAt ?? '') ? 1 : -1))
       .slice(0, limit)
       .map(clone);
   }

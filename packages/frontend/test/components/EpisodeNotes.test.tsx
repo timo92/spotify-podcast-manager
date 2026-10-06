@@ -54,7 +54,7 @@ describe('EpisodeNotes', () => {
     renderNotes([note('1', 90_000, 'später'), note('2', null, 'zur ganzen Folge'), note('3', 5_000, 'früh')]);
     await screen.findByText('später');
     expect(texts()).toEqual(['zur ganzen Folge', 'früh', 'später']);
-    expect(within(screen.getAllByRole('article')[2]).getByRole('button', { name: '1:30' })).toBeInTheDocument();
+    expect(within(screen.getAllByRole('article')[2]!).getByRole('button', { name: '1:30' })).toBeInTheDocument();
   });
 
   it('adds a note and leaves its position to the server when the episode does not play in the browser', async () => {
@@ -83,7 +83,7 @@ describe('EpisodeNotes', () => {
   it('edits the text and position of a single note', async () => {
     const { user, updateNote } = renderNotes([note('1', 90_000, 'später'), note('2', 5_000, 'früh')]);
     await screen.findByText('später');
-    await user.click(within(screen.getAllByRole('article')[1]).getByRole('button', { name: 'Notiz bearbeiten' }));
+    await user.click(within(screen.getAllByRole('article')[1]!).getByRole('button', { name: 'Notiz bearbeiten' }));
 
     const text = screen.getByRole('textbox', { name: 'Text der Notiz' });
     await user.clear(text);
@@ -115,7 +115,7 @@ describe('EpisodeNotes', () => {
   it('deletes a single note and can undo it', async () => {
     const { user, deleteNote, createNote } = renderNotes([note('1', 90_000, 'später'), note('2', 5_000, 'früh')]);
     await screen.findByText('später');
-    await user.click(within(screen.getAllByRole('article')[0]).getByRole('button', { name: 'Notiz löschen' }));
+    await user.click(within(screen.getAllByRole('article')[0]!).getByRole('button', { name: 'Notiz löschen' }));
     expect(deleteNote).toHaveBeenCalledWith(expect.objectContaining({ id: '2' }));
     expect(await screen.findByText('Notiz gelöscht')).toBeInTheDocument();
     expect(texts()).toEqual(['später']);

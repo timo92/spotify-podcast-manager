@@ -1,0 +1,3 @@
+# LF everywhere, also on Windows with core.autocrlf: the formatter writes LF
+# and its check in CI must agree with every checkout.
+* text=auto eol=lf

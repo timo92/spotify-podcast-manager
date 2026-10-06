@@ -46,6 +46,54 @@ describe('PodcastStack', () => {
     template.hasResource('AWS::DynamoDB::GlobalTable', { DeletionPolicy: 'Retain' });
   });
 
+  it('keeps point-in-time recovery for the table', () => {
+    template.hasResourceProperties('AWS::DynamoDB::GlobalTable', {
+      Replicas: [Match.objectLike({ PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true } })],
+    });
+  });
+
+  it('keeps the site bucket private and reachable over TLS only', () => {
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      PublicAccessBlockConfiguration: {
+        BlockPublicAcls: true,
+        BlockPublicPolicy: true,
+        IgnorePublicAcls: true,
+        RestrictPublicBuckets: true,
+      },
+    });
+    template.hasResourceProperties('AWS::S3::BucketPolicy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({ Effect: 'Deny', Condition: { Bool: { 'aws:SecureTransport': 'false' } } }),
+        ]),
+      },
+    });
+  });
+
+  it('throttles the API and sends security headers', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Stage', {
+      DefaultRouteSettings: { ThrottlingRateLimit: 20, ThrottlingBurstLimit: 40 },
+    });
+    const managedSecurityHeaders = '67f7725c-6f97-4210-82d7-5512b31e9d03';
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        DefaultCacheBehavior: Match.objectLike({ ResponseHeadersPolicyId: managedSecurityHeaders }),
+        CacheBehaviors: [Match.objectLike({ ResponseHeadersPolicyId: managedSecurityHeaders })],
+      }),
+    });
+  });
+
+  it('syncs every two hours and fully once a night', () => {
+    template.hasResourceProperties('AWS::Events::Rule', { ScheduleExpression: 'cron(7 */2 * * ? *)' });
+    template.hasResourceProperties('AWS::Events::Rule', { ScheduleExpression: 'cron(37 3 * * ? *)' });
+  });
+
+  it("keeps the functions' logs for a month", () => {
+    const groups = Object.values(template.findResources('AWS::Logs::LogGroup'));
+    expect(groups.length).toBeGreaterThanOrEqual(2);
+    for (const group of groups) expect(group.Properties.RetentionInDays).toBe(30);
+  });
+
   it('wires the API and sync Lambdas', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Handler: 'index.handler',

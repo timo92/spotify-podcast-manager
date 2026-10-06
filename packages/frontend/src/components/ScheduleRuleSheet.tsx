@@ -5,7 +5,7 @@ import { DAY_PARTS, type DayPart, type ScheduleRule, type Weekday } from '@podca
 import { api } from '../lib/api';
 import { dayPartLabel, formatRule, weekdayShort } from '../lib/format';
 import { qk } from '../lib/queries';
-import { Chip, Cover, IconButton, Segmented, Spinner } from './ui';
+import { Chip, Cover, Segmented, Spinner } from './ui';
 import { Sheet } from './Sheet';
 
 const ALL_DAYS: Weekday[] = [1, 2, 3, 4, 5, 6, 7];
@@ -57,12 +57,7 @@ export function ScheduleRuleSheet({
     setDays((ds) => (ds.includes(d) ? ds.filter((x) => x !== d) : [...ds, d].sort((a, b) => a - b)));
 
   return (
-    <Sheet label={title} onClose={onClose}>
-      <div className="row-between">
-        <h2>{title}</h2>
-        <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
-      </div>
-
+    <Sheet title={title} onClose={onClose}>
       <div className="stack-sm">
         <strong className="small">{t('rule.podcast')}</strong>
         {chosen ? (

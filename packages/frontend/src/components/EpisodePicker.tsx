@@ -10,7 +10,7 @@ import { formatDuration, formatReleaseDate } from '../lib/format';
 import { qk } from '../lib/queries';
 import styles from './EpisodePicker.module.css';
 import { SpotifyAttribution } from './SpotifyAttribution';
-import { Cover, Empty, ErrorBox, IconButton, Spinner, StatusBadge } from './ui';
+import { Cover, Empty, ErrorBox, Spinner, StatusBadge } from './ui';
 import { Sheet } from './Sheet';
 
 /**
@@ -32,11 +32,7 @@ export function EpisodePickerSheet({ show, onClose }: { show: ShowLite; onClose:
   }, [detail.data, query]);
 
   return (
-    <Sheet label={t('picker.title')} onClose={onClose}>
-      <div className="row-between">
-        <h2>{t('picker.title')}</h2>
-        <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
-      </div>
+    <Sheet title={t('picker.title')} onClose={onClose}>
       <div className="row gap">
         <Cover src={show.imageUrl} alt={show.name} size={40} />
         <strong className="grow">{show.name}</strong>

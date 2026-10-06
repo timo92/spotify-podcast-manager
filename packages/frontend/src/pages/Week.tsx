@@ -205,11 +205,7 @@ function RemoveSlotSheet({
 }) {
   const { t } = useTranslation('plan');
   return (
-    <Sheet label={t('remove.title')} onClose={onClose}>
-      <div className="row-between">
-        <h2>{t('remove.title')}</h2>
-        <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
-      </div>
+    <Sheet title={t('remove.title')} onClose={onClose}>
       <p>{t('remove.text', { show: item.show.name, rule: formatRule(rule) })}</p>
       <button className="btn btn-block" onClick={onRemoveDay}>
         {t('remove.onlyDay', { day: weekdayLong(weekday) })}

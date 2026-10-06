@@ -341,18 +341,27 @@ export class HttpSpotifyApi implements SpotifyApi {
     return result;
   }
 
+  /**
+   * The show's episodes, newest first, each once (offset paging repeats one
+   * when an episode is published meanwhile). A page without content fails the
+   * call: a full sync deletes what is not listed, so the list must be complete.
+   */
   async getShowEpisodes(showId: string, stopAfterPage?: (page: SpotifyEpisode[]) => boolean) {
-    const episodes: SpotifyEpisode[] = [];
+    const episodes = new Map<string, SpotifyEpisode>();
     let url: string | null = `/shows/${encodeURIComponent(showId)}/episodes?limit=50`;
     while (url) {
       const page: SpotifyPage<SpotifyEpisode> | undefined = await this.request('GET', url);
-      if (!page) break;
+      if (!page) {
+        throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', `Leere Seite: ${url}`, {
+          detail: url,
+        });
+      }
       const items = page.items.filter((e): e is SpotifyEpisode => !!e?.id);
-      episodes.push(...items);
+      for (const item of items) if (!episodes.has(item.id)) episodes.set(item.id, item);
       if (stopAfterPage?.(items)) break;
       url = page.next;
     }
-    return episodes;
+    return [...episodes.values()];
   }
 
   async getEpisode(episodeId: string) {

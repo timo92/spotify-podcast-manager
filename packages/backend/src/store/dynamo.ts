@@ -55,8 +55,13 @@ export class DynamoStore implements Store {
     this.db = DynamoDBDocumentClient.from(client, { marshallOptions: { removeUndefinedValues: true } });
   }
 
+  // Base-table reads are strongly consistent: a request often reads what it
+  // just wrote (e.g. a status change, then the show's recomputed summary).
+  // Index queries cannot be; they only serve history and note lists.
   private async get<T>(pk: string, sk: string): Promise<T | undefined> {
-    const res = await this.db.send(new GetCommand({ TableName: this.table, Key: { PK: pk, SK: sk } }));
+    const res = await this.db.send(
+      new GetCommand({ TableName: this.table, Key: { PK: pk, SK: sk }, ConsistentRead: true }),
+    );
     if (!res.Item) return undefined;
     return strip(res.Item) as T;
   }
@@ -69,7 +74,9 @@ export class DynamoStore implements Store {
     const items: Record<string, unknown>[] = [];
     let ExclusiveStartKey: Record<string, unknown> | undefined;
     do {
-      const res = await this.db.send(new QueryCommand({ TableName: this.table, ...input, ExclusiveStartKey }));
+      const res = await this.db.send(
+        new QueryCommand({ TableName: this.table, ConsistentRead: !input.IndexName, ...input, ExclusiveStartKey }),
+      );
       items.push(...(res.Items ?? []));
       ExclusiveStartKey = res.LastEvaluatedKey;
     } while (ExclusiveStartKey);

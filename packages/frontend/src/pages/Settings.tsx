@@ -81,6 +81,15 @@ export function SettingsPage() {
     }
   }
 
+  /** Runs an action that ends the session (logout, deleting everything), then starts over. */
+  function thenStartOver(action: () => Promise<unknown>) {
+    action()
+      .then(() => {
+        window.location.href = '/';
+      })
+      .catch((e: Error) => toast({ message: e.message, tone: 'error' }));
+  }
+
   const sync = status?.sync;
 
   return (
@@ -254,14 +263,7 @@ export function SettingsPage() {
           <a className="btn" href="/api/auth/login">
             {t('spotify.reconnect')}
           </a>
-          <button
-            className="btn"
-            onClick={() =>
-              void api.logout().then(() => {
-                window.location.href = '/';
-              })
-            }
-          >
+          <button className="btn" onClick={() => thenStartOver(api.logout)}>
             {t('spotify.logout')}
           </button>
         </div>
@@ -294,11 +296,7 @@ export function SettingsPage() {
             <button
               className="btn btn-danger"
               disabled={confirmDelete !== t('data.confirmWord')}
-              onClick={() =>
-                void api.deleteAll().then(() => {
-                  window.location.href = '/';
-                })
-              }
+              onClick={() => thenStartOver(api.deleteAll)}
             >
               {t('data.deleteForever')}
             </button>

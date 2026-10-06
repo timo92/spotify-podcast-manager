@@ -7,6 +7,7 @@ import { usePlayer, type PlayableItem } from '../lib/player';
 import styles from './EpisodeCard.module.css';
 import { Icon } from './Icon';
 import { Badge, Cover, IconButton, Menu, ProgressBar, type BadgeTone } from './ui';
+import { LISTEN_ON_SPOTIFY, PLAY_ON_SPOTIFY } from './SpotifyAttribution';
 
 const LABEL_TONE: Record<TodayItem['label'], BadgeTone> = {
   NEU: 'new',
@@ -45,7 +46,7 @@ export function PlayButton({
   const inBrowser = playing && np.target.kind === 'browser';
   const onClick = () => (inBrowser ? player.togglePause() : void player.play(item));
   // "PLAY ON SPOTIFY" stays in English, as the Spotify design guidelines give it.
-  const label = player.target.kind === 'app' ? 'PLAY ON SPOTIFY' : inBrowser ? t('play.playing') : t('play.play');
+  const label = player.target.kind === 'app' ? PLAY_ON_SPOTIFY : inBrowser ? t('play.playing') : t('play.play');
   if (compact) {
     return (
       <IconButton
@@ -131,7 +132,7 @@ export function EpisodeCard({
           />
           <Menu
             items={[
-              { label: 'LISTEN ON SPOTIFY', icon: 'external', href: episode.spotifyUrl },
+              { label: LISTEN_ON_SPOTIFY, icon: 'external', href: episode.spotifyUrl },
               { label: t('action.details'), icon: 'list', onClick: () => onOpen(show.id, episode.id) },
               {
                 label: t('action.completeBeforeMenu'),

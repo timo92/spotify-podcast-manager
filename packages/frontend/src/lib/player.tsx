@@ -103,6 +103,8 @@ export interface PlayOptions {
 }
 
 const PlayerContext = createContext<PlayerApi | null>(null);
+/** Name of the Spotify Connect device this browser becomes. */
+export const BROWSER_DEVICE_NAME = 'Podcast-Cockpit';
 const TARGET_KEY = 'pm.playTarget';
 /** How often playback outside the browser is read from Spotify while the page is visible. */
 const REMOTE_POLL_MS = 30_000;
@@ -300,7 +302,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     deviceRef.current = (async () => {
       await loadSdk();
       const player = new window.Spotify.Player({
-        name: 'Podcast-Cockpit',
+        name: BROWSER_DEVICE_NAME,
         volume: 0.9,
         getOAuthToken: (cb) => {
           api

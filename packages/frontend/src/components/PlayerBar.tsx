@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { formatClock } from '../lib/format';
 import { cx } from '../lib/cx';
 import i18n from '../i18n';
-import { usePlayer, type NowPlaying, type PlayTarget } from '../lib/player';
+import { BROWSER_DEVICE_NAME, usePlayer, type NowPlaying, type PlayTarget } from '../lib/player';
 import { qk, useInvalidateLibrary } from '../lib/queries';
 import { useToast } from '../lib/toast';
 import { Icon } from './Icon';
@@ -179,7 +179,7 @@ export function PlayTargetPicker() {
           {devices.error && <div className="menu-note">{devices.error.message}</div>}
           {devices.data?.length === 0 && <div className="menu-note">{t('target.noDevices')}</div>}
           {devices.data
-            ?.filter((d) => d.name !== 'Podcast-Cockpit')
+            ?.filter((d) => d.name !== BROWSER_DEVICE_NAME)
             .map((d) => (
               <button
                 key={d.id}

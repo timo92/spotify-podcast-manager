@@ -40,7 +40,7 @@ export interface PodcastStackProps extends StackProps {
   /** Deployment stage, the second SSM path segment (e.g. dev). */
   stage: string;
   /** Built frontend (packages/frontend/dist). */
-  frontendDir?: string;
+  frontendDir: string;
 }
 
 /**
@@ -86,12 +86,15 @@ export class PodcastStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN,
     });
 
-    // Logs of CDK's helper functions (parameter creation, site deployment);
-    // without a group of their own they would be kept forever.
-    const helperLogs = new logs.LogGroup(this, 'DeploymentHelperLogs', {
-      retention: logs.RetentionDays.ONE_MONTH,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
+    // Every function logs into a group of the stack, kept for a month.
+    const logGroup = (logicalId: string) =>
+      new logs.LogGroup(this, logicalId, {
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      });
+    // CDK's helper functions (parameter creation, site deployment) share one;
+    // without a group of their own their logs would be kept forever.
+    const helperLogs = logGroup('DeploymentHelperLogs');
 
     // ------------------------------------------------------ spotify secret
 
@@ -146,6 +149,7 @@ export class PodcastStack extends Stack {
       depsLockFilePath: join(ROOT, 'pnpm-lock.yaml'),
       runtime: lambda.Runtime.NODEJS_22_X,
       architecture: lambda.Architecture.ARM_64,
+      memorySize: 512,
       bundling: {
         format: OutputFormat.ESM,
         target: 'node22',
@@ -166,15 +170,11 @@ export class PodcastStack extends Stack {
     const syncFn = new NodejsFunction(this, 'SyncFunction', {
       ...common,
       handler: 'syncHandler',
-      memorySize: 512,
       timeout: Duration.minutes(15),
       // No reserved concurrency: new accounts may only have 10 concurrent
       // executions, all of which must stay unreserved. A lease in DynamoDB keeps
       // syncs from running in parallel instead (backend services/sync.ts).
-      logGroup: new logs.LogGroup(this, 'SyncLogs', {
-        retention: logs.RetentionDays.ONE_MONTH,
-        removalPolicy: RemovalPolicy.DESTROY,
-      }),
+      logGroup: logGroup('SyncLogs'),
       description: 'Imports shows and episodes from Spotify',
     });
     table.grantReadWriteData(syncFn);
@@ -182,17 +182,13 @@ export class PodcastStack extends Stack {
     const apiFn = new NodejsFunction(this, 'ApiFunction', {
       ...common,
       handler: 'handler',
-      memorySize: 512,
       timeout: Duration.seconds(29),
       environment: {
         ...common.environment,
         SYNC_FUNCTION_NAME: syncFn.functionName,
         PUBLIC_URL: props.domainName ? `https://${props.domainName}` : '',
       },
-      logGroup: new logs.LogGroup(this, 'ApiLogs', {
-        retention: logs.RetentionDays.ONE_MONTH,
-        removalPolicy: RemovalPolicy.DESTROY,
-      }),
+      logGroup: logGroup('ApiLogs'),
       description: 'Podcast cockpit API',
     });
     table.grantReadWriteData(apiFn);
@@ -298,7 +294,7 @@ function handler(event) {
       },
     });
 
-    const frontendDir = props.frontendDir ?? join(ROOT, 'packages/frontend/dist');
+    const { frontendDir } = props;
     // Hashed assets can be cached forever; everything else must revalidate.
     new s3deploy.BucketDeployment(this, 'DeployAssets', {
       sources: [s3deploy.Source.asset(join(frontendDir, 'assets'))],

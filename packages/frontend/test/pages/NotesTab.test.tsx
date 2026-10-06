@@ -59,9 +59,9 @@ describe('NotesTab', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Nach Podcast' }));
     const [alpha, beta] = screen.getAllByRole('region');
-    expect(within(alpha).getByText('2 Notizen')).toBeInTheDocument();
+    expect(within(alpha!).getByText('2 Notizen')).toBeInTheDocument();
     expect(episodeTitles(alpha)).toEqual(['Folge a1', 'Folge a2']);
-    expect(within(beta).getByText('Beta')).toBeInTheDocument();
+    expect(within(beta!).getByText('Beta')).toBeInTheDocument();
   });
 
   it('limits notes to a period and searches within it', async () => {

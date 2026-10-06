@@ -72,8 +72,10 @@ hooks and accessibility; warnings fail CI too. Where the code is right but a
 rule disagrees, disable it for that line with the reason:
 `// oxlint-disable-next-line <rule> -- <reason>`. Beyond what the tools cover:
 
-- TypeScript in strict mode everywhere. No `any`. Prefer narrowing and type
-  guards over `as` casts and `!` in production code.
+- TypeScript in strict mode everywhere, with `noUncheckedIndexedAccess`: an
+  index or map access can be `undefined`. No `any`. Prefer narrowing and type
+  guards over `as` casts; production code has no `!` (the linter enforces
+  it), tests may assert what they just set up.
 - `camelCase` for values and functions, `PascalCase` for types and React
   components, `UPPER_SNAKE_CASE` for module-level constants.
 - File names: `kebab-case.ts`; React components `PascalCase.tsx`.

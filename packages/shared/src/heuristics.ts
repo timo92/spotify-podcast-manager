@@ -16,10 +16,10 @@ export function guessMode(episodes: Pick<Episode, 'releaseDate'>[], text = ''): 
     .sort((a, b) => b - a)
     .slice(0, 11);
   if (times.length < 5) return 'SEQUENTIAL';
-  const gaps: number[] = [];
-  for (let i = 1; i < times.length; i++) gaps.push((times[i - 1] - times[i]) / DAY_MS);
+  // Times are sorted newest first, so each gap is the previous time minus this one.
+  const gaps = times.slice(1).map((t, i) => ((times[i] ?? t) - t) / DAY_MS);
   gaps.sort((a, b) => a - b);
-  const median = gaps[Math.floor(gaps.length / 2)];
+  const median = gaps[Math.floor(gaps.length / 2)] ?? Infinity;
   return median <= 2.5 ? 'LATEST' : 'SEQUENTIAL';
 }
 

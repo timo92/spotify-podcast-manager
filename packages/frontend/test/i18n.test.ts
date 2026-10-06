@@ -15,7 +15,7 @@ function flatten(tree: Tree, prefix = ''): Map<string, string> {
   return out;
 }
 
-const variables = (text: string) => [...text.matchAll(/{{\s*(\w+)\s*}}/g)].map((m) => m[1]).sort();
+const variables = (text: string) => [...text.matchAll(/{{\s*(\w+)\s*}}/g)].map((m) => m[1] ?? '').sort();
 
 describe('translations', () => {
   const { de, en } = resources;
@@ -42,7 +42,7 @@ describe('translations', () => {
       const texts: Record<string, string> = lang.errors;
       expect(Object.keys(texts).sort()).toEqual([...Object.keys(ERROR_PARAMS), 'http'].sort());
       for (const [code, params] of Object.entries(ERROR_PARAMS)) {
-        expect(variables(texts[code]), code).toEqual([...params].sort());
+        expect(variables(texts[code]!), code).toEqual([...params].sort());
       }
     }
   });

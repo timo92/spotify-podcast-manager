@@ -53,10 +53,10 @@ export function ShowDetailPage() {
 
   const episodes = useMemo(() => {
     const all = detail.data?.episodes ?? [];
-    const f = FILTERS.find((x) => x.value === filter)!;
+    const test = FILTERS.find((x) => x.value === filter)?.test ?? (() => true);
     const q = query.trim().toLowerCase();
     const list = all.filter(
-      (e) => f.test(e) && (!q || e.name.toLowerCase().includes(q) || e.description.toLowerCase().includes(q)),
+      (e) => test(e) && (!q || e.name.toLowerCase().includes(q) || e.description.toLowerCase().includes(q)),
     );
     return asc ? list : [...list].reverse();
   }, [detail.data, filter, query, asc]);
@@ -69,12 +69,14 @@ export function ShowDetailPage() {
 
   const s = show.summary;
   const next = s?.nextEpisode ?? null;
-  const counts = Object.fromEntries(FILTERS.map((f) => [f.value, detail.data!.episodes.filter(f.test).length]));
+  const all = detail.data?.episodes ?? [];
+  const counts = Object.fromEntries(FILTERS.map((f) => [f.value, all.filter(f.test).length]));
+  const showId = show.id;
 
   async function update(patch: ShowSettingsPatch) {
     try {
-      const updated = await api.updateShow(show!.id, patch);
-      qc.setQueryData(qk.show(show!.id), (old: typeof detail.data) => (old ? { ...old, show: updated } : old));
+      const updated = await api.updateShow(showId, patch);
+      qc.setQueryData(qk.show(showId), (old: typeof detail.data) => (old ? { ...old, show: updated } : old));
       await invalidate();
     } catch (e) {
       toast({ message: (e as Error).message, tone: 'error' });

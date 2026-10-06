@@ -20,13 +20,19 @@ export function localDate(instant: string | number | Date, timeZone: string): st
   }
 }
 
+/** Year, month and day of a YYYY-MM-DD date. */
+function dateParts(date: string): [number, number, number] {
+  const [y = 1970, m = 1, d = 1] = date.split('-').map(Number);
+  return [y, m, d];
+}
+
 export function addDays(date: string, days: number): string {
-  const [y, m, d] = date.split('-').map(Number);
+  const [y, m, d] = dateParts(date);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
 export function weekdayOf(date: string): Weekday {
-  const [y, m, d] = date.split('-').map(Number);
+  const [y, m, d] = dateParts(date);
   const js = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = Sunday
   return (js === 0 ? 7 : js) as Weekday;
 }
@@ -98,18 +104,19 @@ export function buildWeek(
     const items: PlannedItem[] = [];
     for (const rule of rules) {
       if (date < today) continue;
-      const input = inputs.get(rule.showId)!;
+      const input = inputs.get(rule.showId);
+      if (!input) continue;
       const base = { ruleId: rule.id, part: rule.part, show: toShowLite(input.show) };
-      const doneQueue = done.get(rule.showId)!;
-      if (isToday && doneQueue.length) {
-        items.push({ ...base, episode: doneQueue.shift()!, state: 'done' });
+      const doneEpisode = isToday ? done.get(rule.showId)?.shift() : undefined;
+      if (doneEpisode) {
+        items.push({ ...base, episode: doneEpisode, state: 'done' });
         continue;
       }
       if (input.show.mode === 'LATEST' && !isToday) {
         items.push({ ...base, episode: null, state: 'latest' });
         continue;
       }
-      const queue = queues.get(rule.showId)!;
+      const queue = queues.get(rule.showId) ?? [];
       const ep = (input.show.mode === 'SEQUENTIAL' ? queue.shift() : queue[0]) ?? null;
       if (!ep) {
         items.push({ ...base, episode: null, state: 'none' });

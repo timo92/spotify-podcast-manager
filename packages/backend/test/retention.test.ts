@@ -71,14 +71,14 @@ describe('applyRetention', () => {
     spotify.saved.delete('demo-dertag');
     await sync();
     const unfollowed = await store.getShow('demo-dertag');
-    expect(unfollowed.followed).toBe(false);
-    expect(unfollowed.unfollowedAt).toBeDefined();
+    expect(unfollowed!.followed).toBe(false);
+    expect(unfollowed!.unfollowedAt).toBeDefined();
 
     spotify.saved.add('demo-dertag');
     await sync();
     const back = await store.getShow('demo-dertag');
-    expect(back.followed).toBe(true);
-    expect(back.unfollowedAt).toBeUndefined();
+    expect(back!.followed).toBe(true);
+    expect(back!.unfollowedAt).toBeUndefined();
   });
 
   it('keeps a re-followed show even if its episode sync keeps failing', async () => {
@@ -98,7 +98,7 @@ describe('applyRetention', () => {
     expect(state.status).toBe('idle');
     const stored = await store.getShow('demo-dertag');
     expect(stored).toMatchObject({ followed: true, lastSyncError: 'Spotify-Fehler 503' });
-    expect(stored.unfollowedAt).toBeUndefined();
+    expect(stored!.unfollowedAt).toBeUndefined();
   });
 
   it('only unfollows shows Spotify confirms as not saved', async () => {
@@ -119,8 +119,8 @@ describe('applyRetention', () => {
     };
     await new SyncService(store, spotify).run();
     expect(checked).toEqual([['demo-dertag', 'demo-wissensreise']]);
-    expect((await store.getShow('demo-dertag')).followed).toBe(true);
-    expect((await store.getShow('demo-wissensreise')).followed).toBe(false);
+    expect((await store.getShow('demo-dertag'))!.followed).toBe(true);
+    expect((await store.getShow('demo-wissensreise'))!.followed).toBe(false);
 
     // if the check itself fails, nothing is unfollowed in that sync
     spotify.saved.delete('demo-wirtschaft');
@@ -128,7 +128,7 @@ describe('applyRetention', () => {
       throw new Error('Spotify-Fehler 503');
     };
     await new SyncService(store, spotify).run();
-    expect((await store.getShow('demo-wirtschaft')).followed).toBe(true);
+    expect((await store.getShow('demo-wirtschaft'))!.followed).toBe(true);
   });
 
   it('checks nothing extra when every known show is listed', async () => {

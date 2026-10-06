@@ -115,7 +115,8 @@ export function selectNextEpisode(
       //    episodes before it count as "left behind", not as next,
       // 3. otherwise fill gaps from the beginning.
       const started = episodes.filter((e) => e.status === 'IN_PROGRESS');
-      if (started.length) return started[started.length - 1];
+      const furthest = started.at(-1);
+      if (furthest) return furthest;
       const open = (e: EpisodeView) => e.status === 'UNSEEN' && e.isPlayable !== false;
       let anchor = -1;
       episodes.forEach((e, i) => {
@@ -166,7 +167,7 @@ export function summarizeShow(
     unseen,
     newCount,
     nextEpisode: nextEpisode ? { ...nextEpisode, description: truncate(nextEpisode.description, 300) } : null,
-    latestReleaseDate: episodes.length ? episodes[episodes.length - 1].releaseDate : undefined,
+    latestReleaseDate: episodes.at(-1)?.releaseDate,
     lastCompleted,
     computedAt: now.toISOString(),
   };

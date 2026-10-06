@@ -74,8 +74,8 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     for (const c of res.headers.getSetCookie()) {
-      const [pair] = c.split(';');
-      const [k, v] = pair.split('=');
+      const [pair = ''] = c.split(';');
+      const [k = '', v = ''] = pair.split('=');
       if (/Max-Age=0/i.test(c)) delete cookies[k];
       else cookies[k] = decodeURIComponent(v);
     }
@@ -102,7 +102,7 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
 
 async function login(t: ReturnType<typeof setup>) {
   const res = await t.call('GET', '/api/auth/login');
-  const state = new URL(res.headers.Location).searchParams.get('state');
+  const state = new URL(res.headers.Location!).searchParams.get('state');
   return t.call('GET', `/api/auth/callback?code=x&state=${state}`);
 }
 
@@ -116,7 +116,7 @@ describe('configuration and auth', () => {
       redirectUri: 'https://podcasts.example.com/api/auth/callback',
     });
     const redirect = await t.call('GET', '/api/auth/login');
-    expect(new URL(redirect.headers.Location).searchParams.get('client_id')).toBe(CLIENT_ID);
+    expect(new URL(redirect.headers.Location!).searchParams.get('client_id')).toBe(CLIENT_ID);
   });
 
   it('explains a missing client ID instead of starting the login', async () => {
@@ -130,7 +130,7 @@ describe('configuration and auth', () => {
     const start = await t.call('GET', '/api/auth/login');
     expect(start.headers['set-cookie']).toMatch(/pm_oauth_state=[^;]+;.*SameSite=Lax/i);
     const res = await login(t);
-    const session = res.headers['set-cookie'].split(/,\s*(?=pm_)/).find((c) => c.startsWith('pm_session='))!;
+    const session = res.headers['set-cookie']!.split(/,\s*(?=pm_)/).find((c) => c.startsWith('pm_session='))!;
     expect(session).toMatch(/HttpOnly/i);
     expect(session).toMatch(/Secure/i);
     expect(session).toMatch(/SameSite=Strict/i);
@@ -176,7 +176,7 @@ describe('configuration and auth', () => {
     const t = setup();
     await login(t); // the first login starts the initial import
     expect(t.syncs).toHaveLength(1);
-    const lease = t.syncs[0].leaseId;
+    const lease = t.syncs[0]!.leaseId;
     expect(lease).toBeDefined();
 
     // A second click while it runs neither triggers nor steals the lease.
@@ -252,7 +252,7 @@ describe('library flow', () => {
     const items = [...today.recommended, ...today.more];
     expect(items).toHaveLength(5);
     // New shows are ordered news-first.
-    expect(items[0].show.mode).toBe('LATEST');
+    expect(items[0]!.show.mode).toBe('LATEST');
     // Spotify reports episodes 1–2 as played and 3 as started for "Sein und Streit".
     const sus = items.find((i) => i.show.name === 'Sein und Streit')!;
     expect(sus.label).toBe('WEITER');
@@ -333,12 +333,12 @@ describe('library flow', () => {
 
     const week = (await t.call('GET', `/api/week?tz=${tz}`)).body as WeekResponse;
     expect(week.days).toHaveLength(7);
-    expect(week.days[0].isToday).toBe(true);
-    expect(week.days[0].items.map((i) => [i.show.id, i.state])).toEqual([
+    expect(week.days[0]!.isToday).toBe(true);
+    expect(week.days[0]!.items.map((i) => [i.show.id, i.state])).toEqual([
       ['demo-dertag', 'next'],
       ['demo-wissensreise', 'next'],
     ]);
-    expect(week.days[1].items[0].episode?.id).toBe('demo-wissensreise-2');
+    expect(week.days[1]!.items[0]!.episode?.id).toBe('demo-wissensreise-2');
 
     let today = (await t.call('GET', `/api/today?tz=${tz}`)).body as TodayResponse;
     expect(today.plan.map((p) => p.show.id)).toEqual(['demo-dertag', 'demo-wissensreise']);
@@ -350,7 +350,7 @@ describe('library flow', () => {
     const slot = today.plan.find((p) => p.show.id === 'demo-wissensreise')!;
     expect([slot.state, slot.episode?.id]).toEqual(['done', 'demo-wissensreise-1']);
     const nextWeek = (await t.call('GET', `/api/week?tz=${tz}`)).body as WeekResponse;
-    expect(nextWeek.days[1].items[0].episode?.id).toBe('demo-wissensreise-2');
+    expect(nextWeek.days[1]!.items[0]!.episode?.id).toBe('demo-wissensreise-2');
   });
 
   it('validates plan rules', async () => {
@@ -378,7 +378,7 @@ describe('library flow', () => {
     expect(res.status).toBe(200);
     const [first, second] = (res.body as Schedule).rules;
     expect(first).toEqual({ id: 'same', showId: 'demo-dertag', weekdays: [1, 5], part: 'ANYTIME' });
-    expect(second.id).not.toBe('same');
+    expect(second!.id).not.toBe('same');
   });
 
   it('does not overwrite a plan that changed since it was loaded', async () => {

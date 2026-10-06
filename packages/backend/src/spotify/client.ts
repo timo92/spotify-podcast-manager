@@ -249,7 +249,13 @@ export class HttpSpotifyApi implements SpotifyApi {
   }
 
   async getMe() {
-    return (await this.request<SpotifyUser>('GET', '/me'))!;
+    const me = await this.request<SpotifyUser>('GET', '/me');
+    if (!me) {
+      throw new ApiError(StatusCodes.BAD_GATEWAY, 'spotify_unexpected_response', 'Leere Antwort von /me', {
+        detail: '/me',
+      });
+    }
+    return me;
   }
 
   async getSavedShows() {
@@ -347,6 +353,6 @@ export class HttpSpotifyApi implements SpotifyApi {
 
   async getAccessToken() {
     const accessToken = await this.validToken();
-    return { accessToken, expiresAt: this.tokens!.expiresAt };
+    return { accessToken, expiresAt: this.tokens?.expiresAt ?? Date.now() };
   }
 }

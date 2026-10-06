@@ -7,14 +7,21 @@ import { HttpSpotifyApi } from './spotify/client.js';
 import { credentialsFromEnv } from './spotify/credentials.js';
 import { DynamoStore } from './store/dynamo.js';
 
-const store = new DynamoStore(process.env.TABLE_NAME!);
+/** A variable the stack sets on the function; missing means a broken deployment. */
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Environment variable ${name} is not set`);
+  return value;
+}
+
+const store = new DynamoStore(requiredEnv('TABLE_NAME'));
 const lambda = new LambdaClient({});
 const credentials = credentialsFromEnv();
 
 async function triggerSync(opts: SyncOptions) {
   await lambda.send(
     new InvokeCommand({
-      FunctionName: process.env.SYNC_FUNCTION_NAME!,
+      FunctionName: requiredEnv('SYNC_FUNCTION_NAME'),
       InvocationType: 'Event',
       Payload: Buffer.from(JSON.stringify(opts)),
     }),

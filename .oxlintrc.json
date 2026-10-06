@@ -11,6 +11,8 @@
     "typescript/no-misused-promises": "error",
     "typescript/await-thenable": "error",
     "typescript/no-unnecessary-type-assertion": "error",
+    // Narrow instead of asserting; tests may assert what they just set up.
+    "typescript/no-non-null-assertion": "error",
 
     "react/rules-of-hooks": "error",
     // Only DOM elements: components pass autoFocus on to an element that decides.
@@ -60,6 +62,10 @@
     ]
   },
   "overrides": [
+    {
+      "files": ["packages/*/test/**"],
+      "rules": { "typescript/no-non-null-assertion": "off" }
+    },
     {
       // CDK constructs register themselves in their scope when created.
       "files": ["packages/infra/**"],

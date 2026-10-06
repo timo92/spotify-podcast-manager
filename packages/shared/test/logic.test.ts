@@ -66,12 +66,12 @@ describe('buildEpisodeViews', () => {
   it('local progress beats Spotify state; Spotify played state needs opt-in', () => {
     const played = [ep('x', '2026-10-01', 30, { resumePoint: { fullyPlayed: true, resumePositionMs: 0 } })];
     const off = { ...DEFAULT_SETTINGS, useSpotifyPlayedState: false };
-    expect(buildEpisodeViews(played, new Map(), off, now)[0].status).toBe('UNSEEN');
+    expect(buildEpisodeViews(played, new Map(), off, now)[0]!.status).toBe('UNSEEN');
     expect(
-      buildEpisodeViews(played, new Map(), { ...DEFAULT_SETTINGS, useSpotifyPlayedState: true }, now)[0].status,
+      buildEpisodeViews(played, new Map(), { ...DEFAULT_SETTINGS, useSpotifyPlayedState: true }, now)[0]!.status,
     ).toBe('COMPLETED');
     const local = new Map([['x', prog('x', 'UNSEEN')]]);
-    expect(buildEpisodeViews(played, local, { ...DEFAULT_SETTINGS, useSpotifyPlayedState: true }, now)[0].status).toBe(
+    expect(buildEpisodeViews(played, local, { ...DEFAULT_SETTINGS, useSpotifyPlayedState: true }, now)[0]!.status).toBe(
       'UNSEEN',
     );
   });
@@ -79,8 +79,8 @@ describe('buildEpisodeViews', () => {
   it('uses the Spotify resume point for in-progress and remaining time', () => {
     const half = [ep('x', '2026-10-01', 30, { resumePoint: { fullyPlayed: false, resumePositionMs: 10 * 60_000 } })];
     const [v] = buildEpisodeViews(half, new Map(), DEFAULT_SETTINGS, now);
-    expect(v.status).toBe('IN_PROGRESS');
-    expect(v.remainingMs).toBe(20 * 60_000);
+    expect(v!.status).toBe('IN_PROGRESS');
+    expect(v!.remainingMs).toBe(20 * 60_000);
   });
 });
 
@@ -219,7 +219,7 @@ describe('buildToday', () => {
     const today = buildToday(shows, { ...DEFAULT_SETTINGS, audioBudgetMinutes: 30, budgetTolerancePercent: 0 });
     expect(today.recommended.map((r) => r.show.id)).toEqual(['wr']);
     expect(today.more.map((r) => r.show.id)).toEqual(['tag', 'ss']);
-    expect(today.recommended[0].label).toBe('NAECHSTE');
+    expect(today.recommended[0]!.label).toBe('NAECHSTE');
   });
 
   it('respects tolerance, paused and hidden shows', () => {
@@ -230,7 +230,7 @@ describe('buildToday', () => {
     ];
     const today = buildToday(shows, { ...DEFAULT_SETTINGS, audioBudgetMinutes: 30, budgetTolerancePercent: 10 });
     expect(today.recommended.map((r) => r.show.id)).toEqual(['tag']);
-    expect(today.recommended[0].label).toBe('NEU');
+    expect(today.recommended[0]!.label).toBe('NEU');
     expect(today.budgetFit).toBe('over');
     expect(today.more).toHaveLength(0);
   });

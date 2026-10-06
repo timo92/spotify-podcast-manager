@@ -20,7 +20,7 @@ describe('credentialsFromEnv', () => {
     expect((await creds.get()).clientSecret).toBe('from-ssm');
     await creds.get();
     expect(ssm.send).toHaveBeenCalledTimes(1);
-    expect(ssm.send.mock.calls[0][0].input).toEqual({
+    expect(ssm.send.mock.calls[0]![0].input).toEqual({
       Name: '/podcast-cockpit/spotify-client-secret',
       WithDecryption: true,
     });

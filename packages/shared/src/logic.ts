@@ -31,10 +31,16 @@ export function releaseTime(releaseDate: string): number {
   return Date.UTC(y, m, d);
 }
 
-/** Chronological order (oldest first); same-day episodes are ordered by id to stay stable. */
+/**
+ * Chronological order (oldest first). Same-day episodes follow Spotify's
+ * listing; by id where that is unknown, so the order is at least stable.
+ */
 export function compareEpisodesAsc(a: Episode, b: Episode): number {
   const diff = releaseTime(a.releaseDate) - releaseTime(b.releaseDate);
   if (diff !== 0) return diff;
+  if (a.listingOrder !== undefined && b.listingOrder !== undefined && a.listingOrder !== b.listingOrder) {
+    return a.listingOrder - b.listingOrder;
+  }
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 

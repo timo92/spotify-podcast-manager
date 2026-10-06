@@ -108,6 +108,13 @@ describe('selectNextEpisode', () => {
     expect(selectNextEpisode(show(), end)?.id).toBe('a');
   });
 
+  it("SEQUENTIAL follows Spotify's listing for episodes released on the same day", () => {
+    // Spotify lists "Part 2" above "Part 1"; their ids sort the other way round.
+    const parts = [ep('p1', '2026-10-05', 30, { listingOrder: 0 }), ep('a2', '2026-10-05', 30, { listingOrder: 1 })];
+    const views = buildEpisodeViews(parts, new Map(), DEFAULT_SETTINGS, now);
+    expect(selectNextEpisode(show(), views)?.id).toBe('p1');
+  });
+
   it('SEQUENTIAL ignores skipped episodes unless re-offering is enabled', () => {
     const p = new Map([
       ['a', prog('a', 'SKIPPED')],

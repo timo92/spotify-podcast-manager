@@ -134,7 +134,7 @@ export async function releaseSyncLease(store: Store, lease: SyncState & { leaseI
 export async function refetchEpisode(spotify: SpotifyApi, stored: Episode, now: string): Promise<Episode | undefined> {
   const fresh = await spotify.getEpisode(stored.id);
   if (!fresh) return undefined;
-  const episode = toEpisode(fresh, stored.showId, stored.firstSeenAt, now);
+  const episode = { ...toEpisode(fresh, stored.showId, stored.firstSeenAt, now), listingOrder: stored.listingOrder };
   return episodeChanged(stored, episode) ? episode : undefined;
 }
 
@@ -164,6 +164,20 @@ export function toEpisode(raw: SpotifyEpisode, showId: string, firstSeenAt: stri
   };
 }
 
+/**
+ * Gives the fetched episodes (Spotify's listing, newest first) their
+ * `listingOrder`. Known episodes keep theirs; the others are numbered oldest
+ * first on top of the highest known one, so the new episodes an incremental
+ * sync finds come after the stored ones.
+ */
+export function withListingOrder(fetched: Episode[], known: Map<string, Episode>): Episode[] {
+  let next = 1 + [...known.values()].reduce((max, e) => Math.max(max, e.listingOrder ?? -1), -1);
+  return fetched
+    .toReversed()
+    .map((e) => ({ ...e, listingOrder: known.get(e.id)?.listingOrder ?? next++ }))
+    .toReversed();
+}
+
 /** Whether a fetched episode differs from the stored one in anything the sync stores. */
 export function episodeChanged(prev: Episode | undefined, next: Episode): boolean {
   if (!prev) return true;
@@ -174,6 +188,7 @@ export function episodeChanged(prev: Episode | undefined, next: Episode): boolea
     prev.durationMs !== next.durationMs ||
     prev.imageUrl !== next.imageUrl ||
     prev.isPlayable !== next.isPlayable ||
+    prev.listingOrder !== next.listingOrder ||
     prev.resumePoint?.fullyPlayed !== next.resumePoint?.fullyPlayed ||
     prev.resumePoint?.resumePositionMs !== next.resumePoint?.resumePositionMs
   );
@@ -338,13 +353,17 @@ export class SyncService {
   ): Promise<number> {
     const nowIso = new Date().toISOString();
     const known = new Map((await this.store.listEpisodes(showId)).map((e) => [e.id, e]));
-    const doFull = full || !prev?.fullSyncAt;
+    // Episodes stored without a listing order can only be numbered from the complete listing.
+    const doFull = full || !prev?.fullSyncAt || [...known.values()].some((e) => e.listingOrder === undefined);
 
     const fetched = await this.spotify.getShowEpisodes(
       showId,
       doFull ? undefined : (page) => page.some((e) => known.has(e.id)),
     );
-    const episodes = fetched.map((e) => toEpisode(e, showId, known.get(e.id)?.firstSeenAt ?? nowIso, nowIso));
+    const episodes = withListingOrder(
+      fetched.map((e) => toEpisode(e, showId, known.get(e.id)?.firstSeenAt ?? nowIso, nowIso)),
+      known,
+    );
     const added = episodes.filter((e) => !known.has(e.id)).length;
     const changed = episodes.filter((e) => episodeChanged(known.get(e.id), e));
 

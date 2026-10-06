@@ -1,4 +1,5 @@
 import { StatusCodes } from 'http-status-codes';
+import { compareEpisodesAsc } from '@podcast/shared';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../src/errors.js';
 import { SyncService } from '../src/services/sync.js';
@@ -71,5 +72,35 @@ describe('SyncService', () => {
     await new SyncService(store, spotify).run();
     expect(moved).toBeDefined();
     expect((await store.getShow(moved!.id))!.priority).toBe(42);
+  });
+
+  it("keeps Spotify's order of episodes released on the same day across syncs", async () => {
+    const { store, spotify } = await connected();
+    const template = (await spotify.getShowEpisodes('demo-dertag'))[0]!;
+    const episode = (id: string) => ({ ...template, id, release_date: '2026-10-01' });
+    // Newest first, like Spotify; the ids sort the other way round.
+    let listing = [episode('a-part-2'), episode('b-part-1')];
+    const original = spotify.getShowEpisodes.bind(spotify);
+    // One episode per page, so an incremental sync stops at the first known one.
+    spotify.getShowEpisodes = async (id, stop) => {
+      if (id !== 'demo-dertag') return original(id, stop);
+      const pages = listing.map((e) => [structuredClone(e)]);
+      const end = pages.findIndex((page) => stop?.(page));
+      return pages.slice(0, end < 0 ? undefined : end + 1).flat();
+    };
+    const order = async () => (await store.listEpisodes('demo-dertag')).sort(compareEpisodesAsc).map((e) => e.id);
+
+    await new SyncService(store, spotify).run();
+    expect(await order()).toEqual(['b-part-1', 'a-part-2']);
+
+    listing = [episode('0-part-3'), ...listing];
+    await new SyncService(store, spotify).run();
+    expect(await order()).toEqual(['b-part-1', 'a-part-2', '0-part-3']);
+
+    // Episodes stored before the app kept the listing order get it from a full listing.
+    const stored = await store.listEpisodes('demo-dertag');
+    await store.putEpisodes(stored.map((e) => ({ ...e, listingOrder: undefined })));
+    await new SyncService(store, spotify).run();
+    expect(await order()).toEqual(['b-part-1', 'a-part-2', '0-part-3']);
   });
 });

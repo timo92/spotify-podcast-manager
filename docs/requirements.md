@@ -42,7 +42,8 @@ Each podcast has exactly one mode.
   (the "new" window). Older episodes are not suggested.
 - **M2** **Sequential** (series): a started episode comes first; otherwise the
   first unheard episode after the last finished one. Unheard episodes before
-  that point only come back once the end is reached.
+  that point only come back once the end is reached. Episodes released on the
+  same day keep the order in which Spotify lists them.
 - **M3** **Manual:** only the episode the user picked is suggested. Where a
   planned slot has no episode yet, the user can pick one right there.
 - **M4** In every mode the user can pin an episode as "next"; the pin wins

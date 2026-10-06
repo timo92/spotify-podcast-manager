@@ -40,6 +40,12 @@ export interface Episode {
   isPlayable?: boolean;
   /** Spotify's own resume point (needs scope user-read-playback-position). */
   resumePoint?: ResumePoint;
+  /**
+   * Place in Spotify's listing of the show, counted up from the oldest
+   * episode; orders episodes released on the same day. Kept across syncs, so
+   * only episodes new to the app get one.
+   */
+  listingOrder?: number;
   firstSeenAt: string;
   lastSyncedAt: string;
 }

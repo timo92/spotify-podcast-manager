@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   localDate,
   weekdayOf,
@@ -16,6 +16,7 @@ import { StatusCodes } from 'http-status-codes';
 import { createApp } from '../src/app.js';
 import { ApiError } from '../src/errors.js';
 import { acquireSyncLease, STALE_SYNC_MS, SyncService, type SyncOptions } from '../src/services/sync.js';
+import { spotifyAuth, type SpotifyAuth } from '../src/spotify/auth.js';
 import { authorizeUrl } from '../src/spotify/client.js';
 import { staticCredentials, type SpotifyCredentialsProvider } from '../src/spotify/credentials.js';
 import { MemoryStore } from '../src/store/memory.js';
@@ -30,7 +31,15 @@ interface TestResponse {
   body: unknown;
 }
 
-function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider; triggerFails?: boolean } = {}) {
+function setup(
+  opts: {
+    userId?: string;
+    credentials?: SpotifyCredentialsProvider;
+    triggerFails?: boolean;
+    /** The OAuth login; a fake that logs in `userId` by default. */
+    auth?: SpotifyAuth;
+  } = {},
+) {
   const store = new MemoryStore();
   const spotify = new FakeSpotifyApi(new Date('2026-10-05T08:00:00Z'));
   const syncs: SyncOptions[] = [];
@@ -46,7 +55,7 @@ function setup(opts: { userId?: string; credentials?: SpotifyCredentialsProvider
       syncs.push(o);
       pending.push(o);
     },
-    auth: {
+    auth: opts.auth ?? {
       authorizeUrl,
       login: async () => ({
         tokens: { accessToken: 'a', refreshToken: 'r', expiresAt: Date.now() + 3600_000, scope: 'user-library-read' },
@@ -192,6 +201,26 @@ describe('configuration and auth', () => {
     expect(res.headers.Location).toBe('/login?error=state_mismatch');
   });
 
+  it('rejects a callback without the state cookie', async () => {
+    const t = setup();
+    const start = await t.call('GET', '/api/auth/login');
+    const state = new URL(start.headers.Location!).searchParams.get('state');
+    // e.g. the login took longer than the cookie lives, or started in another browser
+    t.clearCookies();
+    const res = await t.call('GET', `/api/auth/callback?code=x&state=${state}`);
+    expect(res.headers.Location).toBe('/login?error=state_mismatch');
+    expect(await t.store.getTokens()).toBeUndefined();
+  });
+
+  it("passes Spotify's own OAuth error on to the login page", async () => {
+    const t = setup();
+    const start = await t.call('GET', '/api/auth/login');
+    const state = new URL(start.headers.Location!).searchParams.get('state');
+    const res = await t.call('GET', `/api/auth/callback?error=access_denied&state=${state}`);
+    expect(res.headers.Location).toBe('/login?error=access_denied');
+    expect(await t.store.getConfig()).toBeUndefined();
+  });
+
   it('rejects a callback without an authorization code', async () => {
     const t = setup();
     const start = await t.call('GET', '/api/auth/login');
@@ -209,6 +238,111 @@ describe('configuration and auth', () => {
     const res = await login(t);
     expect(res.status).toBe(302);
     expect(res.headers.Location).toBe('/login?error=login_failed');
+  });
+
+  describe('with the Spotify accounts service', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    const tokenResponse = (accessToken: string, refreshToken?: string) =>
+      Response.json({
+        access_token: accessToken,
+        token_type: 'Bearer',
+        expires_in: 3600,
+        scope: 'user-library-read',
+        ...(refreshToken ? { refresh_token: refreshToken } : {}),
+      });
+
+    /**
+     * Answers the requests of the real OAuth login: `token` the code exchange
+     * at the accounts service, `me` the lookup of the Spotify user.
+     */
+    function spotifyAnswers(token: () => Response, me: () => Response) {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = input instanceof Request ? input.url : String(input);
+        return url.startsWith('https://accounts.spotify.com/') ? token() : me();
+      });
+    }
+
+    it('explains that a Spotify account is missing from the user list of the Spotify app', async () => {
+      const t = setup({ auth: spotifyAuth });
+      spotifyAnswers(
+        () => tokenResponse('a1', 'r1'),
+        () => new Response(null, { status: 403 }),
+      );
+      expect((await login(t)).headers.Location).toBe('/login?error=spotify_user_not_allowed');
+      expect(await t.store.getConfig()).toBeUndefined();
+      expect(await t.store.getTokens()).toBeUndefined();
+    });
+
+    it('explains that Spotify rejects the client credentials', async () => {
+      const t = setup({ auth: spotifyAuth });
+      const fetchSpy = spotifyAnswers(
+        () => Response.json({ error: 'invalid_client', error_description: 'Invalid client secret' }, { status: 400 }),
+        () => Response.json({ id: 'owner' }),
+      );
+      expect((await login(t)).headers.Location).toBe('/login?error=spotify_invalid_client');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(await t.store.getTokens()).toBeUndefined();
+    });
+
+    it('keeps the stored refresh token when Spotify sends none on a new login', async () => {
+      const t = setup({ auth: spotifyAuth });
+      let token = () => tokenResponse('a1', 'r1');
+      spotifyAnswers(
+        () => token(),
+        () => Response.json({ id: 'owner', display_name: 'Owner' }),
+      );
+      await login(t);
+      token = () => tokenResponse('a2');
+      t.clearCookies();
+      await login(t);
+      expect(await t.store.getTokens()).toMatchObject({ accessToken: 'a2', refreshToken: 'r1' });
+    });
+
+    it('ends the revoked state when the owner logs in again', async () => {
+      const t = setup({ auth: spotifyAuth });
+      let token = () => tokenResponse('a1', 'r1');
+      spotifyAnswers(
+        () => token(),
+        () => Response.json({ id: 'owner', display_name: 'Owner' }),
+      );
+      await login(t);
+      const { createdAt } = (await t.store.getConfig())!;
+      // what the client does when Spotify rejects the refresh token
+      await t.store.deleteTokens('r1');
+      await t.store.markDisconnected('2026-01-01T00:00:00.000Z');
+
+      token = () => tokenResponse('a2', 'r2');
+      t.clearCookies();
+      await login(t);
+      const config = (await t.store.getConfig())!;
+      expect(config.disconnectedAt).toBeUndefined();
+      expect(config).toMatchObject({ ownerId: 'owner', ownerName: 'Owner', createdAt });
+      expect(await t.store.getTokens()).toMatchObject({ accessToken: 'a2', refreshToken: 'r2' });
+      const status = (await t.call('GET', '/api/status')).body as AppStatus;
+      expect(status).toMatchObject({ authenticated: true, spotifyConnected: true });
+      expect(status.disconnectedAt).toBeUndefined();
+    });
+
+    it("leaves the owner's tokens untouched when another account logs in", async () => {
+      const t = setup({ auth: spotifyAuth });
+      let token = () => tokenResponse('owner-access', 'owner-refresh');
+      let userId = 'owner';
+      spotifyAnswers(
+        () => token(),
+        () => Response.json({ id: userId }),
+      );
+      await login(t);
+      const stored = await t.store.getTokens();
+
+      token = () => tokenResponse('intruder-access', 'intruder-refresh');
+      userId = 'intruder';
+      t.clearCookies();
+      expect((await login(t)).headers.Location).toBe('/login?error=wrong_account');
+      expect(await t.store.getTokens()).toEqual(stored);
+      expect((await t.store.getConfig())?.ownerId).toBe('owner');
+    });
   });
 
   it('frees the lease when the sync cannot be started, without failing the login', async () => {

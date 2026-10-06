@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { StatusCodes } from 'http-status-codes';
-import { guessCategories, guessMode, truncate, type Episode, type Settings, type Show, type SyncState } from '@podcast/shared';
+import {
+  guessCategories,
+  guessMode,
+  truncate,
+  type Episode,
+  type Settings,
+  type Show,
+  type SyncState,
+} from '@podcast/shared';
 import { ApiError, notFound } from '../errors.js';
 import type { SpotifyApi, SpotifyEpisode, SpotifyImage, SpotifyShow } from '../spotify/types.js';
 import type { Store } from '../store/types.js';
@@ -230,7 +238,8 @@ export class SyncService {
         newEpisodes += await this.syncShow(raw.id, raw, existing.get(raw.id), full, settings, () => ++maxPriority);
       } catch (e) {
         // Auth problems affect every show – abort instead of failing 50 times.
-        if (e instanceof ApiError && (e.status === StatusCodes.UNAUTHORIZED || e.code === 'spotify_rate_limited')) throw e;
+        if (e instanceof ApiError && (e.status === StatusCodes.UNAUTHORIZED || e.code === 'spotify_rate_limited'))
+          throw e;
         failed++;
         lastError = e;
         if (existing.has(raw.id)) {

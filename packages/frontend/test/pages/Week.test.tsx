@@ -15,7 +15,9 @@ function week(rules: ScheduleRule[], openMs = 0): PlanDay[] {
     date: `2026-10-${String(4 + d).padStart(2, '0')}`,
     weekday: d as Weekday,
     isToday: d === 1,
-    items: rules.filter((r) => r.weekdays.includes(d as Weekday)).map((r) => plannedItem({ ruleId: r.id, part: r.part })),
+    items: rules
+      .filter((r) => r.weekdays.includes(d as Weekday))
+      .map((r) => plannedItem({ ruleId: r.id, part: r.part })),
     openMs: rules.some((r) => r.weekdays.includes(d as Weekday)) ? openMs : 0,
   }));
 }
@@ -38,7 +40,9 @@ function slotOn(weekdayName: string) {
 describe('WeekPage', () => {
   it('sums the open time of the week in the header', async () => {
     renderWeek([RULE], 20 * 60_000);
-    expect(await screen.findByText('3 feste Termine pro Woche · 1 h offen in den nächsten 7 Tagen')).toBeInTheDocument();
+    expect(
+      await screen.findByText('3 feste Termine pro Woche · 1 h offen in den nächsten 7 Tagen'),
+    ).toBeInTheDocument();
   });
 
   it('claims no open time when nothing is open', async () => {

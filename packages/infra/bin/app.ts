@@ -43,7 +43,9 @@ if (config.hostedZoneName && !account) {
 
 const frontendDir = join(import.meta.dirname, '../../frontend/dist');
 if (!existsSync(join(frontendDir, 'index.html'))) {
-  throw new Error('Frontend is not built yet. Run "pnpm build" in the repository root first (or use "pnpm run deploy").');
+  throw new Error(
+    'Frontend is not built yet. Run "pnpm build" in the repository root first (or use "pnpm run deploy").',
+  );
 }
 
 let certStack: CertificateStack | undefined;

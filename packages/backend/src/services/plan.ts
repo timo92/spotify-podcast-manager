@@ -31,7 +31,8 @@ export function validTimeZone(tz: string | undefined): string {
 function parseWeekdays(value: unknown): Weekday[] {
   if (!Array.isArray(value) || value.length === 0) throw badRequest('weekdays_required', 'Mindestens ein Wochentag');
   const days = value.map(Number);
-  if (days.some((d) => !Number.isInteger(d) || d < 1 || d > 7)) throw badRequest('invalid_weekday', 'Ungültiger Wochentag');
+  if (days.some((d) => !Number.isInteger(d) || d < 1 || d > 7))
+    throw badRequest('invalid_weekday', 'Ungültiger Wochentag');
   return [...new Set(days)].sort((a, b) => a - b) as Weekday[];
 }
 

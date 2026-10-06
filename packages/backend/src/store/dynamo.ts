@@ -142,7 +142,12 @@ export class DynamoStore implements Store {
     return (await this.get<SyncState>('META', 'SYNC')) ?? { status: 'idle' };
   }
   async acquireSyncLease(state: SyncState & { leaseId: string }, staleBefore: string, takeOver?: string) {
-    const free = ['attribute_not_exists(PK)', '#status <> :running', 'attribute_not_exists(startedAt)', 'startedAt < :stale'];
+    const free = [
+      'attribute_not_exists(PK)',
+      '#status <> :running',
+      'attribute_not_exists(startedAt)',
+      'startedAt < :stale',
+    ];
     if (takeOver) free.push('leaseId = :takeOver');
     return this.conditionally(
       this.db.send(
@@ -309,7 +314,10 @@ export class DynamoStore implements Store {
           Item: { ...schedule, PK: 'META', SK: 'SCHEDULE' },
           ...(expectedUpdatedAt === null
             ? { ConditionExpression: 'attribute_not_exists(updatedAt)' }
-            : { ConditionExpression: 'updatedAt = :expected', ExpressionAttributeValues: { ':expected': expectedUpdatedAt } }),
+            : {
+                ConditionExpression: 'updatedAt = :expected',
+                ExpressionAttributeValues: { ':expected': expectedUpdatedAt },
+              }),
         }),
       ),
     );

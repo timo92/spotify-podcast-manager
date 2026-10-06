@@ -60,4 +60,5 @@ The user develops on Windows; CI runs on Windows too.
   (or `node node_modules/typescript/bin/tsc`).
 - "Parameterformat falsch - 65001" at the start of pnpm output comes from the
   shell shim on a German Windows and is harmless.
-- Files are checked out with CRLF line endings (`core.autocrlf`).
+- `.gitattributes` checks text files out with LF line endings, whatever
+  `core.autocrlf` says, so the formatter's check passes on Windows too.

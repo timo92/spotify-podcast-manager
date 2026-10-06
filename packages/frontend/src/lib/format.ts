@@ -1,4 +1,11 @@
-import { retentionExpiry, type ConsumptionMode, type DayPart, type EpisodeStatus, type TodayLabel, type Weekday } from '@podcast/shared';
+import {
+  retentionExpiry,
+  type ConsumptionMode,
+  type DayPart,
+  type EpisodeStatus,
+  type TodayLabel,
+  type Weekday,
+} from '@podcast/shared';
 import type { SyncState } from '@podcast/shared';
 import i18n, { formatLocale } from '../i18n';
 import { errorMessage } from './api';
@@ -23,7 +30,9 @@ export function formatDuration(ms: number): string {
   if (totalMin < 60) return t('duration.minutes', { minutes: totalMin });
   const hours = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  return m ? t('duration.hoursMinutes', { hours, minutes: String(m).padStart(2, '0') }) : t('duration.hours', { hours });
+  return m
+    ? t('duration.hoursMinutes', { hours, minutes: String(m).padStart(2, '0') })
+    : t('duration.hours', { hours });
 }
 
 export function formatClock(ms: number): string {
@@ -31,7 +40,9 @@ export function formatClock(ms: number): string {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  return h ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
+  return h
+    ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+    : `${m}:${String(sec).padStart(2, '0')}`;
 }
 
 /** "12:34", "75:00" or "1:02:03" in ms; undefined if it isn't such a time. */

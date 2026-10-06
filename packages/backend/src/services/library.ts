@@ -69,7 +69,8 @@ export class LibraryService {
     await this.requireShow(showId);
     const clean: ShowSettingsPatch = {};
     if (patch.mode !== undefined) {
-      if (!['LATEST', 'SEQUENTIAL', 'MANUAL'].includes(patch.mode)) throw badRequest('invalid_mode', 'Ungültiger Modus');
+      if (!['LATEST', 'SEQUENTIAL', 'MANUAL'].includes(patch.mode))
+        throw badRequest('invalid_mode', 'Ungültiger Modus');
       clean.mode = patch.mode;
     }
     if (patch.categories !== undefined) {
@@ -132,7 +133,11 @@ export class LibraryService {
       );
     }
     // A finished pinned episode no longer needs the pin.
-    if (show.pinnedEpisodeId && episodeIds.includes(show.pinnedEpisodeId) && (status === 'COMPLETED' || status === 'SKIPPED')) {
+    if (
+      show.pinnedEpisodeId &&
+      episodeIds.includes(show.pinnedEpisodeId) &&
+      (status === 'COMPLETED' || status === 'SKIPPED')
+    ) {
       await this.store.updateShow(showId, { pinnedEpisodeId: null });
     }
     return this.recompute(showId);
@@ -152,7 +157,11 @@ export class LibraryService {
   }
 }
 
-export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+export async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let next = 0;
   async function worker() {
@@ -164,4 +173,3 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, in
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return results;
 }
-

@@ -104,7 +104,12 @@ function contract(name: string, create: () => Promise<Store>) {
       await store.putSchedule({ rules: [{ id: 'a', showId: 's1', weekdays: [1, 3], part: 'MORNING' }] });
       expect((await store.getSchedule()).rules).toEqual([{ id: 'a', showId: 's1', weekdays: [1, 3], part: 'MORNING' }]);
 
-      const note = (episodeId: string, id: string, createdAt: string, positionMs: number | null = null): EpisodeNote => ({
+      const note = (
+        episodeId: string,
+        id: string,
+        createdAt: string,
+        positionMs: number | null = null,
+      ): EpisodeNote => ({
         id,
         showId: 's1',
         episodeId,
@@ -127,7 +132,11 @@ function contract(name: string, create: () => Promise<Store>) {
       // notes don't leak into the listening history
       expect((await store.listHistory(10)).every((h) => h.status === 'COMPLETED')).toBe(true);
 
-      await store.putNote({ ...note('e2', 'n2', '2026-01-03T00:00:00Z'), text: 'edited', updatedAt: '2026-02-01T00:00:00Z' });
+      await store.putNote({
+        ...note('e2', 'n2', '2026-01-03T00:00:00Z'),
+        text: 'edited',
+        updatedAt: '2026-02-01T00:00:00Z',
+      });
       expect((await store.getNote('s1', 'e2', 'n2'))?.text).toBe('edited');
       expect(await store.listEpisodeNotes('s1', 'e2')).toHaveLength(2);
 
@@ -153,7 +162,9 @@ function contract(name: string, create: () => Promise<Store>) {
       expect((await store.getSyncState()).status).toBe('idle');
       // free again after release, and a stale lease counts as free
       expect(await store.acquireSyncLease(running('c', '2026-01-01T00:13:00.000Z'), stale)).toBe(true);
-      expect(await store.acquireSyncLease(running('d', '2026-01-01T01:00:00.000Z'), '2026-01-01T00:30:00.000Z')).toBe(true);
+      expect(await store.acquireSyncLease(running('d', '2026-01-01T01:00:00.000Z'), '2026-01-01T00:30:00.000Z')).toBe(
+        true,
+      );
       expect((await store.getSyncState()).leaseId).toBe('d');
       await store.releaseSyncLease('d', { status: 'idle' });
     });
@@ -194,8 +205,18 @@ function contract(name: string, create: () => Promise<Store>) {
 
       await store.putShow({ ...show, id: 'gone' });
       await store.putEpisodes([{ ...episodes[0], showId: 'gone', id: 'g1' }]);
-      await store.putProgress([{ showId: 'gone', episodeId: 'g1', status: 'COMPLETED', listenedAt: 'x', updatedAt: 'u' }]);
-      await store.putNote({ id: 'n', showId: 'gone', episodeId: 'g1', positionMs: null, text: 'n', createdAt: 'c', updatedAt: 'u' });
+      await store.putProgress([
+        { showId: 'gone', episodeId: 'g1', status: 'COMPLETED', listenedAt: 'x', updatedAt: 'u' },
+      ]);
+      await store.putNote({
+        id: 'n',
+        showId: 'gone',
+        episodeId: 'g1',
+        positionMs: null,
+        text: 'n',
+        createdAt: 'c',
+        updatedAt: 'u',
+      });
       await store.deleteShow('gone');
       expect(await store.getShow('gone')).toBeUndefined();
       expect(await store.listEpisodes('gone')).toHaveLength(0);

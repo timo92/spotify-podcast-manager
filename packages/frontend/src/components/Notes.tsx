@@ -23,7 +23,10 @@ import { Cover, ErrorBox, IconButton, Spinner } from './ui';
 export function EpisodeNotes({ item, autoFocus }: { item: PlayableItem; autoFocus?: boolean }) {
   const showId = item.show.id;
   const episodeId = item.episode.id;
-  const notes = useQuery({ queryKey: qk.episodeNotes(showId, episodeId), queryFn: () => api.episodeNotes(showId, episodeId) });
+  const notes = useQuery({
+    queryKey: qk.episodeNotes(showId, episodeId),
+    queryFn: () => api.episodeNotes(showId, episodeId),
+  });
   const [editing, setEditing] = useState<string | null>(null);
 
   return (
@@ -52,10 +55,7 @@ export function EpisodeNotes({ item, autoFocus }: { item: PlayableItem; autoFocu
 function useNotesChanged(showId: string) {
   const qc = useQueryClient();
   return () =>
-    Promise.all([
-      qc.invalidateQueries({ queryKey: qk.notes }),
-      qc.invalidateQueries({ queryKey: qk.show(showId) }),
-    ]);
+    Promise.all([qc.invalidateQueries({ queryKey: qk.notes }), qc.invalidateQueries({ queryKey: qk.show(showId) })]);
 }
 
 function NoteItem({ note, item, onEdit }: { note: EpisodeNote; item: PlayableItem; onEdit: () => void }) {
@@ -178,7 +178,11 @@ function NewNote({ item, autoFocus }: { item: PlayableItem; autoFocus?: boolean 
 
   const create = useCallback(
     (value: string, positionMs: number | null) =>
-      api.createNote(item.show.id, item.episode.id, positionMs === null ? { text: value } : { text: value, positionMs }),
+      api.createNote(
+        item.show.id,
+        item.episode.id,
+        positionMs === null ? { text: value } : { text: value, positionMs },
+      ),
     [item.show.id, item.episode.id],
   );
 
@@ -281,7 +285,13 @@ export function NoteText({ note, item }: { note: Pick<EpisodeNote, 'text'>; item
     <p className={styles.text}>
       {splitTimestamps(note.text).map((part, i) =>
         'ms' in part ? (
-          <button key={i} type="button" className={styles.timestamp} onClick={() => jump(part.ms)} title={t('note.jump')}>
+          <button
+            key={i}
+            type="button"
+            className={styles.timestamp}
+            onClick={() => jump(part.ms)}
+            title={t('note.jump')}
+          >
             {part.label}
           </button>
         ) : (
@@ -309,11 +319,20 @@ export function PlayerNoteSheet({ onClose }: { onClose: () => void }) {
   // Portal: the player bar is its own stacking context below the navigation.
   return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={t('note.label')} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('note.label')}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="row gap">
           <Cover src={np.imageUrl} alt={np.showName} size={44} />
           <div className="grow">
-            <NowPlayingTitle np={np} detail={local ? ` · ${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}` : ''} />
+            <NowPlayingTitle
+              np={np}
+              detail={local ? ` · ${formatClock(np.positionMs)} / ${formatClock(np.durationMs)}` : ''}
+            />
           </div>
           <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
         </div>

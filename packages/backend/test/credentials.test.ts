@@ -29,8 +29,12 @@ describe('credentialsFromEnv', () => {
   it('explains missing configuration', async () => {
     await expect(credentialsFromEnv({}).get()).rejects.toMatchObject({ code: 'not_configured' });
     expect(await credentialsFromEnv({}).ready()).toBe(false);
-    await expect(credentialsFromEnv({ SPOTIFY_CLIENT_ID: 'id' }).get()).rejects.toMatchObject({ code: 'not_configured' });
-    const missing = { send: vi.fn().mockRejectedValue(Object.assign(new Error('nope'), { name: 'ParameterNotFound' })) };
+    await expect(credentialsFromEnv({ SPOTIFY_CLIENT_ID: 'id' }).get()).rejects.toMatchObject({
+      code: 'not_configured',
+    });
+    const missing = {
+      send: vi.fn().mockRejectedValue(Object.assign(new Error('nope'), { name: 'ParameterNotFound' })),
+    };
     await expect(
       credentialsFromEnv({ SPOTIFY_CLIENT_ID: 'id', SPOTIFY_CLIENT_SECRET_PARAMETER: '/x' }, missing).get(),
     ).rejects.toMatchObject({ code: 'not_configured', message: expect.stringContaining('/x') });

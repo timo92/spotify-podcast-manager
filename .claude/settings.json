@@ -1,10 +1,5 @@
 {
   "permissions": {
-    "deny": [
-      "Read(./.env)",
-      "Edit(./.env)",
-      "Read(./**/.local-data/**)",
-      "Edit(./**/.local-data/**)"
-    ]
+    "deny": ["Read(./.env)", "Edit(./.env)", "Read(./**/.local-data/**)", "Edit(./**/.local-data/**)"]
   }
 }

@@ -101,11 +101,9 @@ export const api = {
       `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/refresh`,
     ),
   setStatus: (showId: string, episodeId: string, status: EpisodeStatus | null) =>
-    request<Show>(
-      'PUT',
-      `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/status`,
-      { status },
-    ),
+    request<Show>('PUT', `/api/shows/${encodeURIComponent(showId)}/episodes/${encodeURIComponent(episodeId)}/status`, {
+      status,
+    }),
   completeBefore: (showId: string, episodeId: string) =>
     request<Show>(
       'POST',

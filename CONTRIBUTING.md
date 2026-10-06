@@ -13,6 +13,7 @@ Node.js 22+ and pnpm (`corepack enable` picks the version from
 pnpm install
 pnpm dev:demo        # local app with fake Spotify, no credentials needed
 pnpm dev             # local app against real Spotify (needs .env)
+pnpm format          # format code, JSON and CSS (oxfmt)
 pnpm typecheck
 pnpm test
 pnpm build
@@ -23,6 +24,7 @@ when both pass:
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm format:check
 pnpm typecheck
 pnpm test
 pnpm build
@@ -57,12 +59,13 @@ README).
 
 ### Style
 
-There is no formatter yet; match the surrounding code:
+Formatting is done by oxfmt (`pnpm format`, configured in `.oxfmtrc.json`,
+D25); CI rejects unformatted code. Markdown is not formatted automatically.
+A commit that only reformats goes into `.git-blame-ignore-revs`.
+Beyond what the formatter covers:
 
 - TypeScript in strict mode everywhere. No `any`. Prefer narrowing and type
   guards over `as` casts and `!` in production code.
-- 2-space indentation, single quotes, semicolons, trailing commas, lines up to
-  about 120 characters.
 - `camelCase` for values and functions, `PascalCase` for types and React
   components, `UPPER_SNAKE_CASE` for module-level constants.
 - File names: `kebab-case.ts`; React components `PascalCase.tsx`.

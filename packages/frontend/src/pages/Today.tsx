@@ -99,7 +99,11 @@ export function TodayPage() {
             {data.recommended.length === 0 ? (
               <Empty
                 title={
-                  data.more.length ? (data.plan.length ? t('emptyPlanFull') : t('emptyNothingFits')) : t('emptyAllHeard')
+                  data.more.length
+                    ? data.plan.length
+                      ? t('emptyPlanFull')
+                      : t('emptyNothingFits')
+                    : t('emptyAllHeard')
                 }
               >
                 {data.more.length ? t('emptyMore') : syncing ? t('emptyImporting') : t('emptyNothingOpen')}

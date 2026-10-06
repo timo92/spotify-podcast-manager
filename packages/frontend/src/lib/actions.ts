@@ -45,8 +45,7 @@ export function useEpisodeActions() {
       run(() => api.setStatus(ep.showId, ep.id, status), t(`episode.done.${status}`), restore(ep)),
     resetStatus: (ep: EpisodeRef) =>
       run(() => api.setStatus(ep.showId, ep.id, null), t('episode.statusReset'), restore(ep)),
-    completeBefore: (ep: EpisodeRef) =>
-      run(() => api.completeBefore(ep.showId, ep.id), t('episode.completedBefore')),
+    completeBefore: (ep: EpisodeRef) => run(() => api.completeBefore(ep.showId, ep.id), t('episode.completedBefore')),
     pin: (showId: string, episodeId: string | null, previous?: string | null) =>
       run(
         () => api.updateShow(showId, { pinnedEpisodeId: episodeId }),

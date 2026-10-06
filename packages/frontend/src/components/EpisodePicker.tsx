@@ -38,7 +38,13 @@ export function EpisodePickerSheet({ show, onClose }: { show: ShowLite; onClose:
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={t('picker.title')} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('picker.title')}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="row-between">
           <h2>{t('picker.title')}</h2>
           <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
@@ -48,7 +54,12 @@ export function EpisodePickerSheet({ show, onClose }: { show: ShowLite; onClose:
           <strong className="grow">{show.name}</strong>
         </div>
         <SpotifyAttribution href={detail.data?.show.spotifyUrl} />
-        <input type="search" placeholder={t('picker.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input
+          type="search"
+          placeholder={t('picker.search')}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
         {detail.isLoading && <Spinner />}
         {detail.error && <ErrorBox error={detail.error} onRetry={() => void detail.refetch()} />}
         {detail.data && open.length === 0 && <Empty title={t('picker.empty')} />}
@@ -67,7 +78,8 @@ export function EpisodePickerSheet({ show, onClose }: { show: ShowLite; onClose:
                   <span className={cx('grow', styles.text)}>
                     <span className={styles.title}>{e.name}</span>
                     <span className="muted tiny">
-                      {t('episode.number', { ns: 'common', index: e.index })} · {formatReleaseDate(e.releaseDate)} · {formatDuration(e.durationMs)}
+                      {t('episode.number', { ns: 'common', index: e.index })} · {formatReleaseDate(e.releaseDate)} ·{' '}
+                      {formatDuration(e.durationMs)}
                     </span>
                   </span>
                   <StatusBadge status={e.status} isNew={e.isNew} />

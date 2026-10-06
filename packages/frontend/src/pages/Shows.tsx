@@ -23,7 +23,8 @@ const MODES: ConsumptionMode[] = ['LATEST', 'SEQUENTIAL', 'MANUAL'];
 export const modeOptions = () => MODES.map((m) => ({ value: m, label: modeLabel(m), hint: modeHint(m) }));
 
 export function progressText(show: Show): { text: string; tone?: 'new' | 'muted' } {
-  const t = (key: ProgressKey, values?: Record<string, number>) => i18n.t(`progress.${key}`, { ns: 'shows', ...values });
+  const t = (key: ProgressKey, values?: Record<string, number>) =>
+    i18n.t(`progress.${key}`, { ns: 'shows', ...values });
   const s = show.summary;
   if (!s || s.total === 0) return { text: t('noEpisodes'), tone: 'muted' };
   const next = s.nextEpisode;
@@ -114,7 +115,11 @@ export function ShowsPage() {
           <SpotifyAttribution on="page" />
         </div>
         {!reviewMode && (
-          <button type="button" className={`btn btn-small${reorder ? ' btn-primary' : ''}`} onClick={() => setReorder((r) => !r)}>
+          <button
+            type="button"
+            className={`btn btn-small${reorder ? ' btn-primary' : ''}`}
+            onClick={() => setReorder((r) => !r)}
+          >
             <Icon name="sort" size={18} /> {reorder ? t('ui.done', { ns: 'common' }) : t('list.priority')}
           </button>
         )}
@@ -178,7 +183,12 @@ export function ShowsPage() {
               {reorder && (
                 <div className={styles.reorder}>
                   <IconButton icon="up" label={t('list.moveUp')} onClick={() => void move(i, -1)} disabled={i === 0} />
-                  <IconButton icon="down" label={t('list.moveDown')} onClick={() => void move(i, 1)} disabled={i === visible.length - 1} />
+                  <IconButton
+                    icon="down"
+                    label={t('list.moveDown')}
+                    onClick={() => void move(i, 1)}
+                    disabled={i === visible.length - 1}
+                  />
                 </div>
               )}
               <ShowCard show={show} rank={reorder ? i + 1 : undefined} />

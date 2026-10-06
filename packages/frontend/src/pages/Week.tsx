@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { removeRule, removeWeekday, replaceRule, type PlannedItem, type ScheduleRule, type Weekday } from '@podcast/shared';
+import {
+  removeRule,
+  removeWeekday,
+  replaceRule,
+  type PlannedItem,
+  type ScheduleRule,
+  type Weekday,
+} from '@podcast/shared';
 import { EpisodeSheet } from '../components/EpisodeSheet';
 import { SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Icon } from '../components/Icon';
@@ -60,7 +67,11 @@ export function WeekPage() {
           <SpotifyAttribution on="page" />
         </div>
         {rules.length > 0 && (
-          <button type="button" className={`btn btn-small${editing ? ' btn-primary' : ''}`} onClick={() => setEditing((e) => !e)}>
+          <button
+            type="button"
+            className={`btn btn-small${editing ? ' btn-primary' : ''}`}
+            onClick={() => setEditing((e) => !e)}
+          >
             <Icon name={editing ? 'check' : 'note'} size={16} />{' '}
             {editing ? t('ui.done', { ns: 'common' }) : t('ui.edit', { ns: 'common' })}
           </button>
@@ -86,11 +97,19 @@ export function WeekPage() {
               <div className={styles.dayHead}>
                 <h2 className="h3">
                   {day.isToday ? t('week.today') : weekdayLong(day.weekday)}
-                  <span className="muted small"> · {day.isToday ? weekdayShort(day.weekday) + ', ' : ''}{formatDayMonth(day.date)}</span>
+                  <span className="muted small">
+                    {' '}
+                    · {day.isToday ? weekdayShort(day.weekday) + ', ' : ''}
+                    {formatDayMonth(day.date)}
+                  </span>
                 </h2>
                 {day.openMs > 0 && <span className="muted small">{formatDuration(day.openMs)}</span>}
                 {editing && (
-                  <IconButton icon="plus" label={t('week.addOn', { day: weekdayLong(day.weekday) })} onClick={() => setAdding([day.weekday])} />
+                  <IconButton
+                    icon="plus"
+                    label={t('week.addOn', { day: weekdayLong(day.weekday) })}
+                    onClick={() => setAdding([day.weekday])}
+                  />
                 )}
               </div>
               {day.items.length === 0 ? (
@@ -185,14 +204,18 @@ function RemoveSlotSheet({
   const { t } = useTranslation('plan');
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={t('remove.title')} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('remove.title')}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="row-between">
           <h2>{t('remove.title')}</h2>
           <IconButton icon="close" label={t('ui.close', { ns: 'common' })} onClick={onClose} />
         </div>
-        <p>
-          {t('remove.text', { show: item.show.name, rule: formatRule(rule) })}
-        </p>
+        <p>{t('remove.text', { show: item.show.name, rule: formatRule(rule) })}</p>
         <button className="btn btn-block" onClick={onRemoveDay}>
           {t('remove.onlyDay', { day: weekdayLong(weekday) })}
         </button>

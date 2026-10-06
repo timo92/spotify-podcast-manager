@@ -48,3 +48,4 @@ wish to keep operations close to zero.
 | [D22](d22-conditional-plan-saves.md) | Plan saves are conditional; the client re-applies its edit once |
 | [D23](d23-individual-notes.md) | Notes are individual entries with a position |
 | [D24](d24-playback-read-back.md) | Playback outside the browser is read back on demand |
+| [D25](d25-oxfmt.md) | Formatting with oxfmt |

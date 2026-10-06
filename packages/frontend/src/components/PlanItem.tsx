@@ -41,7 +41,11 @@ export function PlanItemRow({
   const started = ep && ep.remainingMs < ep.durationMs && !done;
   const showPath = `/podcasts/${encodeURIComponent(item.show.id)}`;
   const emptyText =
-    item.state === 'latest' ? t('slot.latest') : item.show.mode === 'MANUAL' ? t('slot.noneChosen') : t('slot.allHeard');
+    item.state === 'latest'
+      ? t('slot.latest')
+      : item.show.mode === 'MANUAL'
+        ? t('slot.noneChosen')
+        : t('slot.allHeard');
 
   return (
     <li className={cx(styles.item, done && styles.isDone)}>
@@ -79,9 +83,15 @@ export function PlanItemRow({
             <Icon name="check" size={18} />
           </span>
         )}
-        {open && <PlayButton item={{ show: item.show, episode: ep }} compact primary={isToday && item.state === 'next'} />}
+        {open && (
+          <PlayButton item={{ show: item.show, episode: ep }} compact primary={isToday && item.state === 'next'} />
+        )}
         {open && isToday && item.state === 'next' && (
-          <IconButton icon="check" label={t('episode.markPlayed', { ns: 'common' })} onClick={() => actions.setStatus(ep, 'COMPLETED')} />
+          <IconButton
+            icon="check"
+            label={t('episode.markPlayed', { ns: 'common' })}
+            onClick={() => actions.setStatus(ep, 'COMPLETED')}
+          />
         )}
         {canPick && (
           <button type="button" className="btn btn-small" onClick={() => setPicking(true)}>

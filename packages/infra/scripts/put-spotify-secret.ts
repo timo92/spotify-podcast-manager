@@ -21,16 +21,21 @@ const fail = (message: string): never => {
 
 const { stackName } = resolveConfig(scriptContext());
 console.log(`Target stack: ${stackName}`);
-const secret = process.env.SPOTIFY_CLIENT_SECRET?.trim() || fail('SPOTIFY_CLIENT_SECRET is not set (environment or .env).');
+const secret =
+  process.env.SPOTIFY_CLIENT_SECRET?.trim() || fail('SPOTIFY_CLIENT_SECRET is not set (environment or .env).');
 
 const cfn = new CloudFormationClient({});
 const region = await cfn.config.region();
-const stacks = await cfn.send(new DescribeStacksCommand({ StackName: stackName })).catch((e: Error) =>
-  fail(`Stack ${stackName} not found in ${region} – deploy first (pnpm run deploy). ${e.message}`),
-);
+const stacks = await cfn
+  .send(new DescribeStacksCommand({ StackName: stackName }))
+  .catch((e: Error) =>
+    fail(`Stack ${stackName} not found in ${region} – deploy first (pnpm run deploy). ${e.message}`),
+  );
 const name =
   stacks.Stacks?.[0]?.Outputs?.find((o) => o.OutputKey === 'SpotifyClientSecretParameter')?.OutputValue ??
   fail(`Stack ${stackName} has no SpotifyClientSecretParameter output – redeploy with the current version.`);
 
-await new SSMClient({}).send(new PutParameterCommand({ Name: name, Value: secret, Type: 'SecureString', Overwrite: true }));
+await new SSMClient({}).send(
+  new PutParameterCommand({ Name: name, Value: secret, Type: 'SecureString', Overwrite: true }),
+);
 console.log(`✔ Stored the Spotify client secret in ${name} (${region}). The app picks it up within 5 minutes.`);

@@ -18,7 +18,9 @@ export function NotConfiguredPage({ status }: { status: Status }) {
               t={t}
               i18nKey="setup.step1"
               components={{
-                dashboard: <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer" />,
+                dashboard: (
+                  <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer" />
+                ),
                 strong: <strong />,
               }}
             />

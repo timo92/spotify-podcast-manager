@@ -1,7 +1,7 @@
 {
   "name": "spotify-podcast-manager",
-  "private": true,
   "version": "0.1.0",
+  "private": true,
   "description": "Personal podcast cockpit in front of Spotify",
   "scripts": {
     "dev": "pnpm --parallel --filter @podcast/backend --filter @podcast/frontend dev",
@@ -13,7 +13,12 @@
     "test": "pnpm -r test",
     "synth": "pnpm build && pnpm --filter @podcast/infra run synth",
     "deploy": "pnpm build && pnpm --filter @podcast/infra run deploy",
-    "secret:put": "pnpm --filter @podcast/infra run secret:put"
+    "secret:put": "pnpm --filter @podcast/infra run secret:put",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.71.0"
   },
   "engines": {
     "node": ">=22",

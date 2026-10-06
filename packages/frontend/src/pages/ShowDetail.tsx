@@ -55,12 +55,17 @@ export function ShowDetailPage() {
     const all = detail.data?.episodes ?? [];
     const f = FILTERS.find((x) => x.value === filter)!;
     const q = query.trim().toLowerCase();
-    const list = all.filter((e) => f.test(e) && (!q || e.name.toLowerCase().includes(q) || e.description.toLowerCase().includes(q)));
+    const list = all.filter(
+      (e) => f.test(e) && (!q || e.name.toLowerCase().includes(q) || e.description.toLowerCase().includes(q)),
+    );
     return asc ? list : [...list].reverse();
   }, [detail.data, filter, query, asc]);
 
   if (detail.isLoading) return <Spinner />;
-  if (detail.error || !show) return <ErrorBox error={detail.error ?? t('ui.notFound', { ns: 'common' })} onRetry={() => void detail.refetch()} />;
+  if (detail.error || !show)
+    return (
+      <ErrorBox error={detail.error ?? t('ui.notFound', { ns: 'common' })} onRetry={() => void detail.refetch()} />
+    );
 
   const s = show.summary;
   const next = s?.nextEpisode ?? null;
@@ -121,7 +126,10 @@ export function ShowDetailPage() {
       </header>
 
       {show.description && (
-        <p className={cx('description', !showDescription && styles.clamp)} onClick={() => setShowDescription((v) => !v)}>
+        <p
+          className={cx('description', !showDescription && styles.clamp)}
+          onClick={() => setShowDescription((v) => !v)}
+        >
           {show.description}
         </p>
       )}
@@ -133,7 +141,8 @@ export function ShowDetailPage() {
             {next.name}
           </button>
           <div className="muted small">
-            {t('episode.number', { ns: 'common', index: next.index })} · {formatReleaseDate(next.releaseDate)} · {formatDuration(next.remainingMs)}
+            {t('episode.number', { ns: 'common', index: next.index })} · {formatReleaseDate(next.releaseDate)} ·{' '}
+            {formatDuration(next.remainingMs)}
             {next.remainingMs < next.durationMs && ` ${t('detail.left')}`}
           </div>
           <div className="row gap">
@@ -144,7 +153,12 @@ export function ShowDetailPage() {
 
       <section className="card settings-card">
         <h2 className="h3">{t('detail.settings')}</h2>
-        <Segmented label={t('ui.mode', { ns: 'common' })} value={show.mode} options={modeOptions()} onChange={(mode) => void update({ mode })} />
+        <Segmented
+          label={t('ui.mode', { ns: 'common' })}
+          value={show.mode}
+          options={modeOptions()}
+          onChange={(mode) => void update({ mode })}
+        />
         <p className="muted small">{modeHint(show.mode)}</p>
         <div className="chips">
           {categories.map((c) => (
@@ -153,7 +167,9 @@ export function ShowDetailPage() {
               active={show.categories.includes(c)}
               onClick={() =>
                 void update({
-                  categories: show.categories.includes(c) ? show.categories.filter((x) => x !== c) : [...show.categories, c],
+                  categories: show.categories.includes(c)
+                    ? show.categories.filter((x) => x !== c)
+                    : [...show.categories, c],
                 })
               }
             >
@@ -170,12 +186,20 @@ export function ShowDetailPage() {
               void update({ categories: [...show.categories, c] });
             }}
           >
-            <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder={t('ui.categoryPlaceholder', { ns: 'common' })}
+            <input
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder={t('ui.categoryPlaceholder', { ns: 'common' })}
               aria-label={t('ui.newCategory', { ns: 'common' })}
             />
           </form>
         </div>
-        <Toggle label={t('detail.pause')} hint={t('detail.pauseHint')} checked={show.paused} onChange={(paused) => void update({ paused })} />
+        <Toggle
+          label={t('detail.pause')}
+          hint={t('detail.pauseHint')}
+          checked={show.paused}
+          onChange={(paused) => void update({ paused })}
+        />
         <Toggle
           label={t('detail.hide')}
           hint={t('detail.hideHint')}

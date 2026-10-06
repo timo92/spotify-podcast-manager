@@ -136,7 +136,14 @@ export interface Show {
 export type ShowSettingsPatch = Partial<
   Pick<
     Show,
-    'mode' | 'categories' | 'paused' | 'hiddenFromToday' | 'priority' | 'pinnedEpisodeId' | 'reofferSkipped' | 'needsReview'
+    | 'mode'
+    | 'categories'
+    | 'paused'
+    | 'hiddenFromToday'
+    | 'priority'
+    | 'pinnedEpisodeId'
+    | 'reofferSkipped'
+    | 'needsReview'
   >
 >;
 

@@ -65,7 +65,13 @@ export function PlayButton({
   );
 }
 
-export function EpisodeCard({ item, onOpen }: { item: TodayItem; onOpen: (showId: string, episodeId: string) => void }) {
+export function EpisodeCard({
+  item,
+  onOpen,
+}: {
+  item: TodayItem;
+  onOpen: (showId: string, episodeId: string) => void;
+}) {
   const { t } = useTranslation('episode');
   const { show, episode } = item;
   const actions = useEpisodeActions();
@@ -102,11 +108,27 @@ export function EpisodeCard({ item, onOpen }: { item: TodayItem; onOpen: (showId
             ? t('episode.remaining', { ns: 'common', time: formatDuration(episode.remainingMs) })
             : formatDuration(episode.durationMs)}
         </div>
-        {started && <ProgressBar value={episode.durationMs - episode.remainingMs} max={episode.durationMs} label={t('card.progress')} />}
+        {started && (
+          <ProgressBar
+            value={episode.durationMs - episode.remainingMs}
+            max={episode.durationMs}
+            label={t('card.progress')}
+          />
+        )}
         <div className={styles.actions}>
           <PlayButton item={{ show, episode }} />
-          <IconButton icon="check" label={t('episode.markPlayed', { ns: 'common' })} variant="soft" onClick={() => actions.setStatus(episode, 'COMPLETED')} />
-          <IconButton icon="skip" label={t('action.skip')} variant="soft" onClick={() => actions.setStatus(episode, 'SKIPPED')} />
+          <IconButton
+            icon="check"
+            label={t('episode.markPlayed', { ns: 'common' })}
+            variant="soft"
+            onClick={() => actions.setStatus(episode, 'COMPLETED')}
+          />
+          <IconButton
+            icon="skip"
+            label={t('action.skip')}
+            variant="soft"
+            onClick={() => actions.setStatus(episode, 'SKIPPED')}
+          />
           <Menu
             items={[
               { label: 'LISTEN ON SPOTIFY', icon: 'external', href: episode.spotifyUrl },

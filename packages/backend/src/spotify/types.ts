@@ -94,7 +94,21 @@ export interface SpotifyApi {
   getShowEpisodes(showId: string, stopAfterPage?: (page: SpotifyEpisode[]) => boolean): Promise<SpotifyEpisode[]>;
   getEpisode(episodeId: string): Promise<SpotifyEpisode | undefined>;
   getDevices(): Promise<SpotifyDevice[]>;
-  play(episodeId: string, deviceId: string | undefined, positionMs: number): Promise<void>;
+  /**
+   * Starts an episode on a device (the active one if none is given). With
+   * `playlistId` it plays inside that playlist, so Spotify continues with the
+   * playlist's next item instead of its Autoplay.
+   */
+  play(episodeId: string, deviceId: string | undefined, positionMs: number, playlistId?: string): Promise<void>;
+  /** Pauses whatever plays; nothing happens when nothing plays. */
+  pause(): Promise<void>;
+  /** Creates a private playlist in the user's account and returns its id. */
+  createPlaylist(name: string, description: string): Promise<string>;
+  /**
+   * Replaces a playlist's content with episodes (at most 100). False when the
+   * playlist no longer exists, e.g. the user deleted it in Spotify.
+   */
+  replacePlaylistItems(playlistId: string, episodeIds: string[]): Promise<boolean>;
   /** The episode playing right now (paused counts), or undefined if nothing or no episode is playing. */
   getPlayingEpisode(): Promise<PlaybackState | undefined>;
   /** Short-lived access token for the Web Playback SDK in the browser. */

@@ -13,7 +13,9 @@ import { ApiError } from '../errors.js';
 import type { SpotifyApi, SpotifyEpisode, SpotifyImage, SpotifyShow } from '../spotify/types.js';
 import type { Store } from '../store/types.js';
 import { LibraryService, mapLimit } from './library.js';
+import { PlanService } from './plan.js';
 import { applyRetention } from './retention.js';
+import { UpNextService } from './up-next.js';
 
 export interface SyncOptions {
   /** Re-import all episodes of every show (otherwise only new ones). */
@@ -258,6 +260,11 @@ export class SyncService {
     }
     // If the lease expired meanwhile and another sync took over, leave its state alone.
     await this.store.releaseSyncLease(leaseId, state);
+    // New episodes join the "Up next" playlist, also while the web app is closed.
+    if (state.status === 'idle') {
+      const planner = new PlanService(this.store, this.library);
+      await new UpNextService(this.store, planner, () => this.spotify).refreshQuietly();
+    }
     return state;
   }
 

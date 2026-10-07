@@ -23,7 +23,7 @@ import {
   type ShowSummary,
   type SyncState,
 } from '@podcast/shared';
-import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
+import type { AppConfig, Session, SpotifyTokens, Store, UpNextState } from './types.js';
 
 /** One put or delete of a batch write. */
 type WriteRequest = NonNullable<BatchWriteCommandInput['RequestItems']>[string][number];
@@ -39,6 +39,7 @@ const BATCH_ATTEMPTS = 8;
  *   META          TOKENS      SpotifyTokens
  *   META          SETTINGS    Settings
  *   META          SYNC        SyncState
+ *   META          UPNEXT      UpNextState ("Up next" playlist)
  *   META          SCHEDULE    Schedule (weekly plan)
  *   SESSION#<id>  SESSION     Session (TTL attribute `ttl`)
  *   SHOW          <showId>    Show
@@ -212,6 +213,12 @@ export class DynamoStore implements Store {
   }
   putSettings(settings: Settings) {
     return this.put('META', 'SETTINGS', settings);
+  }
+  getUpNext() {
+    return this.get<UpNextState>('META', 'UPNEXT');
+  }
+  putUpNext(state: UpNextState) {
+    return this.put('META', 'UPNEXT', state);
   }
   async getSyncState(): Promise<SyncState> {
     return (await this.get<SyncState>('META', 'SYNC')) ?? { status: 'idle' };

@@ -177,6 +177,11 @@ export interface Settings {
   useSpotifyPlayedState: boolean;
   /** Mark an episode as completed when the in-app player reaches the end. */
   autoCompleteInPlayer: boolean;
+  /**
+   * Play through the app's "Up next" playlist in Spotify, so an episode is
+   * followed by the next one from Today instead of Spotify's Autoplay.
+   */
+  playThroughPlaylist: boolean;
   categories: string[];
 }
 
@@ -198,6 +203,7 @@ export const DEFAULT_SETTINGS: Settings = {
   newWindowDays: 7,
   useSpotifyPlayedState: true,
   autoCompleteInPlayer: true,
+  playThroughPlaylist: false,
   categories: DEFAULT_CATEGORIES,
 };
 
@@ -299,6 +305,15 @@ export interface PlaybackState {
   paused: boolean;
   /** Name of the Spotify Connect device, if Spotify reports one. */
   deviceName?: string;
+  /**
+   * Whether the episode is in the app's "Up next" playlist; unset while the
+   * playlist isn't in use. Spotify reports that playlist as the context even
+   * while its Autoplay plays on after the last item, so this is how Autoplay
+   * shows.
+   */
+  inUpNext?: boolean;
+  /** The episode as the app knows it, when it is in the "Up next" playlist. */
+  upNextEpisode?: { showId: string; name: string; showName: string; imageUrl?: string; durationMs: number };
 }
 
 export interface PlayerDevice {

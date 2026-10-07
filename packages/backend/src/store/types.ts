@@ -2,6 +2,7 @@ import type {
   Episode,
   EpisodeNote,
   EpisodeProgress,
+  EpisodeRef,
   Schedule,
   Settings,
   Show,
@@ -21,6 +22,16 @@ export interface AppConfig {
   /** Set when Spotify rejected our refresh token (access revoked); cleared on the next login. */
   disconnectedAt?: string;
   createdAt: string;
+  updatedAt: string;
+}
+
+/** The "Up next" playlist the app manages in the user's Spotify account. */
+export interface UpNextState {
+  playlistId: string;
+  /** The playlist's content as the app last wrote it, in order. */
+  items: EpisodeRef[];
+  /** Time zone of the client that last refreshed it; the sync builds Today in it. */
+  timeZone: string;
   updatedAt: string;
 }
 
@@ -76,6 +87,10 @@ export interface Store {
 
   getSettings(): Promise<Settings>;
   putSettings(settings: Settings): Promise<void>;
+
+  /** The "Up next" playlist; undefined until the app first created one. */
+  getUpNext(): Promise<UpNextState | undefined>;
+  putUpNext(state: UpNextState): Promise<void>;
 
   getSyncState(): Promise<SyncState>;
   /**

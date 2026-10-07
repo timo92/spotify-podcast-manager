@@ -16,16 +16,17 @@ SDK in the browser.
 | Episodes of a show | `GET /v1/shows/{id}/episodes` (paged, 50, newest first) | `user-read-playback-position` for `resume_point` |
 | Single episode (resume point before playback, refresh of the "next" episode, refresh when an episode is opened or the user returns from the Spotify app) | `GET /v1/episodes/{id}` | `user-read-playback-position` |
 | Devices | `GET /v1/me/player/devices` | `user-read-playback-state` |
-| Start playback | `PUT /v1/me/player/play?device_id=…` with `uris` and `position_ms` | `user-modify-playback-state` |
+| Start playback | `PUT /v1/me/player/play?device_id=…` with `uris` and `position_ms`; with "Up next", `context_uri` and `offset` instead of `uris` (see below) | `user-modify-playback-state` |
+| Pause when Spotify's Autoplay took over after "Up next" | `PUT /v1/me/player/pause` | `user-modify-playback-state` |
 | Position for a new note; following playback outside the browser (every 30 s while the web app is visible) | `GET /v1/me/player?additional_types=episode` | `user-read-playback-state` |
 | In-browser player | Web Playback SDK (`https://sdk.scdn.co/spotify-player.js`) | `streaming`, `user-read-email`, `user-read-private` |
 
 
 ## Playlist as playback context (checked 2026-10-07)
 
-Checked with the owner's account (development mode, playback on a phone) as
-groundwork for an "Up next" playlist managed by the app. The app doesn't use
-these endpoints yet.
+Checked with the owner's account (development mode, playback on a phone).
+The app uses these endpoints for its "Up next" playlist while that is
+switched on in the settings (D28).
 
 | Purpose | Endpoint | Scope | Observed |
 | --- | --- | --- | --- |

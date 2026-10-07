@@ -4,6 +4,7 @@ import type { SpotifyApi } from '../spotify/types.js';
 import type { Store } from '../store/types.js';
 import type { LibraryService } from './library.js';
 import { refetchEpisode } from './sync.js';
+import type { UpNextService } from './up-next.js';
 
 /**
  * Playback outside the browser player (Spotify app, Connect devices): the
@@ -14,6 +15,7 @@ export class PlaybackService {
     private readonly store: Store,
     private readonly library: LibraryService,
     private readonly spotify: () => SpotifyApi,
+    private readonly upNext: UpNextService,
   ) {}
 
   /**
@@ -33,7 +35,7 @@ export class PlaybackService {
   async play(
     showId: string,
     episodeId: string,
-    opts: { deviceId?: string; fromStart?: boolean; positionMs?: number } = {},
+    opts: { deviceId?: string; fromStart?: boolean; positionMs?: number; timeZone?: string } = {},
   ): Promise<{ positionMs: number; durationMs: number }> {
     const spotify = this.spotify();
     const episode = await this.syncEpisode(spotify, showId, episodeId);
@@ -42,7 +44,13 @@ export class PlaybackService {
     if (opts.positionMs !== undefined && Number.isFinite(opts.positionMs) && opts.positionMs >= 0) {
       positionMs = Math.min(opts.positionMs, Math.max(0, episode.durationMs - 1000));
     }
-    await spotify.play(episodeId, opts.deviceId, positionMs);
+    // Inside the "Up next" playlist (if in use), so Spotify continues with its next item.
+    const upNext = await this.upNext.refreshQuietly({
+      timeZone: opts.timeZone,
+      first: { showId, episodeId },
+      force: true,
+    });
+    await spotify.play(episodeId, opts.deviceId, positionMs, upNext?.playlistId);
     return { positionMs, durationMs: episode.durationMs };
   }
 
@@ -69,8 +77,18 @@ export class PlaybackService {
     return this.spotify().getAccessToken();
   }
 
-  /** The episode Spotify plays right now on any device, or null. */
+  /**
+   * The episode Spotify plays right now on any device, or null. While the "Up
+   * next" playlist is in use, it also says whether the episode is in it.
+   */
   async state(): Promise<PlaybackState | null> {
-    return (await this.spotify().getPlayingEpisode()) ?? null;
+    const playing = await this.spotify().getPlayingEpisode();
+    if (!playing) return null;
+    return { ...playing, ...(await this.upNext.describe(playing.episodeId)) };
+  }
+
+  /** Pauses playback on whatever device plays (e.g. when Spotify's Autoplay took over). */
+  async pause(): Promise<void> {
+    await this.spotify().pause();
   }
 }

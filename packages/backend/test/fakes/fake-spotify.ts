@@ -1,7 +1,7 @@
 import type { PlaybackState } from '@podcast/shared';
 import { deviceUnavailable } from '../../src/errors.js';
 import type { SpotifyAuth } from '../../src/spotify/auth.js';
-import { SCOPES } from '../../src/spotify/client.js';
+import { PLAYLIST_SCOPES, SCOPES } from '../../src/spotify/client.js';
 import type { SpotifyApi, SpotifyDevice, SpotifyEpisode, SpotifyShow } from '../../src/spotify/types.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -211,11 +211,70 @@ export class FakeSpotifyApi implements SpotifyApi {
     since: Date.now(),
   };
 
-  async play(episodeId: string, deviceId: string | undefined, positionMs: number) {
+  /** The playlist the fake playback runs in, if it was started inside one. */
+  private context: string | null = null;
+
+  /** Playlists created through the API, by id; tests can delete one to mimic the user removing it in Spotify. */
+  readonly playlists = new Map<string, string[]>();
+
+  async play(episodeId: string, deviceId: string | undefined, positionMs: number, playlistId?: string) {
     if (deviceId === SLEEPING_DEVICE) throw deviceUnavailable();
     this.deviceName = deviceId === 'demo-phone' ? 'Handy (Demo)' : 'Podcast-Cockpit';
-    const ep = await this.getEpisode(episodeId);
-    this.playback = { episodeId, durationMs: ep?.duration_ms ?? 0, positionMs, paused: false, since: Date.now() };
+    this.context = playlistId ?? null;
+    this.start(episodeId, positionMs, Date.now());
+  }
+
+  async pause() {
+    this.controlPlayback('pause');
+  }
+
+  async createPlaylist() {
+    const id = `demo-playlist-${this.playlists.size + 1}`;
+    this.playlists.set(id, []);
+    return id;
+  }
+
+  async replacePlaylistItems(playlistId: string, episodeIds: string[]) {
+    if (!this.playlists.has(playlistId)) return false;
+    this.playlists.set(playlistId, [...episodeIds]);
+    return true;
+  }
+
+  private start(episodeId: string, positionMs: number, since: number) {
+    const ep = this.findEpisode(episodeId);
+    this.playback = { episodeId, durationMs: ep?.duration_ms ?? 0, positionMs, paused: false, since };
+  }
+
+  private findEpisode(episodeId: string): SpotifyEpisode | undefined {
+    for (const eps of this.episodes.values()) {
+      const ep = eps.find((e) => e.id === episodeId);
+      if (ep) return ep;
+    }
+    return undefined;
+  }
+
+  /**
+   * Like Spotify: an episode that ends inside a playlist is followed by the
+   * playlist's next item; after the last one, Autoplay plays some other
+   * episode, still reporting the playlist as the context.
+   */
+  private followContext() {
+    const p = this.playback;
+    if (!this.context || p.paused || !p.episodeId || p.durationMs <= 0) return;
+    const endsAt = p.since + (p.durationMs - p.positionMs) / FAKE_PLAYBACK_SPEED;
+    if (Date.now() < endsAt) return;
+    const items = this.playlists.get(this.context) ?? [];
+    const next = items[items.indexOf(p.episodeId) + 1] ?? this.autoplayPick(items);
+    if (next) this.start(next, 0, endsAt);
+  }
+
+  /** "Similar content": the newest episode not in `items`, from the last show that has one. */
+  private autoplayPick(items: string[]): string | undefined {
+    for (const eps of [...this.episodes.values()].reverse()) {
+      const pick = eps.find((e) => !items.includes(e.id));
+      if (pick) return pick.id;
+    }
+    return undefined;
   }
 
   async getPlayingEpisode(): Promise<PlaybackState | undefined> {
@@ -225,6 +284,7 @@ export class FakeSpotifyApi implements SpotifyApi {
 
   /** Current fake playback state (position advances while not paused). */
   playbackState(): FakePlaybackState {
+    this.followContext();
     const p = this.playback;
     const elapsed = p.paused ? 0 : (Date.now() - p.since) * FAKE_PLAYBACK_SPEED;
     return {
@@ -256,7 +316,12 @@ export const fakeSpotifyAuth: SpotifyAuth = {
   authorizeUrl: (_clientId, redirectUri, state) => `${redirectUri}?code=demo&state=${encodeURIComponent(state)}`,
   async login() {
     return {
-      tokens: { accessToken: 'demo', refreshToken: 'demo', expiresAt: Date.now() + 3600_000, scope: SCOPES.join(' ') },
+      tokens: {
+        accessToken: 'demo',
+        refreshToken: 'demo',
+        expiresAt: Date.now() + 3600_000,
+        scope: [...SCOPES, ...PLAYLIST_SCOPES].join(' '),
+      },
       user: { id: 'demo-user', display_name: 'Demo' },
     };
   },

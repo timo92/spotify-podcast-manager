@@ -20,6 +20,7 @@ import { PlanService } from './services/plan.js';
 import { PlaybackService } from './services/playback.js';
 import { SettingsService } from './services/settings.js';
 import { SyncLauncher, type SyncOptions } from './services/sync.js';
+import { UpNextService } from './services/up-next.js';
 import { spotifyAuth, type SpotifyAuth } from './spotify/auth.js';
 import type { SpotifyCredentialsProvider } from './spotify/credentials.js';
 import type { SpotifyApi } from './spotify/types.js';
@@ -52,6 +53,8 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 export function createApp(deps: AppDeps) {
   const { store } = deps;
   const library = new LibraryService(store);
+  const planner = new PlanService(store, library);
+  const upNext = new UpNextService(store, planner, deps.spotify);
   const ctx: RouteContext = {
     store,
     auth: new AuthService(store, deps.credentials),
@@ -60,10 +63,11 @@ export function createApp(deps: AppDeps) {
     data: new DataService(store),
     library,
     notes: new NoteService(store, library, deps.spotify),
-    planner: new PlanService(store, library),
-    playback: new PlaybackService(store, library, deps.spotify),
+    planner,
+    playback: new PlaybackService(store, library, deps.spotify, upNext),
     settings: new SettingsService(store, library),
     sync: new SyncLauncher(store, deps.triggerSync),
+    upNext,
     web: web(deps.publicUrl),
   };
 

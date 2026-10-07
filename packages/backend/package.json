@@ -8,7 +8,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "dev:demo": "tsx watch --env-file-if-exists=../../.env dev/server.ts --demo"
+    "dev:demo": "tsx watch --env-file-if-exists=../../.env dev/server.ts --demo",
+    "spike:playlist": "tsx --env-file-if-exists=../../.env dev/playlist-spike.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1146.0",

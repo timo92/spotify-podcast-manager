@@ -6,7 +6,7 @@
  * Run from the repository root, with `pnpm dev` stopped (the script listens on
  * port 5173 for the login redirect):
  *
- *   pnpm --filter @podcast/backend exec tsx --env-file-if-exists=../../.env dev/playlist-spike.ts
+ *   pnpm --filter @podcast/backend spike:playlist
  *
  * Needs SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET (from `.env`) and the
  * redirect URI http://127.0.0.1:5173/api/auth/callback in the Spotify app.

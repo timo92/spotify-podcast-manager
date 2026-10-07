@@ -264,7 +264,9 @@ export class FakeSpotifyApi implements SpotifyApi {
     const endsAt = p.since + (p.durationMs - p.positionMs) / FAKE_PLAYBACK_SPEED;
     if (Date.now() < endsAt) return;
     const items = this.playlists.get(this.context) ?? [];
-    const next = items[items.indexOf(p.episodeId) + 1] ?? this.autoplayPick(items);
+    const index = items.indexOf(p.episodeId);
+    // Once Autoplay plays (an episode outside the list), it goes on with more of it.
+    const next = (index >= 0 ? items[index + 1] : undefined) ?? this.autoplayPick([...items, p.episodeId]);
     if (next) this.start(next, 0, endsAt);
   }
 

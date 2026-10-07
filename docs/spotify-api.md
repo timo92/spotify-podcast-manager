@@ -21,6 +21,37 @@ SDK in the browser.
 | In-browser player | Web Playback SDK (`https://sdk.scdn.co/spotify-player.js`) | `streaming`, `user-read-email`, `user-read-private` |
 
 
+## Playlist as playback context (checked 2026-10-07)
+
+Checked with the owner's account (development mode, playback on a phone) as
+groundwork for an "Up next" playlist managed by the app. The app doesn't use
+these endpoints yet.
+
+| Purpose | Endpoint | Scope | Observed |
+| --- | --- | --- | --- |
+| Create a private playlist | `POST /v1/me/playlists` with `name`, `description`, `public: false` | `playlist-modify-private` | 201 |
+| Replace the whole content | `PUT /v1/playlists/{id}/items` with `uris` (up to 100; `spotify:episode:…` works) | `playlist-modify-private` | 200 |
+| Read the content | `GET /v1/playlists/{id}/items` | `playlist-read-private` | 200; episodes are listed as `episode`, in the order written |
+| Play inside the playlist | `PUT /v1/me/player/play` with `context_uri: spotify:playlist:…`, `offset: { uri }`, `position_ms` | `user-modify-playback-state` | 204 |
+| Remove the playlist | `DELETE /v1/playlists/{id}/followers` | `playlist-modify-private` | 200 |
+
+What Spotify does:
+
+- **Continues within the playlist.** When an episode started inside the
+  playlist ends, the next item plays, and `GET /me/player` reports the
+  playlist as `context`.
+- **Follows a replaced list.** Replacing the content while an item plays
+  doesn't interrupt it; after it, Spotify plays the next item of the *new*
+  list.
+- **Autoplay keeps the playlist as context.** After the last item, with
+  Autoplay on, Spotify played an unrelated episode and still reported the
+  playlist as `context`. Autoplay can only be recognised by the item: an
+  episode that isn't in the list the app wrote.
+- **No rate limiting** for five replacements in a row.
+- `GET /me` didn't report `product: premium`, although playback control
+  (Premium only) worked. Premium can't be read from the profile.
+- Not checked: the Web Playback SDK in the browser as the device.
+
 ## Restrictions to know about (as of 2026)
 
 - **Development mode** (the default for new apps):

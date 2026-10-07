@@ -60,6 +60,20 @@ describe('SettingsPage', () => {
     expect(toggle).toBeChecked();
   });
 
+  it('switches playing through the "Up next" playlist on, off by default', async () => {
+    vi.spyOn(api, 'settings').mockResolvedValue(settings);
+    vi.spyOn(api, 'status').mockResolvedValue(status);
+    const save = vi.spyOn(api, 'saveSettings').mockResolvedValue({ ...settings, playThroughPlaylist: true });
+    const { user } = renderWithProviders(<SettingsPage />);
+    const toggle = await screen.findByRole('checkbox', { name: /Über eine Spotify-Playlist abspielen/ });
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText(/schalte Autoplay in der Spotify-App aus/)).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ playThroughPlaylist: true }));
+    expect(toggle).toBeChecked();
+  });
+
   it('explains why deleting all data failed', async () => {
     vi.spyOn(api, 'settings').mockResolvedValue(settings);
     vi.spyOn(api, 'status').mockResolvedValue(status);

@@ -36,6 +36,7 @@ export class SettingsService {
       newWindowDays: clampedInt(input.newWindowDays, 1, 90, current.newWindowDays),
       useSpotifyPlayedState: flag(input.useSpotifyPlayedState, current.useSpotifyPlayedState),
       autoCompleteInPlayer: flag(input.autoCompleteInPlayer, current.autoCompleteInPlayer),
+      playThroughPlaylist: flag(input.playThroughPlaylist, current.playThroughPlaylist),
       categories: categories(input.categories, current.categories),
     };
     await this.store.putSettings(next);

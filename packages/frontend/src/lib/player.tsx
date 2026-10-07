@@ -5,7 +5,8 @@ import { api, ApiError } from './api';
 import { useAutoComplete } from './player/auto-complete';
 import { nowPlayingReducer, type NowPlaying, type PlayableItem, type PlayTarget } from './player/now-playing';
 import { remoteEpisode, useRemoteFollow } from './player/remote-follow';
-import { detectBrowserSupport, useBrowserDevice } from './player/sdk';
+import { detectBrowserSupport, useBrowserDevice, type BrowserDevice } from './player/sdk';
+import { afterUpNext, upNextItem } from './player/up-next';
 import { forgetRemoteEpisode, rememberRemoteEpisode } from './remote-episodes';
 import { readStoredJson, writeStored } from './storage';
 import { useToast } from './toast';
@@ -68,6 +69,8 @@ export interface PlayOptions {
 
 const PlayerContext = createContext<PlayerApi | null>(null);
 const TARGET_KEY = 'pm.playTarget';
+/** How far from its end the browser player may last have reported an episode that then ended (it reports every second). */
+const BROWSER_END_SLACK_MS = 10_000;
 /** How long a freshly created browser device may take until Spotify knows it. */
 const NEW_DEVICE_RETRY_MS = 1500;
 
@@ -92,11 +95,38 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const nowRef = useRef<NowPlaying | null>(null);
   nowRef.current = nowPlaying;
 
-  const onSdkState = useCallback((state: Spotify.PlaybackState) => dispatch({ type: 'sdkState', state }), []);
+  const deviceRef = useRef<BrowserDevice | null>(null);
+  const checkedTrack = useRef<string | null>(null);
+  const onSdkState = useCallback((state: Spotify.PlaybackState) => {
+    const shown = nowRef.current;
+    dispatch({ type: 'sdkState', state });
+    // The browser player moved on by itself: the "Up next" playlist's next
+    // episode, or Spotify's Autoplay. Only the API knows which one it is.
+    const uri = state.track_window.current_track?.uri;
+    if (shown?.target.kind !== 'browser' || !uri || uri === `spotify:episode:${shown.episodeId}`) return;
+    if (checkedTrack.current === uri) return;
+    checkedTrack.current = uri;
+    const ended = shown.durationMs - shown.positionMs <= BROWSER_END_SLACK_MS;
+    api.playerState().then(
+      (playing) => {
+        if (!playing || `spotify:episode:${playing.episodeId}` !== uri) return;
+        const next = afterUpNext(playing, ended);
+        const item = next === 'follow' ? upNextItem(playing) : undefined;
+        if (item) {
+          const { positionMs, durationMs } = playing;
+          dispatch({ type: 'played', item, target: { kind: 'browser' }, positionMs, durationMs });
+        } else if (next === 'pause') {
+          deviceRef.current?.pause();
+        }
+      },
+      () => undefined,
+    );
+  }, []);
   const device = useBrowserDevice(
     onSdkState,
     !!nowPlaying && !nowPlaying.paused && nowPlaying.target.kind === 'browser',
   );
+  deviceRef.current = device;
   const { startFollowing, endFollowing } = useRemoteFollow(nowRef, dispatch);
   useAutoComplete(nowPlaying, dispatch);
 

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { AppStatus } from '@podcast/shared';
-import { SCOPES } from '../spotify/client.js';
+import { PLAYLIST_SCOPES, SCOPES } from '../spotify/client.js';
 import type { SpotifyCredentialsProvider } from '../spotify/credentials.js';
 import type { SpotifyAuth } from '../spotify/auth.js';
 import type { Store } from '../store/types.js';
@@ -28,8 +28,14 @@ export class AuthService {
     const [config, configured] = await Promise.all([this.store.getConfig(), this.credentials.ready()]);
     const status: AppStatus = { configured, authenticated, redirectUri, claimed: !!config };
     if (!authenticated) return status;
-    const [tokens, sync] = await Promise.all([this.store.getTokens(), this.store.getSyncState()]);
+    const [tokens, sync, settings] = await Promise.all([
+      this.store.getTokens(),
+      this.store.getSyncState(),
+      this.store.getSettings(),
+    ]);
     const granted = (tokens?.scope ?? '').split(' ').filter(Boolean);
+    // The playlist scope is only asked for again once "Up next" is switched on.
+    const needed = settings.playThroughPlaylist ? [...SCOPES, ...PLAYLIST_SCOPES] : SCOPES;
     return {
       ...status,
       spotifyConnected: !!tokens,
@@ -37,7 +43,7 @@ export class AuthService {
       user: config?.ownerId ? { id: config.ownerId, displayName: config.ownerName } : undefined,
       sync: visibleSyncState(sync),
       grantedScopes: granted,
-      missingScopes: tokens ? SCOPES.filter((s) => !granted.includes(s)) : [],
+      missingScopes: tokens ? needed.filter((s) => !granted.includes(s)) : [],
     };
   }
 

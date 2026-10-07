@@ -11,12 +11,13 @@ import {
   type ShowSummary,
   type SyncState,
 } from '@podcast/shared';
-import type { AppConfig, Session, SpotifyTokens, Store } from './types.js';
+import type { AppConfig, Session, SpotifyTokens, Store, UpNextState } from './types.js';
 
 interface Data {
   config?: AppConfig;
   tokens?: SpotifyTokens;
   settings?: Settings;
+  upNext?: UpNextState;
   sync?: SyncState;
   sessions: Record<string, Session>;
   shows: Record<string, Show>;
@@ -94,6 +95,13 @@ export class MemoryStore implements Store {
   }
   async putSettings(settings: Settings) {
     this.data.settings = clone(settings);
+    this.save();
+  }
+  async getUpNext() {
+    return clone(this.data.upNext);
+  }
+  async putUpNext(state: UpNextState) {
+    this.data.upNext = clone(state);
     this.save();
   }
   async getSyncState(): Promise<SyncState> {

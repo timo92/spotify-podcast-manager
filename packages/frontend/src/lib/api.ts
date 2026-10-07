@@ -140,8 +140,13 @@ export const api = {
   playerToken: () => request<{ accessToken: string; expiresAt: number }>('GET', '/api/player/token'),
   devices: () => request<PlayerDevice[]>('GET', '/api/player/devices'),
   playerState: () => request<PlaybackState | null>('GET', '/api/player/state'),
+  pausePlayback: () => request<{ ok: true }>('POST', '/api/player/pause', {}),
   play: (input: { showId: string; episodeId: string; deviceId?: string; fromStart?: boolean; positionMs?: number }) =>
-    request<{ ok: true; positionMs: number; durationMs: number }>('POST', '/api/player/play', input),
+    // The time zone decides which day's Today fills the "Up next" playlist.
+    request<{ ok: true; positionMs: number; durationMs: number }>('POST', '/api/player/play', {
+      ...input,
+      tz: TIME_ZONE,
+    }),
 
   schedule: () => request<Schedule>('GET', '/api/schedule'),
   saveSchedule: (schedule: ScheduleSave) => request<Schedule>('PUT', '/api/schedule', schedule),

@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject
 import type { PlaybackState } from '@podcast/shared';
 import { api } from '../api';
 import { useInvalidateLibrary } from '../queries';
-import { forgetRemoteEpisode, loadRemoteEpisodes, type RemoteEpisode } from '../remote-episodes';
+import { forgetRemoteEpisode, loadRemoteEpisodes, rememberRemoteEpisode, type RemoteEpisode } from '../remote-episodes';
 import type { NowPlaying, NowPlayingEvent, PlayableItem, PlayTarget } from './now-playing';
+import { afterUpNext, upNextItem } from './up-next';
 
 /** How often playback outside the browser is read from Spotify while the page is visible. */
 export const REMOTE_POLL_MS = 30_000;
 /** Polls without movement after which following outside playback stops (it was paused or ended). */
 const REMOTE_STILL_POLLS = 2;
+/** Outside the browser, the last position seen before an episode's end may be up to one poll (plus slack) away from it. */
+export const REMOTE_END_WINDOW_MS = REMOTE_POLL_MS + 15_000;
 
 /** The episode to remember when `item` starts outside the browser. */
 export function remoteEpisode(item: PlayableItem, target: PlayTarget, now = Date.now()): RemoteEpisode {
@@ -28,8 +31,12 @@ export function remoteEpisode(item: PlayableItem, target: PlayTarget, now = Date
 export interface Followed {
   entry: RemoteEpisode;
   lastPositionMs: number;
+  /** The episode's length as Spotify reported it. */
+  durationMs: number;
   /** Polls in a row in which the episode didn't move. */
   still: number;
+  /** The episode is in the "Up next" playlist (see PlaybackState.inUpNext). */
+  inUpNext?: boolean;
 }
 
 export type FollowStep =
@@ -37,8 +44,18 @@ export type FollowStep =
   | { kind: 'wait' }
   /** No remembered episode is playing: stop following. */
   | { kind: 'stop' }
-  /** Show `followed.entry` with Spotify's `state`; `stop` once it stood still for long enough. */
-  | { kind: 'follow'; followed: Followed; state: PlaybackState; stop: boolean };
+  /** Spotify's Autoplay took over after the last "Up next" episode ended: pause it, then stop following. */
+  | { kind: 'pause' }
+  /**
+   * Show `followed.entry` with Spotify's `state`; `stop` once it stood still for
+   * long enough. `remember` when it is the "Up next" playlist's next episode,
+   * which the app didn't start itself.
+   */
+  | { kind: 'follow'; followed: Followed; state: PlaybackState; stop: boolean; remember: boolean };
+
+/** Whether the followed episode was last seen close enough to its end to have ended since. */
+const nearEnd = (f: Followed | null) =>
+  !!f && f.durationMs > 0 && f.durationMs - f.lastPositionMs <= REMOTE_END_WINDOW_MS;
 
 /**
  * One poll of what Spotify plays (`state`), applied to the remembered
@@ -50,7 +67,18 @@ export function followStep(
   remembered: RemoteEpisode[],
   now: number,
 ): FollowStep {
-  const entry = state && remembered.find((r) => r.episodeId === state.episodeId);
+  let entry = state && remembered.find((r) => r.episodeId === state.episodeId);
+  let remember = false;
+  if (state && !entry && prev?.inUpNext) {
+    // After an "Up next" episode, Spotify plays the playlist's next one, or its Autoplay.
+    const next = afterUpNext(state, nearEnd(prev));
+    if (next === 'pause') return { kind: 'pause' };
+    const item = next === 'follow' ? upNextItem(state) : undefined;
+    if (item) {
+      entry = remoteEpisode(item, prev.entry.target, now);
+      remember = true;
+    }
+  }
   if (!state || !entry) {
     const latest = remembered[0];
     const justStarted = !!latest && now - latest.startedAt < 2 * REMOTE_POLL_MS;
@@ -61,9 +89,16 @@ export function followStep(
   const still = moved ? 0 : (same?.still ?? 0) + 1;
   return {
     kind: 'follow',
-    followed: { entry, lastPositionMs: state.positionMs, still },
+    followed: {
+      entry,
+      lastPositionMs: state.positionMs,
+      durationMs: state.durationMs || entry.durationMs,
+      still,
+      inUpNext: state.inUpNext,
+    },
     state,
     stop: still >= REMOTE_STILL_POLLS,
+    remember,
   };
 }
 
@@ -175,6 +210,12 @@ export function useRemoteFollow(
       const step = followStep(followRef.current, state, remembered, Date.now());
       if (step.kind === 'wait') return;
       if (step.kind === 'stop') return stopFollowing();
+      if (step.kind === 'pause') {
+        // Best effort: if Spotify refuses, the user still hears Autoplay as before.
+        await api.pausePlayback().catch(() => undefined);
+        return stopFollowing();
+      }
+      if (step.remember) rememberRemoteEpisode(step.followed.entry);
       followRef.current = step.followed;
       dispatch({ type: 'remotePoll', entry: step.followed.entry, state: step.state });
       if (step.stop) stopFollowing();

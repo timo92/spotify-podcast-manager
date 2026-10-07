@@ -263,6 +263,20 @@ function contract(name: string, create: () => Promise<Store>) {
       expect(await store.getShow('s1')).toBeDefined();
     });
 
+    it('keeps the "Up next" playlist state', async () => {
+      expect(await store.getUpNext()).toBeUndefined();
+      const state = {
+        playlistId: 'pl1',
+        items: [{ showId: 's1', episodeId: 'e1' }],
+        timeZone: 'Europe/Berlin',
+        updatedAt: '2026-10-07T08:00:00.000Z',
+      };
+      await store.putUpNext(state);
+      expect(await store.getUpNext()).toEqual(state);
+      await store.putUpNext({ ...state, items: [] });
+      expect((await store.getUpNext())?.items).toEqual([]);
+    });
+
     it('deletes everything, including a held sync lease', async () => {
       const lease = { status: 'running' as const, startedAt: '2026-01-01T00:10:00.000Z', leaseId: 'a' };
       await store.acquireSyncLease(lease, '2026-01-01T00:00:00.000Z');

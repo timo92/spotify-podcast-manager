@@ -37,11 +37,17 @@ export const SCOPES = [
   'user-modify-playback-state',
 ];
 
+/**
+ * Asked for at every login, but only needed while "Up next" (playing through
+ * the app's playlist) is switched on; without it the app plays single episodes.
+ */
+export const PLAYLIST_SCOPES = ['playlist-modify-private'];
+
 export function authorizeUrl(clientId: string, redirectUri: string, state: string): string {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
-    scope: SCOPES.join(' '),
+    scope: [...SCOPES, ...PLAYLIST_SCOPES].join(' '),
     redirect_uri: redirectUri,
     state,
   });
@@ -370,19 +376,53 @@ export class HttpSpotifyApi implements SpotifyApi {
     return res?.devices ?? [];
   }
 
-  async play(episodeId: string, deviceId: string | undefined, positionMs: number) {
+  async play(episodeId: string, deviceId: string | undefined, positionMs: number, playlistId?: string) {
     const qs = deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : '';
+    const uri = `spotify:episode:${episodeId}`;
+    const position_ms = Math.max(0, Math.floor(positionMs));
     try {
-      await this.request('PUT', `/me/player/play${qs}`, {
-        uris: [`spotify:episode:${episodeId}`],
-        position_ms: Math.max(0, Math.floor(positionMs)),
-      });
+      await this.request(
+        'PUT',
+        `/me/player/play${qs}`,
+        playlistId
+          ? { context_uri: `spotify:playlist:${playlistId}`, offset: { uri }, position_ms }
+          : { uris: [uri], position_ms },
+      );
     } catch (e) {
       // Spotify keeps listing a device for a while after its app was suspended
       // (iOS), but can't wake it: playing there answers 404 "Device not found".
       if (deviceId && e instanceof ApiError && e.code === 'spotify_error' && e.status === StatusCodes.NOT_FOUND) {
         throw deviceUnavailable();
       }
+      throw e;
+    }
+  }
+
+  async pause() {
+    try {
+      await this.request('PUT', '/me/player/pause');
+    } catch (e) {
+      // Nothing plays any more (or no device is active): nothing to pause.
+      if (e instanceof ApiError && (e.code === 'no_active_device' || e.status === StatusCodes.NOT_FOUND)) return;
+      throw e;
+    }
+  }
+
+  async createPlaylist(name: string, description: string): Promise<string> {
+    const res = await this.request<{ id?: string }>('POST', '/me/playlists', { name, description, public: false });
+    if (!res?.id) throw unexpectedResponse('Unerwartete Antwort von POST /me/playlists', '/me/playlists');
+    return res.id;
+  }
+
+  async replacePlaylistItems(playlistId: string, episodeIds: string[]): Promise<boolean> {
+    try {
+      await this.request('PUT', `/playlists/${encodeURIComponent(playlistId)}/items`, {
+        uris: episodeIds.map((id) => `spotify:episode:${id}`),
+      });
+      return true;
+    } catch (e) {
+      // The user deleted (unfollowed) the playlist in Spotify.
+      if (e instanceof ApiError && e.status === StatusCodes.NOT_FOUND) return false;
       throw e;
     }
   }

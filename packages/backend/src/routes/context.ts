@@ -7,6 +7,7 @@ import type { PlanService } from '../services/plan.js';
 import type { PlaybackService } from '../services/playback.js';
 import type { SettingsService } from '../services/settings.js';
 import type { SyncLauncher } from '../services/sync.js';
+import type { UpNextService } from '../services/up-next.js';
 import type { SpotifyAuth } from '../spotify/auth.js';
 import type { SpotifyCredentialsProvider } from '../spotify/credentials.js';
 import type { Store } from '../store/types.js';
@@ -24,6 +25,7 @@ export interface RouteContext {
   playback: PlaybackService;
   settings: SettingsService;
   sync: SyncLauncher;
+  upNext: UpNextService;
   web: Web;
 }
 

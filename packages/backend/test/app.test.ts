@@ -5,6 +5,7 @@ import {
   type AppStatus,
   type EpisodeNote,
   type EpisodeView,
+  type PlaybackState,
   type Schedule,
   type Show,
   type SyncState,
@@ -895,5 +896,108 @@ describe('library flow', () => {
     await t.sync(); // the running sync finishes
     expect((await t.call('DELETE', '/api/data')).status).toBe(200);
     expect(await t.store.listShows()).toHaveLength(0);
+  });
+});
+
+describe('Up next playlist', () => {
+  const tz = 'Europe/Berlin';
+
+  async function ready(on = true) {
+    const t = setup();
+    await login(t);
+    expect((await t.sync()).status).toBe('idle');
+    if (on) await t.call('PUT', '/api/settings', { playThroughPlaylist: true });
+    return t;
+  }
+  /** The content of the one playlist the app created. */
+  const listed = (t: ReturnType<typeof setup>) => [...t.spotify.playlists.values()][0] ?? [];
+  const todayItems = async (t: ReturnType<typeof setup>) => {
+    const today = (await t.call('GET', `/api/today?tz=${tz}`)).body as TodayResponse;
+    return [...today.recommended, ...today.more].map((i) => ({ showId: i.show.id, episodeId: i.episode.id }));
+  };
+  /** Lets the fake playback run past the end of the playing episode. */
+  const playToEnd = async (t: ReturnType<typeof setup>) => {
+    t.spotify.controlPlayback('seek', t.spotify.playbackState().durationMs - 1);
+    await new Promise((r) => setTimeout(r, 30));
+  };
+
+  it('mirrors Today in a playlist and continues with its next episode instead of Autoplay', async () => {
+    const t = await ready();
+    const items = await todayItems(t);
+    expect(t.spotify.playlists.size).toBe(1);
+    expect(listed(t)).toEqual(items.map((i) => i.episodeId));
+
+    const chosen = items[1]!;
+    const play = await t.call('POST', '/api/player/play', { ...chosen, deviceId: 'demo-phone', tz });
+    expect(play.status).toBe(200);
+    expect(listed(t)[0]).toBe(chosen.episodeId);
+
+    await playToEnd(t);
+    const next = listed(t)[1]!;
+    expect(t.spotify.playbackState().episodeId).toBe(next);
+    const state = (await t.call('GET', '/api/player/state')).body;
+    const expected = items.find((i) => i.episodeId === next)!;
+    expect(state).toMatchObject({ episodeId: next, inUpNext: true, upNextEpisode: { showId: expected.showId } });
+  });
+
+  it("reports Spotify's Autoplay after the last item, and pauses it on request", async () => {
+    const t = await ready();
+    // With all podcasts but one paused, Today and the playlist hold a single episode.
+    const [kept, ...others] = await t.store.listShows();
+    for (const show of others) await t.call('PATCH', `/api/shows/${show.id}`, { paused: true });
+    const items = await todayItems(t);
+    expect(items.map((i) => i.showId)).toEqual([kept!.id]);
+    await t.call('POST', '/api/player/play', { ...items[0], deviceId: 'demo-phone', tz });
+    expect(listed(t)).toEqual([items[0]!.episodeId]);
+    await playToEnd(t);
+
+    const state = (await t.call('GET', '/api/player/state')).body as PlaybackState;
+    expect(listed(t)).not.toContain(state.episodeId);
+    expect(state).toMatchObject({ inUpNext: false, paused: false });
+    expect((await t.call('POST', '/api/player/pause')).status).toBe(200);
+    expect(t.spotify.playbackState().paused).toBe(true);
+  });
+
+  it('drops heard episodes, refreshes after a sync and recreates a playlist deleted in Spotify', async () => {
+    const t = await ready();
+    expect(t.spotify.playlists.size).toBe(0); // nothing written before Today, a play or a sync
+    await t.sync();
+    expect(t.spotify.playlists.size).toBe(1);
+
+    const [first] = await todayItems(t);
+    await t.call('PUT', `/api/shows/${first!.showId}/episodes/${first!.episodeId}/status`, { status: 'COMPLETED' });
+    expect(listed(t)).not.toContain(first!.episodeId);
+
+    t.spotify.playlists.clear();
+    const [next] = await todayItems(t);
+    await t.call('POST', '/api/player/play', { ...next, deviceId: 'demo-phone', tz });
+    expect(t.spotify.playlists.size).toBe(1);
+    expect(listed(t)[0]).toBe(next!.episodeId);
+  });
+
+  it('plays single episodes while switched off, and when the playlist cannot be written', async () => {
+    const off = await ready(false);
+    const [item] = await todayItems(off);
+    await off.call('POST', '/api/player/play', { ...item, deviceId: 'demo-phone', tz });
+    expect(off.spotify.playlists.size).toBe(0);
+    expect((await off.call('GET', '/api/player/state')).body).not.toHaveProperty('inUpNext');
+
+    const denied = await ready();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(denied.spotify, 'createPlaylist').mockRejectedValue(
+      new ApiError(StatusCodes.FORBIDDEN, 'spotify_forbidden', 'Insufficient client scope', { detail: 'scope' }),
+    );
+    const [other] = await todayItems(denied);
+    const play = await denied.call('POST', '/api/player/play', { ...other, deviceId: 'demo-phone', tz });
+    expect(play.status).toBe(200);
+    expect(denied.spotify.playbackState().episodeId).toBe(other!.episodeId);
+  });
+
+  it('asks for the playlist permission only while Up next is switched on', async () => {
+    const t = await ready(false);
+    const scopes = async () => ((await t.call('GET', '/api/status')).body as AppStatus).missingScopes;
+    expect(await scopes()).not.toContain('playlist-modify-private');
+    await t.call('PUT', '/api/settings', { playThroughPlaylist: true });
+    expect(await scopes()).toContain('playlist-modify-private');
   });
 });

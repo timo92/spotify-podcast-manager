@@ -20,9 +20,15 @@ function showSettings(body: Body): ShowSettingsInput {
 }
 
 /** Today, the history, podcasts and their episodes. */
-export function libraryRoutes({ store, library, planner, playback, sync }: RouteContext) {
+export function libraryRoutes({ store, library, planner, playback, sync, upNext }: RouteContext) {
   return new Hono()
-    .get('/today', async (c) => c.json(await planner.today(validTimeZone(c.req.query('tz')))))
+    .get('/today', async (c) => {
+      const timeZone = validTimeZone(c.req.query('tz'));
+      const today = await planner.today(timeZone);
+      // Today is what the "Up next" playlist mirrors; it is rewritten only when it changed.
+      await upNext.refreshQuietly({ timeZone, today });
+      return c.json(today);
+    })
     .get('/history', async (c) => c.json(await store.listHistory(queryLimit(c, 'limit', 50, 200))))
     .get('/shows', async (c) => {
       const shows = await store.listShows();
@@ -51,11 +57,18 @@ export function libraryRoutes({ store, library, planner, playback, sync }: Route
     .put('/shows/:id/episodes/:episodeId/status', async (c) => {
       const status = field.nullableString(await readBody(c), 'status') ?? null;
       const episodeIds = [c.req.param('episodeId')];
-      return c.json(
-        await library.setStatus(c.req.param('id'), episodeIds, status === null ? null : episodeStatus(status)),
+      const show = await library.setStatus(
+        c.req.param('id'),
+        episodeIds,
+        status === null ? null : episodeStatus(status),
       );
+      // A heard or skipped episode leaves the "Up next" playlist, also while Today isn't open.
+      await upNext.refreshQuietly();
+      return c.json(show);
     })
-    .post('/shows/:id/episodes/:episodeId/complete-before', async (c) =>
-      c.json(await library.completeBefore(c.req.param('id'), c.req.param('episodeId'))),
-    );
+    .post('/shows/:id/episodes/:episodeId/complete-before', async (c) => {
+      const show = await library.completeBefore(c.req.param('id'), c.req.param('episodeId'));
+      await upNext.refreshQuietly();
+      return c.json(show);
+    });
 }

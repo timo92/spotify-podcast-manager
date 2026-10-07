@@ -6,12 +6,10 @@ import { useInvalidateLibrary, useSettings } from '../queries';
 import { forgetRemoteEpisode } from '../remote-episodes';
 import { useToast } from '../toast';
 import type { NowPlaying, NowPlayingEvent } from './now-playing';
-import { REMOTE_POLL_MS } from './remote-follow';
+import { REMOTE_END_WINDOW_MS } from './remote-follow';
 
 /** How close to its end the browser player must have been for an episode to count as ended. */
 const BROWSER_END_WINDOW_MS = 5_000;
-/** Outside the browser, the last position seen before the end may be up to one poll (plus slack) away from it. */
-const REMOTE_END_WINDOW_MS = REMOTE_POLL_MS + 15_000;
 
 /**
  * Whether the change of the shown episode from `prev` to `next` ended `prev`

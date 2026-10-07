@@ -136,3 +136,47 @@ describe('playback in the browser', () => {
     expect(screen.queryByText('„Reise: Teil 1“ als gehört markiert')).not.toBeInTheDocument();
   });
 });
+
+describe('the "Up next" playlist in the browser', () => {
+  const nextInList = {
+    episodeId: 'ep-2',
+    positionMs: 0,
+    durationMs: 20 * MIN,
+    paused: false,
+    inUpNext: true,
+    upNextEpisode: { showId: 'wissen', name: 'Die nächste Folge', showName: 'Wissensreise', durationMs: 20 * MIN },
+  };
+
+  /** Plays episode 1 to its end, then the browser player moves on to `nextEpisodeId`. */
+  async function playToEnd(nextEpisodeId: string, beforeEnd: (player: FakePlayer) => void = () => {}) {
+    fireEvent.click(screen.getAllByRole('button', { name: 'Abspielen' })[0]!);
+    await playerBar();
+    const [player] = FakePlayer.instances;
+    beforeEnd(player!);
+    act(() => player!.emit('player_state_changed', sdkState('ep-1', 20 * MIN - 2000)));
+    act(() => player!.emit('player_state_changed', sdkState(nextEpisodeId, 0)));
+    return player!;
+  }
+
+  it("shows the playlist's next episode when the browser player moves on to it", async () => {
+    renderPlayer();
+    vi.spyOn(api, 'playerState').mockResolvedValue(nextInList);
+    await playToEnd('ep-2');
+    expect(await within(await playerBar()).findByText('Die nächste Folge')).toBeInTheDocument();
+  });
+
+  it("pauses Spotify's Autoplay after the playlist's last episode", async () => {
+    renderPlayer();
+    vi.spyOn(api, 'playerState').mockResolvedValue({
+      ...nextInList,
+      episodeId: 'autoplay',
+      inUpNext: false,
+      upNextEpisode: undefined,
+    });
+    let pause: ReturnType<typeof vi.fn> | undefined;
+    await playToEnd('autoplay', (player) => {
+      pause = vi.spyOn(player, 'pause');
+    });
+    await vi.waitFor(() => expect(pause).toHaveBeenCalled());
+  });
+});

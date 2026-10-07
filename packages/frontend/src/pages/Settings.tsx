@@ -133,6 +133,12 @@ export function SettingsPage() {
           checked={draft.autoCompleteInPlayer}
           onChange={(v) => void save({ autoCompleteInPlayer: v })}
         />
+        <Toggle
+          label={t('episodes.upNext')}
+          hint={t('episodes.upNextHint')}
+          checked={draft.playThroughPlaylist}
+          onChange={(v) => void save({ playThroughPlaylist: v })}
+        />
       </section>
 
       <section className="card stack">

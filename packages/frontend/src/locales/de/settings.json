@@ -14,7 +14,9 @@
     "spotifyState": "Spotify-Hörstand übernehmen",
     "spotifyStateHint": "Folgen, die Spotify als vollständig gehört meldet, gelten als gehört. Eigene Markierungen haben immer Vorrang.",
     "autoComplete": "Automatisch als gehört markieren",
-    "autoCompleteHint": "Wenn eine Folge im Browser-Player zu Ende läuft"
+    "autoCompleteHint": "Wenn eine Folge im Browser-Player zu Ende läuft",
+    "upNext": "Über eine Spotify-Playlist abspielen",
+    "upNextHint": "Die Playlist „Podcast-Cockpit: Up next“ folgt „Heute“, damit Spotify danach die nächste Folge spielt statt Ähnliches per Autoplay. Für einen sauberen Stopp am Ende der Liste schalte Autoplay in der Spotify-App aus."
   },
   "categories": {
     "title": "Kategorien"

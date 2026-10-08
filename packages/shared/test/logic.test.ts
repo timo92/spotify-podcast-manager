@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildEpisodeViews, buildToday, selectNextEpisode, summarizeShow } from '../src/logic.js';
+import {
+  buildEpisodeViews,
+  buildToday,
+  inSyncWindow,
+  selectNextEpisode,
+  summarizeShow,
+  syncCutoff,
+} from '../src/logic.js';
 import { guessCategories, guessMode } from '../src/heuristics.js';
 import { DEFAULT_SETTINGS, type Episode, type EpisodeProgress, type EpisodeStatus, type Show } from '../src/types.js';
 
@@ -330,5 +337,22 @@ describe('heuristics', () => {
       'Politik',
     ]);
     expect(guessCategories('Irgendwas', '', known)).toEqual(['Sonstiges']);
+  });
+});
+
+describe('sync window', () => {
+  it('starts the given number of days back, and not at all without a window', () => {
+    expect(syncCutoff(30, now)).toBe('2026-09-05');
+    expect(syncCutoff(0, now)).toBeUndefined();
+    expect(syncCutoff(null, now)).toBeUndefined();
+    expect(syncCutoff(undefined, now)).toBeUndefined();
+  });
+
+  it('keeps episodes released on or after the first day of the window', () => {
+    expect(inSyncWindow('2026-09-05', '2026-09-05')).toBe(true);
+    expect(inSyncWindow('2026-09-04', '2026-09-05')).toBe(false);
+    // a release date of month precision counts from the month's first day
+    expect(inSyncWindow('2026-09', '2026-09-05')).toBe(false);
+    expect(inSyncWindow('2020-01-01', undefined)).toBe(true);
   });
 });

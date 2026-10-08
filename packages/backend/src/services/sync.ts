@@ -3,6 +3,8 @@ import { StatusCodes } from 'http-status-codes';
 import {
   guessCategories,
   guessMode,
+  inSyncWindow,
+  syncCutoff,
   truncate,
   type Episode,
   type Settings,
@@ -369,15 +371,24 @@ export class SyncService {
     settings: Settings,
     nextPriority: (showId: string) => number,
   ): Promise<number> {
-    const nowIso = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
     const known = new Map((await this.store.listEpisodes(showId)).map((e) => [e.id, e]));
     // Episodes stored without a listing order can only be numbered from the complete listing.
     const doFull = full || !prev?.fullSyncAt || [...known.values()].some((e) => e.listingOrder === undefined);
+    // A new podcast starts with the default window from the settings.
+    const windowDays = prev ? prev.syncWindowDays : settings.newShowSyncWindowDays;
+    const cutoff = syncCutoff(windowDays, now);
 
-    const fetched = await this.spotify.getShowEpisodes(
-      showId,
-      doFull ? undefined : (page) => page.some((e) => known.has(e.id)),
-    );
+    // Spotify lists the newest episodes first, so paging can stop at the first
+    // page reaching past the window, or (incrementally) at a known episode.
+    const fetched = (
+      await this.spotify.getShowEpisodes(
+        showId,
+        (page) =>
+          page.some((e) => !inSyncWindow(e.release_date, cutoff)) || (!doFull && page.some((e) => known.has(e.id))),
+      )
+    ).filter((e) => inSyncWindow(e.release_date, cutoff));
     const episodes = withListingOrder(
       fetched.map((e) => toEpisode(e, showId, known.get(e.id), nowIso)),
       known,
@@ -389,17 +400,20 @@ export class SyncService {
     // of the current "next" episode explicitly – that's the one that matters.
     const nextId = prev?.summary?.nextEpisode?.id;
     const storedNext = nextId ? known.get(nextId) : undefined;
-    if (!doFull && storedNext && !episodes.some((e) => e.id === nextId)) {
+    const nextInWindow = !!storedNext && inSyncWindow(storedNext.releaseDate, cutoff);
+    if (!doFull && storedNext && nextInWindow && !episodes.some((e) => e.id === nextId)) {
       const refreshed = await refetchEpisode(this.spotify, storedNext, nowIso);
       if (refreshed) changed.push(refreshed);
     }
     if (changed.length) await this.store.putEpisodes(changed);
 
-    if (doFull && fetched.length) {
-      const fetchedIds = new Set(fetched.map((e) => e.id));
-      const stale = [...known.keys()].filter((id) => !fetchedIds.has(id));
-      if (stale.length) await this.store.deleteEpisodes(showId, stale);
-    }
+    // Removed: what a complete listing no longer has, and what fell out of the
+    // window. Personal progress and notes of these episodes stay.
+    const fetchedIds = new Set(fetched.map((e) => e.id));
+    const stale = [...known.values()]
+      .filter((e) => (doFull && fetched.length > 0 && !fetchedIds.has(e.id)) || !inSyncWindow(e.releaseDate, cutoff))
+      .map((e) => e.id);
+    if (stale.length) await this.store.deleteEpisodes(showId, stale);
 
     const metadata: Partial<Show> = raw
       ? {
@@ -431,6 +445,7 @@ export class SyncService {
         priority: nextPriority(showId),
         pinnedEpisodeId: null,
         reofferSkipped: false,
+        syncWindowDays: windowDays && windowDays > 0 ? windowDays : null,
         needsReview: true,
         followed: true,
         createdAt: nowIso,

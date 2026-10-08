@@ -135,6 +135,9 @@ Each podcast has exactly one mode.
   no longer suggested.
 - **Y4** The app shows how long ago the last sync finished, and its exact
   date and time on request, kept current while the app is open.
+- **Y5** Per podcast, the user can limit the sync to episodes from the last
+  N days; older ones are left out (their progress and notes are kept). A
+  default for newly imported podcasts can be set in the settings.
 
 ## Privacy and data
 

@@ -1,6 +1,6 @@
 import { StatusCodes } from 'http-status-codes';
-import { compareEpisodesAsc } from '@podcast/shared';
-import { describe, expect, it } from 'vitest';
+import { compareEpisodesAsc, DEFAULT_SETTINGS } from '@podcast/shared';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../src/errors.js';
 import { SyncService } from '../src/services/sync.js';
 import { MemoryStore } from '../src/store/memory.js';
@@ -102,5 +102,62 @@ describe('SyncService', () => {
     await store.putEpisodes(stored.map((e) => ({ ...e, listingOrder: undefined })));
     await new SyncService(store, spotify).run();
     expect(await order()).toEqual(['b-part-1', 'a-part-2', '0-part-3']);
+  });
+});
+
+describe('sync window', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  /** Serves the daily show in pages of five and counts the pages fetched. */
+  function pagedDaily(spotify: FakeSpotifyApi) {
+    const pages = { count: 0 };
+    const original = spotify.getShowEpisodes.bind(spotify);
+    spotify.getShowEpisodes = async (id, stop) => {
+      if (id !== 'demo-dertag') return original(id, stop);
+      const all = await original(id);
+      const out = [];
+      for (let i = 0; i < all.length; i += 5) {
+        const page = all.slice(i, i + 5);
+        pages.count++;
+        out.push(...page);
+        if (stop?.(page)) break;
+      }
+      return out;
+    };
+    return pages;
+  }
+
+  it("imports a new podcast's episodes only as far back as the default window, fetching only those pages", async () => {
+    const { store, spotify } = await connected();
+    await store.putSettings({ ...DEFAULT_SETTINGS, newShowSyncWindowDays: 10 });
+    const pages = pagedDaily(spotify);
+    await new SyncService(store, spotify).run();
+
+    const episodes = await store.listEpisodes('demo-dertag');
+    expect(episodes.map((e) => e.releaseDate).sort()[0]).toBe('2026-09-25');
+    expect(episodes).toHaveLength(11);
+    expect(pages.count).toBe(3); // 40 episodes, but the third page already reaches past the window
+    expect((await store.getShow('demo-dertag'))?.syncWindowDays).toBe(10);
+  });
+
+  it('drops stored episodes that fell out of the window but keeps their progress', async () => {
+    const { store, spotify } = await connected();
+    await new SyncService(store, spotify).run();
+    expect(await store.listEpisodes('demo-dertag')).toHaveLength(40);
+    const old = (await store.listEpisodes('demo-dertag')).find((e) => e.releaseDate === '2026-09-01')!;
+    await store.putProgress([
+      { showId: 'demo-dertag', episodeId: old.id, status: 'COMPLETED', updatedAt: now.toISOString() },
+    ]);
+
+    await store.updateShow('demo-dertag', { syncWindowDays: 7 });
+    await new SyncService(store, spotify).run();
+    const kept = await store.listEpisodes('demo-dertag');
+    expect(kept.every((e) => e.releaseDate >= '2026-09-28')).toBe(true);
+    expect(kept).toHaveLength(8);
+    expect((await store.listProgress('demo-dertag')).get(old.id)?.status).toBe('COMPLETED');
   });
 });

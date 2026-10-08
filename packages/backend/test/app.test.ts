@@ -452,6 +452,26 @@ describe('library flow', () => {
     return t;
   }
 
+  it('reloads a podcast when its sync window changes, and keeps the window within bounds', async () => {
+    const t = await ready();
+    const patch = (body: unknown) => t.call('PATCH', '/api/shows/demo-dertag', body);
+    const reloads = () => t.syncs.filter((s) => s.showId === 'demo-dertag').length;
+
+    expect(((await patch({ syncWindowDays: 30 })).body as Show).syncWindowDays).toBe(30);
+    expect(reloads()).toBe(1);
+    await t.sync(); // the reload runs and frees the lease
+    await patch({ syncWindowDays: 30, paused: false });
+    expect(reloads()).toBe(1); // unchanged window: no reload
+
+    expect(((await patch({ syncWindowDays: 99_999 })).body as Show).syncWindowDays).toBe(3650);
+    await t.sync();
+    expect(((await patch({ syncWindowDays: 0 })).body as Show).syncWindowDays).toBeNull();
+    expect(reloads()).toBe(3);
+
+    const settings = await t.call('PUT', '/api/settings', { newShowSyncWindowDays: -5 });
+    expect(settings.body).toMatchObject({ newShowSyncWindowDays: 0 });
+  });
+
   it('rejects request fields of the wrong type instead of storing them', async () => {
     const t = await ready();
     const path = '/api/shows/demo-dertag';

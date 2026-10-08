@@ -4,6 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import type { Settings } from '@podcast/shared';
 import { Icon } from '../components/Icon';
 import { Chip, ErrorBox, Segmented, Spinner, Toggle } from '../components/ui';
+import { SyncWindowSelect } from '../components/SyncWindowSelect';
 import { setLanguage, storedLanguage, type Language } from '../i18n';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
@@ -138,6 +139,12 @@ export function SettingsPage() {
           hint={t('episodes.upNextHint')}
           checked={draft.playThroughPlaylist}
           onChange={(v) => void save({ playThroughPlaylist: v })}
+        />
+        <SyncWindowSelect
+          label={t('episodes.newShowSyncWindow')}
+          hint={t('episodes.newShowSyncWindowHint')}
+          value={draft.newShowSyncWindowDays}
+          onChange={(days) => void save({ newShowSyncWindowDays: days })}
         />
       </section>
 

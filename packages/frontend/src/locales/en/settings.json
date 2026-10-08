@@ -15,6 +15,8 @@
     "spotifyStateHint": "Episodes Spotify reports as fully played count as played. Your own marks always take precedence.",
     "autoComplete": "Mark as played automatically",
     "autoCompleteHint": "When an episode finishes in the browser player",
+    "newShowSyncWindow": "New podcasts: sync episodes",
+    "newShowSyncWindowHint": "How far back a newly imported podcast is fetched; can be changed per podcast.",
     "upNext": "Play through a Spotify playlist",
     "upNextHint": "The playlist “Podcast-Cockpit: Up next” follows Today, so Spotify plays the next episode afterwards instead of similar content through Autoplay. For a clean stop at the end of the list, turn off Autoplay in the Spotify app."
   },

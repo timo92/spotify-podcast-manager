@@ -67,6 +67,11 @@
     "6": "Samstag",
     "7": "Sonntag"
   },
+  "syncWindow": {
+    "all": "Alle Folgen",
+    "days_one": "Letzter Tag",
+    "days_other": "Letzte {{count}} Tage"
+  },
   "ui": {
     "new": "Neu",
     "moreActions": "Weitere Aktionen",

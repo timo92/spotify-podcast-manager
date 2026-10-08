@@ -26,6 +26,7 @@ export function episodeStatus(value: string): EpisodeStatus {
   return status;
 }
 import { badRequest, notFound } from '../errors.js';
+import { MAX_SYNC_WINDOW_DAYS } from './settings.js';
 import type { Store } from '../store/types.js';
 
 /**
@@ -107,6 +108,11 @@ export class LibraryService {
       if (value !== undefined) clean[key] = value;
     }
     if (patch.priority !== undefined) clean.priority = patch.priority;
+    if (patch.syncWindowDays !== undefined) {
+      const days = patch.syncWindowDays === null ? 0 : Math.round(patch.syncWindowDays);
+      // 0 or less means "all episodes"; stored as null, as an undefined field would not be written.
+      clean.syncWindowDays = days > 0 ? Math.min(days, MAX_SYNC_WINDOW_DAYS) : null;
+    }
     if (patch.pinnedEpisodeId !== undefined) clean.pinnedEpisodeId = patch.pinnedEpisodeId || null;
     await this.store.updateShow(showId, { ...clean, updatedAt: new Date().toISOString() });
     return this.recompute(showId);

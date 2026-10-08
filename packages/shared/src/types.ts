@@ -130,6 +130,8 @@ export interface Show {
   pinnedEpisodeId?: string | null;
   /** SEQUENTIAL: offer skipped episodes again once everything else is done. */
   reofferSkipped: boolean;
+  /** Only episodes released within this many days are synced; none (or null) for all. */
+  syncWindowDays?: number | null;
   /** Imported automatically and not yet reviewed by the user. */
   needsReview: boolean;
   /** Still saved in the Spotify library. */
@@ -163,6 +165,7 @@ export type ShowSettingsPatch = Partial<
     | 'pinnedEpisodeId'
     | 'reofferSkipped'
     | 'needsReview'
+    | 'syncWindowDays'
   >
 >;
 
@@ -182,6 +185,8 @@ export interface Settings {
    * followed by the next one from Today instead of Spotify's Autoplay.
    */
   playThroughPlaylist: boolean;
+  /** Sync window (see Show.syncWindowDays) a newly imported podcast starts with; 0 for all episodes. */
+  newShowSyncWindowDays: number;
   categories: string[];
 }
 
@@ -204,6 +209,7 @@ export const DEFAULT_SETTINGS: Settings = {
   useSpotifyPlayedState: true,
   autoCompleteInPlayer: true,
   playThroughPlaylist: false,
+  newShowSyncWindowDays: 0,
   categories: DEFAULT_CATEGORIES,
 };
 

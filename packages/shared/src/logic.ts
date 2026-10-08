@@ -32,6 +32,20 @@ export function releaseTime(releaseDate: string): number {
 }
 
 /**
+ * The oldest release date (YYYY-MM-DD, UTC) a sync keeps for a window of
+ * `days` days; undefined without a window (none, 0 or null).
+ */
+export function syncCutoff(days: number | null | undefined, now: Date = new Date()): string | undefined {
+  if (!days || days <= 0) return undefined;
+  return new Date(now.getTime() - days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** Whether an episode released on `releaseDate` lies within the window starting at `cutoff` (see syncCutoff). */
+export function inSyncWindow(releaseDate: string, cutoff: string | undefined): boolean {
+  return !cutoff || releaseTime(releaseDate) >= releaseTime(cutoff);
+}
+
+/**
  * Chronological order (oldest first). Same-day episodes follow Spotify's
  * listing; by id where that is unknown, so the order is at least stable.
  */

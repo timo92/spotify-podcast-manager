@@ -74,6 +74,18 @@ describe('SettingsPage', () => {
     expect(toggle).toBeChecked();
   });
 
+  it('sets how far back newly imported podcasts are synced', async () => {
+    vi.spyOn(api, 'settings').mockResolvedValue(settings);
+    vi.spyOn(api, 'status').mockResolvedValue(status);
+    const save = vi.spyOn(api, 'saveSettings').mockResolvedValue({ ...settings, newShowSyncWindowDays: 30 });
+    const { user } = renderWithProviders(<SettingsPage />);
+    const select = await screen.findByRole('combobox', { name: 'Neue Podcasts: Folgen synchronisieren' });
+    expect(select).toHaveDisplayValue('Alle Folgen');
+
+    await user.selectOptions(select, 'Letzte 30 Tage');
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ newShowSyncWindowDays: 30 }));
+  });
+
   it('explains why deleting all data failed', async () => {
     vi.spyOn(api, 'settings').mockResolvedValue(settings);
     vi.spyOn(api, 'status').mockResolvedValue(status);

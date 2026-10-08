@@ -16,6 +16,7 @@ function showSettings(body: Body): ShowSettingsInput {
     needsReview: field.boolean(body, 'needsReview'),
     priority: field.number(body, 'priority'),
     pinnedEpisodeId: field.nullableString(body, 'pinnedEpisodeId'),
+    syncWindowDays: field.nullableNumber(body, 'syncWindowDays'),
   };
 }
 
@@ -40,9 +41,14 @@ export function libraryRoutes({ store, library, planner, playback, sync, upNext 
       return c.json({ ok: true });
     })
     .get('/shows/:id', async (c) => c.json(await library.detail(c.req.param('id'))))
-    .patch('/shows/:id', async (c) =>
-      c.json(await library.updateSettings(c.req.param('id'), showSettings(await readBody(c)))),
-    )
+    .patch('/shows/:id', async (c) => {
+      const id = c.req.param('id');
+      const before = await library.requireShow(id);
+      const show = await library.updateSettings(id, showSettings(await readBody(c)));
+      // Another window reloads the podcast: a wider one brings older episodes back, a narrower one drops them.
+      if ((before.syncWindowDays ?? null) !== (show.syncWindowDays ?? null)) await sync.start({ showId: id });
+      return c.json(show);
+    })
     .post('/shows/:id/sync', async (c) => {
       const id = c.req.param('id');
       await library.requireShow(id);

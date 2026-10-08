@@ -64,6 +64,8 @@
     "pauseHint": "Temporarily not suggested on “Today”",
     "hide": "Don’t show on “Today”",
     "hideHint": "Stays in the overview but is never suggested",
+    "syncWindow": "Sync episodes",
+    "syncWindowHint": "Older episodes are left out; your progress and notes stay.",
     "reoffer": "Offer skipped episodes again",
     "reofferHint": "Once everything else is played",
     "confirm": "Confirm settings",

@@ -9,6 +9,9 @@ function clampedInt(value: unknown, min: number, max: number, fallback: number):
   return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
 }
 
+/** The longest sync window in days (about ten years); longer ones mean "all episodes" anyway. */
+export const MAX_SYNC_WINDOW_DAYS = 3650;
+
 const flag = (value: unknown, fallback: boolean) => (typeof value === 'boolean' ? value : fallback);
 
 function categories(value: unknown, fallback: string[]): string[] {
@@ -37,6 +40,12 @@ export class SettingsService {
       useSpotifyPlayedState: flag(input.useSpotifyPlayedState, current.useSpotifyPlayedState),
       autoCompleteInPlayer: flag(input.autoCompleteInPlayer, current.autoCompleteInPlayer),
       playThroughPlaylist: flag(input.playThroughPlaylist, current.playThroughPlaylist),
+      newShowSyncWindowDays: clampedInt(
+        input.newShowSyncWindowDays,
+        0,
+        MAX_SYNC_WINDOW_DAYS,
+        current.newShowSyncWindowDays,
+      ),
       categories: categories(input.categories, current.categories),
     };
     await this.store.putSettings(next);

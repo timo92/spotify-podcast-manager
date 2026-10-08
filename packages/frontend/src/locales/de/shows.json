@@ -64,6 +64,8 @@
     "pauseHint": "Vorübergehend nicht auf „Heute“ vorschlagen",
     "hide": "Nicht auf „Heute“ anzeigen",
     "hideHint": "Bleibt in der Übersicht, wird aber nie vorgeschlagen",
+    "syncWindow": "Folgen synchronisieren",
+    "syncWindowHint": "Ältere Folgen werden weggelassen; dein Hörstand und deine Notizen bleiben.",
     "reoffer": "Übersprungene erneut anbieten",
     "reofferHint": "Wenn alles andere gehört ist",
     "confirm": "Einordnung bestätigen",

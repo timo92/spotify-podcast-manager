@@ -1,0 +1,11 @@
+/* A labelled select for the sync window. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}

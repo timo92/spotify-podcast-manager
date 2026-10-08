@@ -67,6 +67,11 @@
     "6": "Saturday",
     "7": "Sunday"
   },
+  "syncWindow": {
+    "all": "All episodes",
+    "days_one": "Last day",
+    "days_other": "Last {{count}} days"
+  },
   "ui": {
     "new": "New",
     "moreActions": "More actions",

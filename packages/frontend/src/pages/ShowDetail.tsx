@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon';
 import { ShowSchedule } from '../components/ShowSchedule';
 import { ListenOnSpotify, SpotifyAttribution } from '../components/SpotifyAttribution';
 import { Badge, Chip, Cover, Empty, ErrorBox, ProgressBar, Segmented, Spinner, Toggle } from '../components/ui';
+import { SyncWindowSelect } from '../components/SyncWindowSelect';
 import { api } from '../lib/api';
 import { cx } from '../lib/cx';
 import {
@@ -239,6 +240,12 @@ export function ShowDetailPage() {
             onChange={(reofferSkipped) => void update({ reofferSkipped })}
           />
         )}
+        <SyncWindowSelect
+          label={t('detail.syncWindow')}
+          hint={t('detail.syncWindowHint')}
+          value={show.syncWindowDays ?? 0}
+          onChange={(days) => void update({ syncWindowDays: days || null })}
+        />
         {show.needsReview && (
           <button className="btn btn-primary btn-small" onClick={() => void update({ needsReview: false })}>
             <Icon name="check" size={16} /> {t('detail.confirm')}

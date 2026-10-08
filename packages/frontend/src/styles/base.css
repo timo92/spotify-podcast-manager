@@ -64,7 +64,8 @@ select {
 input[type='text'],
 input[type='password'],
 input[type='search'],
-input:not([type]) {
+input:not([type]),
+select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);

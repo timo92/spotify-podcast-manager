@@ -1013,6 +1013,24 @@ describe('Up next playlist', () => {
     expect(denied.spotify.playbackState().episodeId).toBe(other!.episodeId);
   });
 
+  it('prepares the playlist for an episode started in the Spotify app', async () => {
+    const off = await ready(false);
+    const [item] = await todayItems(off);
+    expect((await off.call('GET', '/api/player/up-next')).body).toEqual({ playlistId: null });
+    expect((await off.call('POST', '/api/player/up-next', { ...item, tz })).body).toEqual({ playlistId: null });
+    expect(off.spotify.playlists.size).toBe(0);
+
+    const t = await ready();
+    expect((await t.call('GET', '/api/player/up-next')).body).toEqual({ playlistId: null });
+    const chosen = (await todayItems(t))[1]!;
+    const prepared = await t.call('POST', '/api/player/up-next', { ...chosen, tz });
+    const playlistId = [...t.spotify.playlists.keys()][0];
+    expect(prepared.body).toEqual({ playlistId });
+    expect(listed(t)[0]).toBe(chosen.episodeId);
+    expect((await t.call('GET', '/api/player/up-next')).body).toEqual({ playlistId });
+    expect((await t.call('POST', '/api/player/up-next', { tz })).status).toBe(400);
+  });
+
   it('asks for the playlist permission only while Up next is switched on', async () => {
     const t = await ready(false);
     const scopes = async () => ((await t.call('GET', '/api/status')).body as AppStatus).missingScopes;

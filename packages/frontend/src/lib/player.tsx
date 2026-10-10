@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import i18n from '../i18n';
 import { LISTEN_ON_SPOTIFY } from '../components/SpotifyAttribution';
 import { api, ApiError } from './api';
@@ -7,6 +8,7 @@ import { nowPlayingReducer, type NowPlaying, type PlayableItem, type PlayTarget 
 import { remoteEpisode, useRemoteFollow } from './player/remote-follow';
 import { detectBrowserSupport, useBrowserDevice, type BrowserDevice } from './player/sdk';
 import { afterUpNext, upNextItem } from './player/up-next';
+import { qk, useUpNextPlaylist } from './queries';
 import { forgetRemoteEpisode, rememberRemoteEpisode } from './remote-episodes';
 import { readStoredJson, writeStored } from './storage';
 import { useToast } from './toast';
@@ -74,6 +76,31 @@ const BROWSER_END_SLACK_MS = 10_000;
 /** How long a freshly created browser device may take until Spotify knows it. */
 const NEW_DEVICE_RETRY_MS = 1500;
 
+/**
+ * Opens `item` in the Spotify app. With the "Up next" playlist in use, the
+ * playlist opens instead, so Spotify continues with Today after the episode;
+ * the episode is put first in it meanwhile. The link opens right away, as
+ * browsers block links opened after waiting for a response. Without a
+ * playlist yet, the episode opens, and the playlist is written for next time.
+ */
+function openInApp(
+  item: PlayableItem,
+  playlistId: string | null | undefined,
+  onPrepared: (playlistId: string | null) => void,
+) {
+  window.open(
+    playlistId ? `https://open.spotify.com/playlist/${playlistId}` : item.episode.spotifyUrl,
+    '_blank',
+    'noopener',
+  );
+  if (playlistId === undefined) return;
+  api.prepareUpNext({ showId: item.show.id, episodeId: item.episode.id }).then(
+    (res) => onPrepared(res.playlistId),
+    // Without it the playlist still holds Today, just not this episode first.
+    () => undefined,
+  );
+}
+
 function loadTarget(fallback: PlayTarget): PlayTarget {
   return (readStoredJson(TARGET_KEY) as PlayTarget | undefined) ?? fallback;
 }
@@ -129,6 +156,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   deviceRef.current = device;
   const { startFollowing, endFollowing } = useRemoteFollow(nowRef, dispatch);
   useAutoComplete(nowPlaying, dispatch);
+  const queryClient = useQueryClient();
+  const upNextPlaylist = useUpNextPlaylist();
 
   const setTarget = useCallback((t: PlayTarget) => {
     setTargetState(t);
@@ -146,7 +175,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
         rememberRemoteEpisode(remoteEpisode(item, t));
         startFollowing();
-        window.open(item.episode.spotifyUrl, '_blank', 'noopener');
+        openInApp(item, upNextPlaylist, (playlistId) => queryClient.setQueryData(qk.upNext, { playlistId }));
         return;
       }
       device.activate();
@@ -193,7 +222,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setBusy(false);
       }
     },
-    [target, browserSupported, device, toast, startFollowing],
+    [target, browserSupported, device, toast, startFollowing, upNextPlaylist, queryClient],
   );
 
   const togglePause = useCallback(() => {

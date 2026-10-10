@@ -12,6 +12,7 @@ export const qk = {
   settings: ['settings'] as const,
   history: ['history'] as const,
   devices: ['devices'] as const,
+  upNext: ['upNext'] as const,
   schedule: ['schedule'] as const,
   week: ['week'] as const,
   notes: ['notes'] as const,
@@ -33,6 +34,17 @@ export function useStatus() {
 
 export function useSettings() {
   return useQuery({ queryKey: qk.settings, queryFn: api.settings, staleTime: 60_000 });
+}
+
+/**
+ * The "Up next" playlist's ID while the setting is on: null until the playlist
+ * was first written, undefined while the setting is off.
+ */
+export function useUpNextPlaylist() {
+  const { data: settings } = useSettings();
+  const on = !!settings?.playThroughPlaylist;
+  const { data } = useQuery({ queryKey: qk.upNext, queryFn: api.upNextPlaylist, enabled: on, staleTime: 60_000 });
+  return on ? (data?.playlistId ?? null) : undefined;
 }
 
 /**

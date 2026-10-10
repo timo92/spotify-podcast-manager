@@ -122,8 +122,9 @@ Each podcast has exactly one mode.
   they were written; these choices are remembered per browser.
 - **L5** Optionally, episodes play through an "Up next" playlist in Spotify
   that mirrors Today, so Spotify continues with the next suggestion instead of
-  its Autoplay; it can also be started in Spotify directly. While the web app
-  is open, it pauses Spotify's Autoplay once the list has run out.
+  its Autoplay; it can also be started in Spotify directly. Playing in the
+  Spotify app opens the playlist with the chosen episode first. While the web
+  app is open, it pauses Spotify's Autoplay once the list has run out.
 
 ## Synchronisation
 

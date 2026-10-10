@@ -147,6 +147,11 @@ export const api = {
       ...input,
       tz: TIME_ZONE,
     }),
+  /** The "Up next" playlist, if the setting is on and it was written already. */
+  upNextPlaylist: () => request<{ playlistId: string | null }>('GET', '/api/player/up-next'),
+  /** Puts an episode about to be started in the Spotify app first in the "Up next" playlist. */
+  prepareUpNext: (input: { showId: string; episodeId: string }) =>
+    request<{ playlistId: string | null }>('POST', '/api/player/up-next', { ...input, tz: TIME_ZONE }),
 
   schedule: () => request<Schedule>('GET', '/api/schedule'),
   saveSchedule: (schedule: ScheduleSave) => request<Schedule>('PUT', '/api/schedule', schedule),

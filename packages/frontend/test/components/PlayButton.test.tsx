@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { PlayButton } from '../../src/components/EpisodeCard';
 import { PlayerBar } from '../../src/components/PlayerBar';
@@ -94,5 +94,37 @@ describe('PlayButton for an episode playing outside the browser', () => {
     const { user } = renderOnDevice();
     await user.click(screen.getByRole('button', { name: /Abspielen/ }));
     expect(await screen.findByRole('button', { name: 'Läuft auf iPhone' })).toBeDisabled();
+  });
+});
+
+describe('PlayButton in the Spotify app with the "Up next" playlist', () => {
+  function renderInApp(playlistId: string | null) {
+    localStorage.setItem('pm.playTarget', JSON.stringify({ kind: 'app' }));
+    vi.spyOn(api, 'settings').mockResolvedValue({ ...settings, playThroughPlaylist: true });
+    vi.spyOn(api, 'upNextPlaylist').mockResolvedValue({ playlistId });
+    vi.spyOn(api, 'prepareUpNext').mockResolvedValue({ playlistId: 'up-next' });
+    vi.spyOn(api, 'refreshEpisode').mockResolvedValue(episode(1));
+    vi.spyOn(api, 'playerState').mockResolvedValue(null);
+    return renderWithProviders(<PlayButton item={ITEM} />);
+  }
+
+  it('opens the playlist with the episode first, so Spotify continues with Today', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const { user } = renderInApp('up-next');
+    await waitFor(() => expect(api.upNextPlaylist).toHaveBeenCalled());
+
+    await user.click(screen.getByRole('button', { name: /PLAY ON SPOTIFY/ }));
+    expect(open).toHaveBeenCalledWith('https://open.spotify.com/playlist/up-next', '_blank', 'noopener');
+    expect(api.prepareUpNext).toHaveBeenCalledWith({ showId: 'wissen', episodeId: 'ep-1' });
+  });
+
+  it('opens the episode while there is no playlist yet, and writes it for next time', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const { user } = renderInApp(null);
+    await waitFor(() => expect(api.upNextPlaylist).toHaveBeenCalled());
+
+    await user.click(screen.getByRole('button', { name: /PLAY ON SPOTIFY/ }));
+    expect(open).toHaveBeenCalledWith('https://open.spotify.com/episode/ep-1', '_blank', 'noopener');
+    expect(api.prepareUpNext).toHaveBeenCalledWith({ showId: 'wissen', episodeId: 'ep-1' });
   });
 });

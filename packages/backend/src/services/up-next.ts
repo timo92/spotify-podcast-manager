@@ -80,6 +80,12 @@ export class UpNextService {
     }
   }
 
+  /** The playlist's Spotify ID; undefined while the setting is off or before it was first written. */
+  async playlistId(): Promise<string | undefined> {
+    const [settings, stored] = await Promise.all([this.store.getSettings(), this.store.getUpNext()]);
+    return settings.playThroughPlaylist ? stored?.playlistId : undefined;
+  }
+
   /**
    * How the playing episode relates to the playlist: whether it is in the list
    * the playlist last got and, if so, the episode as the app knows it. Nothing

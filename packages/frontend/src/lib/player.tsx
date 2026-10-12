@@ -10,6 +10,7 @@ import { detectBrowserSupport, useBrowserDevice, type BrowserDevice } from './pl
 import { afterUpNext, upNextItem } from './player/up-next';
 import { qk, useUpNextPlaylist } from './queries';
 import { forgetRemoteEpisode, rememberRemoteEpisode } from './remote-episodes';
+import { openSpotifyLink } from './spotify-link';
 import { readStoredJson, writeStored } from './storage';
 import { useToast } from './toast';
 
@@ -88,11 +89,7 @@ function openInApp(
   playlistId: string | null | undefined,
   onPrepared: (playlistId: string | null) => void,
 ) {
-  window.open(
-    playlistId ? `https://open.spotify.com/playlist/${playlistId}` : item.episode.spotifyUrl,
-    '_blank',
-    'noopener',
-  );
+  openSpotifyLink(playlistId ? `https://open.spotify.com/playlist/${playlistId}` : item.episode.spotifyUrl);
   if (playlistId === undefined) return;
   api.prepareUpNext({ showId: item.show.id, episodeId: item.episode.id }).then(
     (res) => onPrepared(res.playlistId),
@@ -212,7 +209,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             tone: 'error',
             action: {
               label: LISTEN_ON_SPOTIFY,
-              onClick: () => window.open(item.episode.spotifyUrl, '_blank', 'noopener'),
+              onClick: () => openSpotifyLink(item.episode.spotifyUrl),
             },
           });
         } else {

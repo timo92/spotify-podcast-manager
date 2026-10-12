@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { cx } from '../lib/cx';
+import { spotifyLinkTarget } from '../lib/spotify-link';
 import styles from './SpotifyAttribution.module.css';
 
 /**
@@ -36,7 +37,7 @@ export function SpotifyAttribution({ href, on = 'surface' }: { href?: string; on
     <a
       className={styles.attribution}
       href={href ?? 'https://open.spotify.com'}
-      target="_blank"
+      target={spotifyLinkTarget()}
       rel="noopener noreferrer"
       title={t('attribution.open')}
     >
@@ -57,7 +58,7 @@ export const PLAY_ON_SPOTIFY = 'PLAY ON SPOTIFY';
 /** Link button back to Spotify. */
 export function ListenOnSpotify({ href, small }: { href: string; small?: boolean }) {
   return (
-    <a className={`btn${small ? ' btn-small' : ''}`} href={href} target="_blank" rel="noopener noreferrer">
+    <a className={`btn${small ? ' btn-small' : ''}`} href={href} target={spotifyLinkTarget()} rel="noopener noreferrer">
       {LISTEN_ON_SPOTIFY}
     </a>
   );

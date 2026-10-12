@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { EpisodeStatus } from '@podcast/shared';
 import { itemForKey } from '../lib/focus';
 import { statusLabel } from '../lib/format';
+import { spotifyLinkTarget } from '../lib/spotify-link';
 import { usePopover } from '../lib/use-popover';
 import { Icon, type IconName } from './Icon';
 
@@ -78,6 +79,7 @@ export interface MenuItem {
   label: string;
   icon?: IconName;
   onClick?: () => void;
+  /** A link to Spotify, opened as such (see spotifyLinkTarget). */
   href?: string;
   hidden?: boolean;
 }
@@ -101,7 +103,7 @@ export function Menu({ items }: { items: MenuItem[] }) {
                   role="menuitem"
                   className="menu-item"
                   href={item.href}
-                  target="_blank"
+                  target={spotifyLinkTarget()}
                   rel="noopener noreferrer"
                   onClick={close}
                 >

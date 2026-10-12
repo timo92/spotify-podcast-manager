@@ -2,6 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { PlayButton } from '../../src/components/EpisodeCard';
 import { PlayerBar } from '../../src/components/PlayerBar';
+import { ListenOnSpotify } from '../../src/components/SpotifyAttribution';
 import { api, ApiError } from '../../src/lib/api';
 import { rememberRemoteEpisode } from '../../src/lib/remote-episodes';
 import { episode, settings, show } from '../support/fixtures';
@@ -126,5 +127,35 @@ describe('PlayButton in the Spotify app with the "Up next" playlist', () => {
     await user.click(screen.getByRole('button', { name: /PLAY ON SPOTIFY/ }));
     expect(open).toHaveBeenCalledWith('https://open.spotify.com/episode/ep-1', '_blank', 'noopener');
     expect(api.prepareUpNext).toHaveBeenCalledWith({ showId: 'wissen', episodeId: 'ep-1' });
+  });
+});
+
+describe('Spotify links on a phone', () => {
+  /** A touch screen, where the Spotify app takes links to Spotify over. */
+  const onPhone = (touch = true) =>
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: touch && query === '(pointer: coarse)', media: query }));
+
+  it('opens the episode in place, so no empty tab stays behind', async () => {
+    onPhone();
+    localStorage.setItem('pm.playTarget', JSON.stringify({ kind: 'app' }));
+    vi.spyOn(api, 'settings').mockResolvedValue(settings);
+    vi.spyOn(api, 'refreshEpisode').mockResolvedValue(episode(1));
+    vi.spyOn(api, 'playerState').mockResolvedValue(null);
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const { user } = renderWithProviders(<PlayButton item={ITEM} />);
+
+    await user.click(screen.getByRole('button', { name: /PLAY ON SPOTIFY/ }));
+    expect(open).toHaveBeenCalledWith('https://open.spotify.com/episode/ep-1', '_self');
+  });
+
+  it('opens links to Spotify in place too, and in a new tab on a desktop', () => {
+    onPhone();
+    const { unmount } = renderWithProviders(<ListenOnSpotify href="https://open.spotify.com/episode/ep-1" />);
+    expect(screen.getByRole('link', { name: 'LISTEN ON SPOTIFY' })).toHaveAttribute('target', '_self');
+    unmount();
+
+    onPhone(false);
+    renderWithProviders(<ListenOnSpotify href="https://open.spotify.com/episode/ep-1" />);
+    expect(screen.getByRole('link', { name: 'LISTEN ON SPOTIFY' })).toHaveAttribute('target', '_blank');
   });
 });

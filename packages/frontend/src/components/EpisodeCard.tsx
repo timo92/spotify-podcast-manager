@@ -85,6 +85,7 @@ export function EpisodeCard({
   return (
     <article className={cx('card', styles.card)}>
       <a
+        className={styles.cover}
         href={`/podcasts/${encodeURIComponent(show.id)}`}
         onClick={(e) => {
           e.preventDefault();
@@ -116,8 +117,10 @@ export function EpisodeCard({
             label={t('card.progress')}
           />
         )}
-        <div className={styles.actions}>
-          <PlayButton item={{ show, episode }} />
+      </div>
+      <div className={styles.actions}>
+        <PlayButton item={{ show, episode }} />
+        <div className={styles.secondary}>
           <IconButton
             icon="check"
             label={t('episode.markPlayed', { ns: 'common' })}

@@ -1,9 +1,15 @@
+/* Cover, text and actions; on a phone the actions take the card's full width. */
 .card {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 10px;
+  align-items: start;
+}
+.cover {
+  grid-row: 1 / span 2;
 }
 .body {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -16,13 +22,30 @@
   gap: 6px;
 }
 .actions {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+/* The buttons next to "Play"; a long play label ("PLAY ON SPOTIFY") moves them to their own line, together. */
+.secondary {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
 
   & :global(.menu) {
     margin-left: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .cover {
+    grid-row: auto;
+  }
+  .actions {
+    grid-column: 1 / -1;
   }
 }
 
